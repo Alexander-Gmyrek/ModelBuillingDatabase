@@ -8,3 +8,7 @@ To run the Back-end database
 If someone is using your ports on windows try “netstat -ano | findstr :3306” then “taskkill /PID <pid_number> /F”
 For MacOS try: "lsof -i :3306" then "kill -9 <PID>"(Replace PID with the PID from the first command)
 "netstat -anv | grep LISTEN | grep PORT_NUMBER"
+
+
+tcp46      0      0  *.3306                 *.*                    LISTEN       131072  131072   4344      0 00100 00000006 0000000000007254 00000000 00000800      1      0 000001
+tcp46      0      0  *.33060                *.*                    LISTEN       131072  131072   4344      0 00000 00000006 0000000000007251 00000000 00000800      1      0 000001
