@@ -13,4 +13,4 @@ tcp46      0      0  *.33060                *.*                    LISTEN       
 
 "Recent versions of macOS have a system setting called AirPlay Receiver, under System Settings -> AirDrop and Handoff (v13.2 Ventura). When that setting is enabled, macOS uses an http connection via port 5000 to allow "nearby devices to send video and audio content to your Mac with AirPlay," it says here. I had checked that box when setting up a new OS.
 
-Sure enough, disabling AirPlay Receiver released port 5000 and my plackup invocations worked again!"
+Sure enough, disabling AirPlay Receiver released port 5000 and my plackup invocations worked again!"-https://www.reddit.com/r/perl/comments/10p8p39/macos_port_5000_mystery_solved/
