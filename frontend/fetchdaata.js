@@ -1,7 +1,7 @@
 // app.js
 document.addEventListener('DOMContentLoaded', () => {
     const fetchData = (name = '') => {
-      const url = new URL('http://localhost:3000/api/data');//local host 5000
+      const url = new URL('http://localhost:5000/api/data');//local host 5000
       if (name) {
         url.searchParams.append('name', name);
       }
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   
     const addData = (name) => {
-      fetch('http://localhost:3000/api/data', {
+      fetch('http://localhost:5000/api/data', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
