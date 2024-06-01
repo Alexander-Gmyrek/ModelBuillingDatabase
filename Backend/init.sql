@@ -62,11 +62,11 @@ CREATE TABLE Plan (
     FOREIGN KEY (EmployerID) REFERENCES Employer(EmployerID),
     CONSTRAINT fk_Plan_Employer FOREIGN KEY (EmployerID)
         REFERENCES Employer(EmployerID)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
     FOREIGN KEY (TierID) REFERENCES Tier(TierID)
     CONSTRAINT fk_Plan_Tier FOREIGN KEY (TierID)
         REFERENCES Tier(TierID)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
     FOREIGN KEY (CarrierID) REFERENCES Carrier(CarrierID)
     CONSTRAINT fk_Plan_Carrier FOREIGN KEY (CarrierID)
         REFERENCES Carrier(CarrierID)
