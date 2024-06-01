@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Company</title>
+</head>
+<body>
+    <h1>New Company</h1>
+    <form id="companyForm">
+        <label for="Name">Name:</label>
+        <input type="text" id="Name" name="Name" placeholder="ACME">
+        <p></p>
+        <h4>Upload employee template file:</h4>
+        <input type="file" id="myFile" name="filename">
+        <p></p>
+        <h4>Choose tier:</h4>
+        <input type="radio" id="tier3" name="Tier" value="3 Tier">
+        <label for="tier3"> 3 Tier</label><br>
+        <input type="radio" id="tier4" name="Tier" value="4 Tier">
+        <label for="tier4"> 4 Tier</label><br>
+        <input type="radio" id="supercomposite" name="Tier" value="Supercomposite">
+        <label for="supercomposite"> Supercomposite</label><br>
+        <input type="radio" id="ageBanded" name="Tier" value="Age Banded">
+        <label for="ageBanded"> Age Banded</label><br>
+        <p></p>
+        <button type="submit">Next</button>
+    </form>
+
+    <script>
+        document.getElementById('companyForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent the default form submission
+
+            // Retrieve form data
+            const formData = new FormData(this);
+            const data = {};
+            for (const [key, value] of formData.entries()) {
+                data[key] = value;
+            }
+
+            // Determine the next page based on the selected tier
+            let nextPage;
+            switch (data['Tier']) {
+                case '3 Tier':
+                    nextPage = 'maketier3table.html';
+                    break;
+                case '4 Tier':
+                    nextPage = 'maketier4table.html';
+                    break;
+                case 'Supercomposite':
+                    nextPage = 'makesupertable.html';
+                    break;
+                case 'Age Banded':
+                    nextPage = 'makeagetable.html';
+                    break;
+                default:
+                    nextPage = 'default_page.html'; // Default page if tier is not specified
+            }
+
+            // Redirect to the next page
+            window.location.href = nextPage;
+        });
+    </script>
+</body>
+</html>
