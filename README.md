@@ -9,6 +9,6 @@ If someone is using your ports on windows try “netstat -ano | findstr :3306”
 For MacOS try: "lsof -i :3306" then "kill -9 <PID>"(Replace PID with the PID from the first command)
 "netstat -anv | grep LISTEN | grep PORT_NUMBER"
 
+Recent versions of macOS have a system setting called AirPlay Receiver, under System Settings -> AirDrop and Handoff (v13.2 Ventura). When that setting is enabled, macOS uses an http connection via port 5000 to allow "nearby devices to send video and audio content to your Mac with AirPlay," it says here. I had checked that box when setting up a new OS.
 
-tcp46      0      0  *.3306                 *.*                    LISTEN       131072  131072   4344      0 00100 00000006 0000000000007254 00000000 00000800      1      0 000001
-tcp46      0      0  *.33060                *.*                    LISTEN       131072  131072   4344      0 00000 00000006 0000000000007251 00000000 00000800      1      0 000001
+Sure enough, disabling AirPlay Receiver released port 5000 and my plackup invocations worked again!
