@@ -6,6 +6,89 @@ import base64
 
 app = Flask(__name__)
 
+#test data for the database
+def get_test_data(x):
+    return{
+    1: {
+        "employer_name": "Test Employer 1",
+        "billing_system": "4Tiered",
+        "employee_data": "Test_Employee_Data_1.xlsx",
+        "tiers": [
+            {
+                "tier_name": "Test Tier 1",
+                "tier_description": "Test Tier Description 1",
+                "tier_data": "Test Tier Data 1"
+            },
+            {
+                "tier_name": "Test Tier 2",
+                "tier_description": "Test Tier Description 2",
+                "tier_data": "Test Tier Data 2"
+            },
+            {
+                "tier_name": "Test Tier 3",
+                "tier_description": "Test Tier Description 3",
+                "tier_data": "Test Tier Data 3"
+            }
+        ],
+        "carriers": [
+            {
+                "carrier_name": "Test Carrier 1",
+                "carrier_data": "Test Carrier Data 1"
+            },
+            {
+                "carrier_name": "Test Carrier 2",
+                "carrier_data": "Test Carrier Data 2"
+            },
+            {
+                "carrier_name": "Test Carrier 3",
+                "carrier_data": "Test Carrier Data 3"
+            }
+        ],
+        "carrier_plans": [
+            {
+                "carrier_plan_name": "Test Carrier Plan 1",
+                "carrier_plan_data": "Test Carrier Plan Data 1"
+            },
+            {
+                "carrier_plan_name": "Test Carrier Plan 2",
+                "carrier_plan_data": "Test Carrier Plan Data 2"
+            },
+            {
+                "carrier_plan_name": "Test Carrier Plan 3",
+                "carrier_plan_data": "Test Carrier Plan Data 3"
+            }
+        ],
+    },
+    2: {
+        "employer_name": "Test Employer 2",
+        "billing_system": "Test Billing System 2",
+        "carriers": "Test Carriers 2",
+        "carrier_plans": "Test Carrier Plans 2",
+        "employee_data": "Test Employee Data 2"
+    },
+    3: {
+        "employer_name": "Test Employer 3",
+        "billing_system": "Test Billing System 3",
+        "carriers": "Test Carriers 3",
+        "carrier_plans": "Test Carrier Plans 3",
+        "employee_data": "Test Employee Data 3"
+    },
+    4: {
+        "employer_name": "Test Employer 4",
+        "billing_system": "Test Billing System 4",
+        "carriers": "Test Carriers 4",
+        "carrier_plans": "Test Carrier Plans 4",
+        "employee_data": "Test Employee Data 4"
+    },
+    5: {
+        "employer_name": "Test Employer 5",
+        "billing_system": "Test Billing System 5",
+        "carriers": "Test Carriers 5",
+        "carrier_plans": "Test Carrier Plans 5",
+        "employee_data": "Test Employee Data 5"
+    }
+    }.get(x, 404)
+
 def get_db_connection():
     connection = mysql.connector.connect(
         host='mysql',  # This matches the service name defined in docker-compose.yml
@@ -34,6 +117,28 @@ def testconection():
     else:
         return jsonify({"message": "Connection to MySQL Server failed"})
 
+@app.route('/add_test_data/<int:id>', methods=['POST'])
+def add_test_data(id):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    data = get_test_data(id)
+    if data == 404:
+        return jsonify({"message": "Test data not found"}), 404
+    
+    connection.commit()
+    cursor.close()
+    connection.close()
+    return jsonify({"message": "Test data added"})
+
+@app.route('/delete_test_data/<int:id>', methods=['DELETE'])
+def delete_test_data(id):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute(f"DELETE FROM Employer WHERE id={id}")
+    connection.commit()
+    cursor.close()
+    connection.close()
+    return jsonify({"message": "Test data deleted"})
 @app.route('/employer', methods=['GET'])
 def get_employers():
     connection = get_db_connection()
