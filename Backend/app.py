@@ -13,51 +13,28 @@ def get_test_data(x):
         "employer_name": "Test Employer 1",
         "billing_system": "4Tiered",
         "employee_data": "Test_Employee_Data_1.xlsx",
-        "tiers": [
-            {
-                "tier_name": "Test Tier 1",
-                "tier_description": "Test Tier Description 1",
-                "tier_data": "Test Tier Data 1"
-            },
-            {
-                "tier_name": "Test Tier 2",
-                "tier_description": "Test Tier Description 2",
-                "tier_data": "Test Tier Data 2"
-            },
-            {
-                "tier_name": "Test Tier 3",
-                "tier_description": "Test Tier Description 3",
-                "tier_data": "Test Tier Data 3"
-            }
-        ],
         "carriers": [
             {
-                "carrier_name": "Test Carrier 1",
-                "carrier_data": "Test Carrier Data 1"
+                "carrier_name": "Test Carrier1",
             },
             {
-                "carrier_name": "Test Carrier 2",
-                "carrier_data": "Test Carrier Data 2"
-            },
-            {
-                "carrier_name": "Test Carrier 3",
-                "carrier_data": "Test Carrier Data 3"
+                "carrier_name": "Test Carrier2",
             }
         ],
-        "carrier_plans": [
-            {
-                "carrier_plan_name": "Test Carrier Plan 1",
-                "carrier_plan_data": "Test Carrier Plan Data 1"
-            },
-            {
-                "carrier_plan_name": "Test Carrier Plan 2",
-                "carrier_plan_data": "Test Carrier Plan Data 2"
-            },
-            {
-                "carrier_plan_name": "Test Carrier Plan 3",
-                "carrier_plan_data": "Test Carrier Plan Data 3"
-            }
-        ],
+        "carrier_plans": {
+            "Carrier1": [
+                {"tier name": "Employee", "funding amount": 10, "grenz fee": 1}, 
+                {"tier name": "Spouce", "funding amount": 15, "grenz fee": 1},
+                {"tier name": "Child(ren)", "funding amount": 20, "grenz fee": 1},
+                {"tier name": "Family", "funding amount": 25, "grenz fee": 1}
+            ],
+            "Carrier2": [
+                {"tier name": "Employee", "funding amount": 10.1, "grenz fee": 1}, 
+                {"tier name": "Spouce", "funding amount": 15.1, "grenz fee": 1},
+                {"tier name": "Child(ren)", "funding amount": 20.1, "grenz fee": 1},
+                {"tier name": "Family", "funding amount": 25.1, "grenz fee": 1}
+            ]
+        }
     },
     2: {
         "employer_name": "Test Employer 2",
@@ -100,7 +77,7 @@ def get_db_connection():
 
 @app.route('/')
 def home():
-    return "Hello, Flask!"
+    return "Up and Running!"
 
 @app.route('/api', methods=['GET'])
 def api():
@@ -109,36 +86,43 @@ def api():
 
 @app.route('/testconection', methods=['GET'])
 def testconection():
-    connection = get_db_connection()
-    if connection.is_connected():
-        db_Info = connection.get_server_info()
-        connection.close()
-        return jsonify({"message": "Connected to MySQL Server version ", "version": db_Info})
-    else:
-        return jsonify({"message": "Connection to MySQL Server failed"})
+    with get_db_connection() as connection:
+        if connection.is_connected():
+            db_info = connection.get_server_info()
+            return jsonify({"message": "Connected to MySQL Server version", "version": db_info})
+        else:
+            return jsonify({"message": "Connection to MySQL Server failed"})
 
 @app.route('/add_test_data/<int:id>', methods=['POST'])
 def add_test_data(id):
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    data = get_test_data(id)
-    if data == 404:
-        return jsonify({"message": "Test data not found"}), 404
-    
-    connection.commit()
-    cursor.close()
-    connection.close()
-    return jsonify({"message": "Test data added"})
 
-@app.route('/delete_test_data/<int:id>', methods=['DELETE'])
+    with get_db_connection() as connection:
+        cursor = connection.cursor()
+        data = get_test_data(id)
+        if data == 404:
+            return jsonify({"message": "Test data not found"}), 404
+        
+        return jsonify({"message": "function not fully implemented"})
+        connection.commit()
+        cursor.close()
+        return jsonify({"message": "Test data added"})
+
+@app.route('/remove_test_data/<int:id>', methods=['DELETE'])
 def delete_test_data(id):
     connection = get_db_connection()
     cursor = connection.cursor()
-    cursor.execute(f"DELETE FROM Employer WHERE id={id}")
+    employer_info = get_test_data(id)
+    employer_name = employer_info['employer_name']
+    cursor.execute(f"SELECT EmployerID FROM Employer WHERE EmployerName = {employer_name}")
+    employer_id = cursor.fetchall()[0][0]
+    if not employer_id:
+        return jsonify({"message": "Employer not found"}), 400
+    cursor.execute(f"DELETE FROM Employer WHERE EmployerID={employer_id}")
     connection.commit()
     cursor.close()
     connection.close()
     return jsonify({"message": "Test data deleted"})
+
 @app.route('/employer', methods=['GET'])
 def get_employers():
     connection = get_db_connection()
@@ -153,7 +137,7 @@ def get_employers():
 def get_employer(id):
     connection = get_db_connection()
     cursor = connection.cursor()
-    cursor.execute(f"SELECT * FROM Employer WHERE id={id}")
+    cursor.execute(f"SELECT * FROM Employer WHERE EmployerID={id}")
     user = cursor.fetchone()
     cursor.close()
     connection.close()
@@ -163,7 +147,7 @@ def get_employer(id):
 def delete_employer(id):
     connection = get_db_connection()
     cursor = connection.cursor()
-    cursor.execute(f"DELETE FROM Employer WHERE id={id}")
+    cursor.execute(f"DELETE FROM Employer WHERE EmployerID={id}")
     connection.commit()
     cursor.close()
     connection.close()
@@ -185,7 +169,7 @@ def get_employer_by_name(name):
 def search_employers(name):
     connection = get_db_connection()
     cursor = connection.cursor()
-    cursor.execute(f"SELECT * FROM Employer WHERE employer_name LIKE '%{name}%'")
+    cursor.execute(f"SELECT * FROM Employer WHERE EmployerName LIKE '%{name}%'")
     users = cursor.fetchall()
     cursor.close()
     connection.close()
@@ -194,7 +178,7 @@ def search_employers(name):
 # Update an employer
 @app.route('/employer/<int:id>', methods=['PATCH'])
 def update_employer(id):
-    return jsonify({"message": "method not fully implemented"})
+    return jsonify({"message": "method not yet implemented"})
 
 
 # Add a new employer
