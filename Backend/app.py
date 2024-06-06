@@ -460,7 +460,7 @@ def add_employee(cursor, employee_json):
         employee_plans = employee_json['EmployeePlans']
         for plan in employee_plans:
             plan['EmployeeID'] = new_employee_id
-            # add_employee_plan(cursor, plan)
+            add_employee_plan(cursor, plan)
         return new_employee_id
     
     # Get CarrierID
@@ -471,7 +471,7 @@ def add_employee(cursor, employee_json):
     
     # Get PlanID
     plan_id = get_plan_id(cursor, carrier_id, tier_id)
-    '''
+    
     # Add EmployeePlan
     add_employee_plan(cursor, {
         'EmployeeID': new_employee_id,
@@ -479,7 +479,7 @@ def add_employee(cursor, employee_json):
         'StartDate': employee_json['JoinDate'],
         'EndDate': employee_json['TermDate']
     })
-    '''
+    
     
     return new_employee_id
 
@@ -597,6 +597,56 @@ def delete_employee(cursor, employee_id):
     cursor.execute(delete_employee_query, (employee_id,))
 
 ### EmployeePlan Functions ###
+def add_employee_plan(cursor, employee_plan_json):
+    # Add new employee plan
+    add_employee_plan_query = """
+    INSERT INTO EmployeePlan (EmployeeID, PlanID, StartDate, InformStartDate, EndDate, InformEndDate)
+    VALUES (%s, %s, %s, %s, %s, %s)
+    """
+    employee_plan_data = (
+        employee_plan_json['EmployeeID'], employee_plan_json['PlanID'], employee_plan_json['StartDate'],
+        employee_plan_json['InformStartDate'], employee_plan_json['EndDate'], employee_plan_json['InformEndDate']
+    )
+    cursor.execute(add_employee_plan_query, employee_plan_data)
+    new_employee_plan_id = cursor.lastrowid
+    return new_employee_plan_id
+
+def get_current_employee_plan(cursor, employee_plan_id):
+    get_employee_plan_query = "SELECT * FROM EmployeePlan WHERE EmployeePlanID = %s"
+    cursor.execute(get_employee_plan_query, (employee_plan_id,))
+    current_employee_plan = cursor.fetchone()
+    return current_employee_plan
+
+def change_employee_plan(cursor, employee_plan_id, employee_plan_json):
+    current_employee_plan = get_current_employee_plan(cursor, employee_plan_id)
+    
+    if not current_employee_plan:
+        raise ValueError(f"Employee plan with ID {employee_plan_id} does not exist.")
+    
+    update_fields = []
+    update_values = []
+    
+    for key, value in employee_plan_json.items():
+        if key != 'EmployeePlanID' and value != current_employee_plan[key]:
+            update_fields.append(f"{key} = %s")
+            update_values.append(value)
+    
+    if update_fields:
+        update_values.append(employee_plan_id)
+        update_employee_plan_query = f"""
+        UPDATE EmployeePlan
+        SET {', '.join(update_fields)}
+        WHERE EmployeePlanID = %s
+        """
+        cursor.execute(update_employee_plan_query, tuple(update_values))
+    
+    return employee_plan_id
+
+def delete_employee_plan(cursor, employee_plan_id):
+    delete_employee_plan_query = "DELETE FROM EmployeePlan WHERE EmployeePlanID = %s"
+    cursor.execute(delete_employee_plan_query, (employee_plan_id,))
+
+### Employer Functions ###
 
 ####### Run on Start #######
 
