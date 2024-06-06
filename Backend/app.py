@@ -213,8 +213,9 @@ def add_employer():
     return jsonify({"message": "method not fully implemented"})
 
 
+######################### Functions #########################
 
-### PLan Functions ###
+### Plan Functions ###
 def add_plan(cursor, plan_json):
     add_plan_query = """
     INSERT INTO Plan (EmployerID, CarrierID, TierID, FundingAmount, GrenzFee, GrenzFeeC, GrenzFeeS)
@@ -365,6 +366,72 @@ def change_tier(cursor, tier_id, tier_json):
 def delete_tier(cursor, tier_id):
     delete_tier_query = "DELETE FROM Tier WHERE TierID = %s"
     cursor.execute(delete_tier_query, (tier_id,))
+
+### Dependent Functions ###
+
+def add_dependent(cursor, dependent_json):
+    add_dependent_query = """
+    INSERT INTO Dependent (EmployeeID, DependentName, Relationship, DOB, StartDate, InformStartDate)
+    VALUES (%s, %s, %s, %s, %s, %s)
+    """
+    dependent_data = (
+        dependent_json['EmployeeID'], dependent_json['DependentName'], dependent_json['Relationship'],
+        dependent_json['DOB'], dependent_json['StartDate'], dependent_json['InformStartDate']
+    )
+    cursor.execute(add_dependent_query, dependent_data)
+    new_dependent_id = cursor.lastrowid
+    return new_dependent_id
+
+def get_current_dependent(cursor, dependent_id):
+    get_dependent_query = "SELECT * FROM Dependent WHERE DependentID = %s"
+    cursor.execute(get_dependent_query, (dependent_id,))
+    current_dependent = cursor.fetchall()
+    return current_dependent
+
+def change_dependent(cursor, dependent_id, dependent_json):
+    """
+    Updates an existing dependent in the database with only new values.
+    Args:
+        cursor: The MySQL database cursor.
+        dependent_id: The ID of the dependent to update.
+        dependent_json: The dependent data as a dictionary.
+    Returns:
+        Boolean indicating whether the employer consistency check passed.
+    """
+    current_dependent = get_current_dependent(cursor, dependent_id)
+    
+    if not current_dependent:
+        raise ValueError(f"Dependent with ID {dependent_id} does not exist.")
+    
+    update_fields = []
+    update_values = []
+    
+    for key, value in dependent_json.items():
+        if key != 'DependentID' and value != current_dependent[key]:
+            update_fields.append(f"{key} = %s")
+            update_values.append(value)
+    
+    if update_fields:
+        update_values.append(dependent_id)
+        update_dependent_query = f"""
+        UPDATE Dependent
+        SET {', '.join(update_fields)}
+        WHERE DependentID = %s
+        """
+        cursor.execute(update_dependent_query, tuple(update_values))
+    return get_current_dependent(cursor, dependent_id)
+
+def delete_dependent(cursor, dependent_id):
+    try:
+        delete_dependent_query = "DELETE FROM Dependent WHERE DependentID = %s"
+        cursor.execute(delete_dependent_query, (dependent_id,))
+        return True
+    except:
+        return False
+    
+
+
+####### Run on Start #######
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
