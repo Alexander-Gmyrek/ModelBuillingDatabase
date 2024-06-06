@@ -647,6 +647,84 @@ def delete_employee_plan(cursor, employee_plan_id):
     cursor.execute(delete_employee_plan_query, (employee_plan_id,))
 
 ### Employer Functions ###
+def add_employer(cursor, employer_json):
+    # Add new employer
+    add_employer_query = """
+    INSERT INTO Employer (EmployerName, TierStructure, UsesGlCode, UsesDivision, UsesLocation, UsesTitle, PerferedBillingDate, RenewalDate)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    employer_data = (
+        employer_json['EmployerName'], employer_json['TierStructure'], employer_json['UsesGlCode'],
+        employer_json['UsesDivision'], employer_json['UsesLocation'], employer_json['UsesTitle'],
+        employer_json['PerferedBillingDate'], employer_json['RenewalDate']
+    )
+    cursor.execute(add_employer_query, employer_data)
+    new_employer_id = cursor.lastrowid
+    
+    # Add carriers
+    if 'carriers' in employer_json:
+        carriers = employer_json['carriers']
+        for carrier in carriers:
+            carrier['EmployerID'] = new_employer_id
+            add_carrier(cursor, carrier)
+    
+    # Add tiers
+    if 'tiers' in employer_json:
+        tiers = employer_json['tiers']
+        for tier in tiers:
+            tier['EmployerID'] = new_employer_id
+            add_tier(cursor, tier)
+    
+    # Add plans
+    if 'plans' in employer_json:
+        plans = employer_json['plans']
+        for plan in plans:
+            plan['EmployerID'] = new_employer_id
+            add_plan(cursor, plan)
+    
+    # Add employees
+    if 'employees' in employer_json:
+        employees = employer_json['employees']
+        for employee in employees:
+            employee['EmployerID'] = new_employer_id
+            add_employee(cursor, employee)
+    
+    return new_employer_id
+
+def get_current_employer(cursor, employer_id):
+    get_employer_query = "SELECT * FROM Employer WHERE EmployerID = %s"
+    cursor.execute(get_employer_query, (employer_id,))
+    current_employer = cursor.fetchone()
+    return current_employer
+
+def change_employer(cursor, employer_id, employer_json):
+    current_employer = get_current_employer(cursor, employer_id)
+    
+    if not current_employer:
+        raise ValueError(f"Employer with ID {employer_id} does not exist.")
+    
+    update_fields = []
+    update_values = []
+    
+    for key, value in employer_json.items():
+        if key != 'EmployerID' and value != current_employer[key]:
+            update_fields.append(f"{key} = %s")
+            update_values.append(value)
+    
+    if update_fields:
+        update_values.append(employer_id)
+        update_employer_query = f"""
+        UPDATE Employer
+        SET {', '.join(update_fields)}
+        WHERE EmployerID = %s
+        """
+        cursor.execute(update_employer_query, tuple(update_values))
+    
+    return employer_id
+
+def delete_employer(cursor, employer_id):
+    delete_employer_query = "DELETE FROM Employer WHERE EmployerID = %s"
+    cursor.execute(delete_employer_query, (employer_id,))
 
 ####### Run on Start #######
 
