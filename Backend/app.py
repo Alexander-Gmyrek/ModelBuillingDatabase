@@ -3,6 +3,7 @@ import mysql.connector
 import pandas as pd
 import json
 import base64
+import datetime
 
 app = Flask(__name__)
 
@@ -429,7 +430,173 @@ def delete_dependent(cursor, dependent_id):
     except:
         return False
     
+### Employee Functions ###
+def add_employee(cursor, employee_json):
+    # Add new employee
+    add_employee_query = """
+    INSERT INTO Employee (EmployerID, EmployeeFullName, EmployeeFirstName, EmployeeLastName, JoinDate, TermDate, 
+                          JoinInformDate, TermEndDate, DOB, CobraStatus, Notes, GL, Division, Location, Title)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    employee_data = (
+        employee_json['EmployerID'], employee_json['EmployeeFullName'], employee_json['EmployeeFirstName'], 
+        employee_json['EmployeeLastName'], employee_json['JoinDate'], employee_json['TermDate'], 
+        employee_json['JoinInformDate'], employee_json['TermEndDate'], employee_json['DOB'], 
+        employee_json['CobraStatus'], employee_json['Notes'], employee_json['GL'], employee_json['Division'], 
+        employee_json['Location'], employee_json['Title']
+    )
+    cursor.execute(add_employee_query, employee_data)
+    new_employee_id = cursor.lastrowid
+    
+    # Add dependents
+    if 'Dependents' in employee_json:
+        dependents = employee_json['Dependents']
+        for dependent in dependents:
+            dependent['EmployeeID'] = new_employee_id
+            add_dependent(cursor, dependent)
+    
+    # Add employee plans
+    if 'EmployeePlans' in employee_json:
+        employee_plans = employee_json['EmployeePlans']
+        for plan in employee_plans:
+            plan['EmployeeID'] = new_employee_id
+            # add_employee_plan(cursor, plan)
+        return new_employee_id
+    
+    # Get CarrierID
+    carrier_id = get_carrier_id(cursor, employee_json['Carrier'], employee_json['EmployerID'])
+    
+    # Get TierID
+    tier_id = get_tier_id(cursor, employee_json['Tier'], employee_json['DOB'], employee_json['EmployerID'])
+    
+    # Get PlanID
+    plan_id = get_plan_id(cursor, carrier_id, tier_id)
+    '''
+    # Add EmployeePlan
+    add_employee_plan(cursor, {
+        'EmployeeID': new_employee_id,
+        'PlanID': plan_id,
+        'StartDate': employee_json['JoinDate'],
+        'EndDate': employee_json['TermDate']
+    })
+    '''
+    
+    return new_employee_id
 
+def get_carrier_id(cursor, carrier_name, employer_id):
+    """
+    Retrieves the CarrierID based on the carrier name and employer ID.
+    Args:
+        cursor: The MySQL database cursor.
+        carrier_name: The name of the carrier.
+        employer_id: The ID of the employer.
+    Returns:
+        The ID of the carrier.
+    """
+    get_carrier_query = "SELECT CarrierID FROM Carrier WHERE CarrierName = %s AND EmployerID = %s"
+    cursor.execute(get_carrier_query, (carrier_name, employer_id))
+    carrier = cursor.fetchone()
+    if carrier:
+        return carrier[0]
+    raise ValueError(f"Carrier with name {carrier_name} and employer ID {employer_id} does not exist.")
+
+def get_tier_id(cursor, tier_name, dob, employer_id):
+    """
+    Retrieves the TierID based on the tier name, date of birth, and employer ID.
+    Args:
+        cursor: The MySQL database cursor.
+        tier_name: The name of the tier.
+        dob: The date of birth of the employee.
+        employer_id: The ID of the employer.
+    Returns:
+        The ID of the tier.
+    """
+    if tier_name:
+        get_tier_query = "SELECT TierID FROM Tier WHERE TierName = %s AND EmployerID = %s"
+        cursor.execute(get_tier_query, (tier_name, employer_id))
+    else:
+        from datetime import date
+        get_tier_query = "SELECT TierID FROM Tier WHERE %s BETWEEN MinAge AND MaxAge AND EmployerID = %s"
+        cursor.execute(get_tier_query, (calculate_age(employer_id, dob, date.today().year, cursor), employer_id))
+    tier = cursor.fetchall()
+    if tier:
+        return tier[0]
+    raise ValueError(f"Tier with name {tier_name} and employer ID {employer_id} does not exist.")
+
+def get_plan_id(cursor, carrier_id, tier_id):
+    """
+    Retrieves the PlanID based on the carrier ID and tier ID.
+    Args:
+        cursor: The MySQL database cursor.
+        carrier_id: The ID of the carrier.
+        tier_id: The ID of the tier.
+    Returns:
+        The ID of the plan.
+    """
+    get_plan_query = "SELECT PlanID FROM Plan WHERE CarrierID = %s AND TierID = %s"
+    cursor.execute(get_plan_query, (carrier_id, tier_id))
+    plan = cursor.fetchone()
+    if plan:
+        return plan[0]
+    raise ValueError(f"Plan with carrier ID {carrier_id} and tier ID {tier_id} does not exist.")
+
+def calculate_age(employer_id, dob, year, cursor):
+    #Ages are only updated on the renewal date
+    query = f"SELECT RenewalDate FROM Employer WHERE EmployerID = {employer_id}"
+    cursor.execute(query)
+    renewal_date = cursor.fetchone()[0]
+    dob = dob.split('-')
+    dob = datetime.date(int(dob[0]), int(dob[1]), int(dob[2]))
+    renewal_date = renewal_date.split('-')
+    renewal_date = datetime.date(int(year), int(renewal_date[1]), int(renewal_date[2]))
+    age = renewal_date.year - dob.year - ((renewal_date.month, renewal_date.day) < (dob.month, dob.day))
+    return age
+
+def change_employee(cursor, employee_id, employee_json):
+    """
+    Updates an existing employee in the database with only new values.
+    Args:
+        cursor: The MySQL database cursor.
+        employee_id: The ID of the employee to update.
+        employee_json: The employee data as a dictionary.
+    Returns:
+        Boolean indicating whether the employer consistency check passed.
+    """
+    current_employee = get_current_employee(cursor, employee_id)
+    
+    if not current_employee:
+        raise ValueError(f"Employee with ID {employee_id} does not exist.")
+    
+    update_fields = []
+    update_values = []
+    
+    for key, value in employee_json.items():
+        if key != 'EmployeeID' and value != current_employee[key]:
+            update_fields.append(f"{key} = %s")
+            update_values.append(value)
+    
+    if update_fields:
+        update_values.append(employee_id)
+        update_employee_query = f"""
+        UPDATE Employee
+        SET {', '.join(update_fields)}
+        WHERE EmployeeID = %s
+        """
+        cursor.execute(update_employee_query, tuple(update_values))
+    
+    return employee_id
+
+def get_current_employee(cursor, employee_id):
+    get_employee_query = "SELECT * FROM Employee WHERE EmployeeID = %s"
+    cursor.execute(get_employee_query, (employee_id,))
+    current_employee = cursor.fetchone()
+    return current_employee
+
+def delete_employee(cursor, employee_id):
+    delete_employee_query = "DELETE FROM Employee WHERE EmployeeID = %s"
+    cursor.execute(delete_employee_query, (employee_id,))
+
+### EmployeePlan Functions ###
 
 ####### Run on Start #######
 
