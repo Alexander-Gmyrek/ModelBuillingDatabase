@@ -578,8 +578,6 @@ def get_plan(id):
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
 
-
-
 ### Search Plan Method ### 
 @app.route('/plan/search', methods=['GET'])
 def search_plans():
@@ -591,6 +589,343 @@ def search_plans():
         cursor.close()
         connection.close()
         return jsonify(json.loads(plans))
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+### GET Tier Methods ###
+@app.route('/tier', methods=['GET'])
+def get_tiers():
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM Tier")
+        tiers = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(tiers)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+@app.route('/tier/<int:id>', methods=['GET'])
+def get_tier(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM Tier WHERE TierID={id}")
+        tier = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return jsonify(tier)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+@app.route('/tier/<EmployerID>/<TierName>', methods=['GET'])
+def search_tier_by_part_name(EmployerID, TierName):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM Tier WHERE EmployerID={EmployerID} AND TierName LIKE '%{TierName}%'")
+        tier = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(tier)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+### Search Tier Method ###
+@app.route('/tier/search', methods=['GET'])
+def search_tiers():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        tiers = SearchTable(cursor, "Tier", json.dumps(data))
+        cursor.close()
+        connection.close()
+        return jsonify(json.loads(tiers))
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+### GET Carrier Methods ###
+@app.route('/carrier', methods=['GET'])
+def get_carriers():
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM Carrier")
+        carriers = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(carriers)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+@app.route('/carrier/<int:id>', methods=['GET'])
+def get_carrier(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM Carrier WHERE CarrierID={id}")
+        carrier = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return jsonify(carrier)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+@app.route('/carrier/<EmployerID>/<CarrierName>', methods=['GET'])
+def search_carrier_by_part_name(EmployerID, CarrierName):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM Carrier WHERE EmployerID={EmployerID} AND CarrierName LIKE '%{CarrierName}%'")
+        carrier = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(carrier)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+### Search Carrier Method ###
+@app.route('/carrier/search', methods=['GET'])
+def search_carriers():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        carriers = SearchTable(cursor, "Carrier", json.dumps(data))
+        cursor.close()
+        connection.close()
+        return jsonify(json.loads(carriers))
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+### GET Dependent Methods ###
+@app.route('/dependent', methods=['GET'])
+def get_dependents():
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM Dependent")
+        dependents = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(dependents)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+@app.route('/dependent/<int:id>', methods=['GET'])
+def get_dependent(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM Dependent WHERE DependentID={id}")
+        dependent = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return jsonify(dependent)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+@app.route('/dependent/<EmployerID>/<DependentName>', methods=['GET'])
+def search_dependent_by_part_name(EmployerID, DependentName):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM Dependent WHERE EmployerID={EmployerID} AND DependentName LIKE '%{DependentName}%'")
+        dependent = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(dependent)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+### Search Dependent Method ###
+@app.route('/dependent/search', methods=['GET'])
+def search_dependents():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        dependents = SearchTable(cursor, "Dependent", json.dumps(data))
+        cursor.close()
+        connection.close()
+        return jsonify(json.loads(dependents))
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+### GET Employee Methods ###
+@app.route('/employee', methods=['GET'])
+def get_employees():
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM Employee")
+        employees = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(employees)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+@app.route('/employee/<int:id>', methods=['GET'])
+def get_employee(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM Employee WHERE EmployeeID={id}")
+        employee = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return jsonify(employee)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+
+@app.route('/employee/<EmployerID>/<EmployeeFullName>', methods=['GET'])
+def search_employee_by_part_name(EmployerID, EmployeeFullName):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM Employee WHERE EmployerID={EmployerID} AND EmployeeFullName LIKE '%{EmployeeFullName}%'")
+        employee = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(employee)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+
+@app.route('/employee/<EmployerID>/active', methods=['GET'])   
+def get_active_employees(EmployerID):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM Employee WHERE EmployerID={EmployerID} AND TermDate IS NULL")
+        employees = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(employees)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+
+### Search Employee Method ###
+@app.route('/employee/search', methods=['GET'])
+def search_employees():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        employees = SearchTable(cursor, "Employee", json.dumps(data))
+        cursor.close()
+        connection.close()
+        return jsonify(json.loads(employees))
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+
+### GET EmployeePlan Methods ###
+@app.route('/employeeplan', methods=['GET'])
+def get_employee_plans():
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM EmployeePlan")
+        employee_plans = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(employee_plans)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+@app.route('/employeeplan/<int:id>', methods=['GET'])
+def get_employee_plan(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM EmployeePlan WHERE EmployeePlanID={id}")
+        employee_plan = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return jsonify(employee_plan)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+@app.route('/employeeplan/<EmployeeID>/active', methods=['GET'])
+def get_active_employee_plans(EmployeeID):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM EmployeePlan WHERE EmployeeID={EmployeeID} AND EndDate IS NULL")
+        employee_plans = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(employee_plans)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+
+### Search EmployeePlan Method ###
+@app.route('/employeeplan/search', methods=['GET'])
+def search_employee_plans():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        employee_plans = SearchTable(cursor, "EmployeePlan", json.dumps(data))
+        cursor.close()
+        connection.close()
+        return jsonify(json.loads(employee_plans))
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+### GET Employer Methods ###
+@app.route('/employer', methods=['GET'])
+def get_employers():
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM Employer")
+        employers = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(employers)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+
+@app.route('/employer/<int:id>', methods=['GET'])
+def get_employer(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM Employer WHERE EmployerID={id}")
+        employer = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return jsonify(employer)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+
+@app.route('/employer/<EmployerName>', methods=['GET'])
+def search_employer_by_name(EmployerName):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM Employer WHERE EmployerName LIKE '%{EmployerName}%'")
+        employer = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(employer)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+### Search Employer Method ###
+@app.route('/employer/search', methods=['GET'])
+def search_employers():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        employers = SearchTable(cursor, "Employer", json.dumps(data))
+        cursor.close()
+        connection.close()
+        return jsonify(json.loads(employers))
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
         
