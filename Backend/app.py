@@ -236,6 +236,7 @@ def add_plan():
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
     return jsonify({"PlanID": new_plan_id})
+
 # Change
 @app.route('/plan/<int:id>', methods=['PATCH'])
 def change_plan(id):
@@ -329,10 +330,57 @@ def delete_tier(id):
 ### Carrier Methods ###
 
 # Add
+@app.route('/carrier', methods=['POST'])
+def add_carrier():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            new_carrier_id = add_carrier(cursor, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error adding Carrier ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"CarrierID": new_carrier_id})
 
 # Change
+@app.route('/carrier/<int:id>', methods=['PATCH'])
+def change_carrier(id):
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            change_carrier(cursor, id, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error changing Carrier ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"CarrierID": id})
 
 # Delete
+@app.route('/carrier/<int:id>', methods=['DELETE'])
+def delete_carrier(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            delete_carrier(cursor, id)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error deleting Carrier ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"CarrierID": id})
 
 ### Dependent Methods ###
 
