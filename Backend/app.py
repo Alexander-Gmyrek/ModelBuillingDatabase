@@ -2,56 +2,11 @@ from flask import Flask, request, jsonify
 import mysql.connector
 import pandas as pd
 import json
-import base64
 import datetime
 
+####################### Helper Functions #######################
 app = Flask(__name__)
 
-###
-# What is needed for a MVP
-# 1. Add an employer
-# 2. 
-
-
-###
-
-#test data for the database
-def get_test_data(x):
-    return{
-    1: {
-        "employer_name": "Test Employer 1",
-        "billing_system": "4Tiered",
-        "employee_data": "Test_Employee_Data_1.xlsx",
-        "carriers": [
-            {
-                "carrier_name": "Test Carrier1",
-            },
-            {
-                "carrier_name": "Test Carrier2",
-            }
-        ],
-        "carrier_plans": {
-            "Carrier1": [
-                {"tier name": "Employee", "funding amount": 10, "grenz fee": 1}, 
-                {"tier name": "Spouce", "funding amount": 15, "grenz fee": 1},
-                {"tier name": "Child(ren)", "funding amount": 20, "grenz fee": 1},
-                {"tier name": "Family", "funding amount": 25, "grenz fee": 1}
-            ],
-            "Carrier2": [
-                {"tier name": "Employee", "funding amount": 10.1, "grenz fee": 1}, 
-                {"tier name": "Spouce", "funding amount": 15.1, "grenz fee": 1},
-                {"tier name": "Child(ren)", "funding amount": 20.1, "grenz fee": 1},
-                {"tier name": "Family", "funding amount": 25.1, "grenz fee": 1}
-            ]
-        },
-        "tiers": [
-            {"tier name":"Employee"}, 
-            {"tier name":"Spouce"}, 
-            {"tier name":"Child(ren)"}, 
-            {"tier name":"Family"}
-        ]
-    }
-    }.get(x, 400)
 
 def get_db_connection():
     connection = mysql.connector.connect(
@@ -79,87 +34,6 @@ def testconection():
             return jsonify({"message": "Connected to MySQL Server version", "version": db_info})
         else:
             return jsonify({"message": "Connection to MySQL Server failed"})
-
-# TODO: Finish add test data
-@app.route('/add_test_data/<int:id>', methods=['POST'])
-def add_test_data(id):
-
-    with get_db_connection() as connection:
-        cursor = connection.cursor()
-        data = get_test_data(id)
-        if data == 404:
-            return jsonify({"message": "Test data not found"}), 404
-        
-        return jsonify({"message": "function not fully implemented"})
-        connection.commit()
-        cursor.close()
-        return jsonify({"message": "Test data added"})
-
-@app.route('/remove_test_data/<int:id>', methods=['DELETE'])
-def delete_test_data(id):
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    employer_info = get_test_data(id)
-    employer_name = employer_info['employer_name']
-    cursor.execute(f"SELECT EmployerID FROM Employer WHERE EmployerName = {employer_name}")
-    employer_id = cursor.fetchall()[0][0]
-    if not employer_id:
-        return jsonify({"message": "Employer not found"}), 400
-    cursor.execute(f"DELETE FROM Employer WHERE EmployerID={employer_id}")
-    connection.commit()
-    cursor.close()
-    connection.close()
-    return jsonify({"message": "Test data deleted"})
-
-@app.route('/employer', methods=['GET'])
-def get_employers():
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    cursor.execute("SELECT * FROM Employer")
-    users = cursor.fetchall()
-    cursor.close()
-    connection.close()
-    return jsonify(users)
-
-@app.route('/employer/<int:id>', methods=['GET'])
-def get_employer(id):
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    try:
-        cursor.execute(f"SELECT * FROM Employer WHERE EmployerID={id}")
-    except:
-        return jsonify({"message": "Employer not found"}), 404
-    user = cursor.fetchone()
-    cursor.close()
-    connection.close()
-    return jsonify(user)
-
-
-# Get employer by name
-@app.route('/employer/<string:name>', methods=['GET'])
-def get_employer_by_name(name):
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    try:
-        cursor.execute(f"SELECT * FROM Employer WHERE employer_name='{name}'")
-    except:
-        return jsonify({"message": "Employer not found"}), 404
-    user = cursor.fetchone()
-    cursor.close()
-    connection.close()
-    return jsonify(user)
-
-# Search for employers by name
-@app.route('/employer/search/<string:name>', methods=['GET'])
-def search_employers(name):
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    cursor.execute(f"SELECT * FROM Employer WHERE EmployerName LIKE '%{name}%'")
-    users = cursor.fetchall()
-    cursor.close()
-    connection.close()
-    return jsonify(users)
-
 
 
 ####################### Basic Methods #######################
