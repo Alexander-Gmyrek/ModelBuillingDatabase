@@ -549,6 +549,53 @@ def delete_employer(id):
         return jsonify({"Error": str(e)}), 400
     return jsonify({"EmployerID": id})
 
+####################### Getter Methods ######################
+
+### GET Plan Methods ###
+@app.route('/plan', methods=['GET'])
+def get_plans():
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM Plan")
+        plans = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        return jsonify(plans)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    
+@app.route('/plan/<int:id>', methods=['GET'])
+def get_plan(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM Plan WHERE PlanID={id}")
+        plan = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return jsonify(plan)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+
+
+
+### Search Plan Method ### 
+@app.route('/plan/search', methods=['GET'])
+def search_plans():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        plans = SearchTable(cursor, "Plan", json.dumps(data))
+        cursor.close()
+        connection.close()
+        return jsonify(json.loads(plans))
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+        
+
+
 
 
 ######################### Functions #########################
@@ -1046,6 +1093,38 @@ def change_employer(cursor, employer_id, employer_json):
 def delete_employer(cursor, employer_id):
     delete_employer_query = "DELETE FROM Employer WHERE EmployerID = %s"
     cursor.execute(delete_employer_query, (employer_id,))
+
+
+### General Search Function ###
+def SearchTable(cursor, table_name, search_criteria_json):
+    """
+    Retrieves all items in table that match the given criteria.
+    Args:
+        cursor: The MySQL database cursor.
+        table_name: The name of the table to search.
+        search_criteria_json: A JSON object containing the search criteria.
+    Returns:
+        A JSON array of items that match the criteria.
+    """
+    search_criteria = json.loads(search_criteria_json)
+    
+    base_query = f"SELECT * FROM {table_name} WHERE "
+    conditions = []
+    values = []
+
+    for key, value in search_criteria.items():
+        conditions.append(f"{key} = %s")
+        values.append(value)
+
+    query = base_query + " AND ".join(conditions)
+    cursor.execute(query, tuple(values))
+    results = cursor.fetchall()
+
+    # Convert results to a list of dictionaries
+    field_names = [i[0] for i in cursor.description]
+    plans = [dict(zip(field_names, row)) for row in results]
+    
+    return json.dumps(plans)
 
 ####### Run on Start #######
 
