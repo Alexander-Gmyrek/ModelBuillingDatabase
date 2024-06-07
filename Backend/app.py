@@ -385,18 +385,112 @@ def delete_carrier(id):
 ### Dependent Methods ###
 
 # Add
+@app.route('/dependent', methods=['POST'])
+def add_dependent():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            new_dependent_id = add_dependent(cursor, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error adding Dependent ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"DependentID": new_dependent_id})
 
 # Change
+@app.route('/dependent/<int:id>', methods=['PATCH'])
+def change_dependent(id):
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            change_dependent(cursor, id, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error changing Dependent ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"DependentID": id})
 
 # Delete
+@app.route('/dependent/<int:id>', methods=['DELETE'])
+def delete_dependent(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            delete_dependent(cursor, id)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error deleting Dependent ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"DependentID": id})
 
 ### Employee Methods ###
 
 # Add
+@app.route('/employee', methods=['POST'])
+def add_employee():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            new_employee_id = add_employee(cursor, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error adding Employee ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"EmployeeID": new_employee_id})
 
 # Change
+@app.route('/employee/<int:id>', methods=['PATCH'])
+def change_employee(id):
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            change_employee(cursor, id, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error changing Employee ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"EmployeeID": id})
 
 # Delete
+@app.route('/employee/<int:id>', methods=['DELETE'])
+def delete_employee(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            delete_employee(cursor, id)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error deleting Employee ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"EmployeeID": id})
 
 ### EmployeePlan Methods ###
 
