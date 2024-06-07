@@ -134,18 +134,6 @@ def get_employer(id):
     connection.close()
     return jsonify(user)
 
-@app.route('/employer/<int:id>', methods=['DELETE'])
-def delete_employer(id):
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    try:
-        cursor.execute(f"DELETE FROM Employer WHERE EmployerID={id}")
-    except:
-        return jsonify({"message": "Employer not found"}), 404
-    connection.commit()
-    cursor.close()
-    connection.close()
-    return jsonify({"message": "Employer deleted"})
 
 # Get employer by name
 @app.route('/employer/<string:name>', methods=['GET'])
@@ -171,47 +159,6 @@ def search_employers(name):
     cursor.close()
     connection.close()
     return jsonify(users)
-
-# Update an employer
-# TODO: Finish PATCH employer
-@app.route('/employer/<int:id>', methods=['PATCH'])
-def update_employer(id):
-    return jsonify({"message": "method not yet implemented"})
-
-
-# Add a new employer
-# TODO: Finish Add Employer
-@app.route('/add_employer', methods=['POST'])
-def add_employer():
-    data = request.get_json()
-
-    # Extract required fields
-    employer_name = data.get('employer_name')
-    billing_system = data.get('billing_system')
-    carriers = data.get('carriers')
-    carrier_plans = data.get('carrier_plans')
-    employee_data = data.get('employee_data')
-    tiers = data.get('tiers', None)
-
-    if not employer_name or not billing_system or not carriers or not carrier_plans or not employee_data:
-        return jsonify({'error': 'Missing required fields'}), 400
-
-    # Process employee data if it's an Excel file in base64 encoding
-    if 'employee_file' in employee_data:
-        file_content = employee_data['employee_file']
-        if employee_data['file_type'] == 'xlsx':
-            employee_df = pd.read_excel(pd.io.common.BytesIO(base64.b64decode(file_content)))
-        else:
-            return jsonify({'error': 'Unsupported file type'}), 400
-    else:
-        employee_df = pd.DataFrame(employee_data['employees'])
-
-    # Process data and insert into the database
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    cursor.close()
-    connection.close()
-    return jsonify({"message": "method not fully implemented"})
 
 
 
@@ -495,18 +442,112 @@ def delete_employee(id):
 ### EmployeePlan Methods ###
 
 # Add
+@app.route('/employeeplan', methods=['POST'])
+def add_employee_plan():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            new_employee_plan_id = add_employee_plan(cursor, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error adding EmployeePlan ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"EmployeePlanID": new_employee_plan_id})
 
 # Change
+@app.route('/employeeplan/<int:id>', methods=['PATCH'])
+def change_employee_plan(id):
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            change_employee_plan(cursor, id, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error changing EmployeePlan ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"EmployeePlanID": id})
 
 # Delete
+@app.route('/employeeplan/<int:id>', methods=['DELETE'])
+def delete_employee_plan(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            delete_employee_plan(cursor, id)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error deleting EmployeePlan ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"EmployeePlanID": id})
 
 ### Employer Methods ###
 
 # Add
+@app.route('/employer', methods=['POST'])
+def add_employer():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            new_employer_id = add_employer(cursor, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error adding Employer ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"EmployerID": new_employer_id})
 
 # Change
+@app.route('/employer/<int:id>', methods=['PATCH'])
+def change_employer(id):
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            change_employer(cursor, id, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error changing Employer ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"EmployerID": id})
 
 # Delete
+@app.route('/employer/<int:id>', methods=['DELETE'])
+def delete_employer(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            delete_employer(cursor, id)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error deleting Employer ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"EmployerID": id})
 
 
 
