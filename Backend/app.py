@@ -214,7 +214,163 @@ def add_employer():
     return jsonify({"message": "method not fully implemented"})
 
 
+
+####################### Basic Methods #######################
+
+### Plan Methods ###
+
+# Add
+@app.route('/plan', methods=['POST'])
+def add_plan():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            new_plan_id = add_plan(cursor, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error adding Plan ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"PlanID": new_plan_id})
+# Change
+@app.route('/plan/<int:id>', methods=['PATCH'])
+def change_plan(id):
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            change_plan(cursor, id, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error changing Plan ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"PlanID": id})
+
+# Delete
+@app.route('/plan/<int:id>', methods=['DELETE'])
+def delete_plan(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            delete_plan(cursor, id)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error deleting Plan ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"PlanID": id})
+
+### Tier Methods ###
+
+# Add
+@app.route('/tier', methods=['POST'])
+def add_tier():
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            new_tier_id = add_tier(cursor, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error adding Tier ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"TierID": new_tier_id})
+
+# Change
+@app.route('/tier/<int:id>', methods=['PATCH'])
+def change_tier(id):
+    data = request.get_json()
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            change_tier(cursor, id, data)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error changing Tier ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"TierID": id})
+
+# Delete
+@app.route('/tier/<int:id>', methods=['DELETE'])
+def delete_tier(id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        try:
+            delete_tier(cursor, id)
+            connection.commit()
+        except Exception as e:
+            return jsonify({"Error deleting Tier ": str(e)}), 400
+        cursor.close()
+        connection.close()
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+    return jsonify({"TierID": id})
+
+### Carrier Methods ###
+
+# Add
+
+# Change
+
+# Delete
+
+### Dependent Methods ###
+
+# Add
+
+# Change
+
+# Delete
+
+### Employee Methods ###
+
+# Add
+
+# Change
+
+# Delete
+
+### EmployeePlan Methods ###
+
+# Add
+
+# Change
+
+# Delete
+
+### Employer Methods ###
+
+# Add
+
+# Change
+
+# Delete
+
+
+
 ######################### Functions #########################
+
+
 
 ### Plan Functions ###
 def add_plan(cursor, plan_json):
@@ -390,15 +546,6 @@ def get_current_dependent(cursor, dependent_id):
     return current_dependent
 
 def change_dependent(cursor, dependent_id, dependent_json):
-    """
-    Updates an existing dependent in the database with only new values.
-    Args:
-        cursor: The MySQL database cursor.
-        dependent_id: The ID of the dependent to update.
-        dependent_json: The dependent data as a dictionary.
-    Returns:
-        Boolean indicating whether the employer consistency check passed.
-    """
     current_dependent = get_current_dependent(cursor, dependent_id)
     
     if not current_dependent:
@@ -553,15 +700,6 @@ def calculate_age(employer_id, dob, year, cursor):
     return age
 
 def change_employee(cursor, employee_id, employee_json):
-    """
-    Updates an existing employee in the database with only new values.
-    Args:
-        cursor: The MySQL database cursor.
-        employee_id: The ID of the employee to update.
-        employee_json: The employee data as a dictionary.
-    Returns:
-        Boolean indicating whether the employer consistency check passed.
-    """
     current_employee = get_current_employee(cursor, employee_id)
     
     if not current_employee:
