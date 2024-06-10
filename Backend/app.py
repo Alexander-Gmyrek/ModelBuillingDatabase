@@ -1335,6 +1335,10 @@ def SearchTable(cursor, table_name, search_criteria_json):
     
     return json.dumps(plans)
 
+######### Generate Report #########
+# Generate a complete company json
+
+
 ####### Run on Start #######
 
 if __name__ == '__main__':
