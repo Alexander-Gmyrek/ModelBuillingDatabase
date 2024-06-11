@@ -32,7 +32,7 @@ async function getAllEmployers() {
     return await apiRequest("/employer");
 }
 
-async function getEmployerByName(employerName) {
+async function SearchEmployerByName(employerName) {
     return await apiRequest(`/employer/${encodeURIComponent(employerName)}`);
 }
 
