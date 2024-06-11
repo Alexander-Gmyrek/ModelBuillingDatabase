@@ -1,29 +1,61 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Grenz & Co invoice generator</title>
-
-
+    <title>Grenz & Co Invoice Generator</title>
 </head>
-<h1>Companies</h1>
-<div class="topnav">
-    <input type="text" placeholder="Search..">
-    
-</div>
-<a href="addcompany.html" type="button" class="button">
-    <span class="button__text">Add Company</span>
-    <span class="button__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke="currentColor" height="24" fill="none" class="svg"><line y2="19" y1="5" x2="12" x1="12"></line><line y2="12" y1="12" x2="19" x1="5"></line></svg></span>
-</a>
-<ul>
-    <li><a href="company1.html">company1</a></li>
-    <li>company2</li>
-    <li>company3</li>
+<body>
+    <h1>Companies</h1>
+    <div>
+        <input type="text" id="searchInput" placeholder="Search.." onkeyup="filterCompanies()">
+    </div>
+    <a href="addcompany.html" type="button">
+        <span>Add Company</span>
+    </a>
+    <ul id="companyList"></ul>
 
+    <script type="module">
+        import { 
+            getAllEmployers,
+            searchEmployerByJson
+        } from './apiFunctions.js'; // Assuming the file is in the same directory
 
+        document.addEventListener('DOMContentLoaded', (event) => {
+            async function fetchAndDisplayCompanies() {
+                try {
+                    const companies = await getAllEmployers();
+                    displayCompanies(companies);
+                } catch (error) {
+                    console.error('Error fetching companies:', error);
+                }
+            }
 
-</ul>
+            function displayCompanies(companies) {
+                const companyList = document.getElementById('companyList');
+                companyList.innerHTML = '';
+                companies.forEach(company => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = company.EmployerName;
+                    listItem.dataset.name = company.EmployerName.toLowerCase();
+                    listItem.dataset.id = company.EmployerID;
+                    listItem.addEventListener('click', () => {
+                        window.location.href = `company.html?id=${company.EmployerID}`;
+                    });
+                    companyList.appendChild(listItem);
+                });
+            }
 
+            window.filterCompanies = async function() {
+                const searchInput = document.getElementById('searchInput').value.toLowerCase();
+                try {
+                    const companies = await searchEmployerByJson({ EmployerName: searchInput });
+                    displayCompanies(companies);
+                } catch (error) {
+                    console.error('Error searching companies:', error);
+                }
+            }
 
-
-
+            fetchAndDisplayCompanies();
+        });
+    </script>
+</body>
 </html>
