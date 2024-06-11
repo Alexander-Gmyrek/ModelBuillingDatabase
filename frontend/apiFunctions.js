@@ -1,4 +1,4 @@
-/ apiFunctions.js
+// apiFunctions.js
 
 const BASE_URL = "http://localhost:5000";
 
@@ -277,14 +277,14 @@ export {
     addEmployeePlan,
     changeEmployeePlan,
     deleteEmployeePlan,
-    searchAllDependents,
+    getAllDependents,
     searchDependentById,
     searchDependentByName,
     searchDependentByJson,
     addDependent,
     changeDependent,
     deleteDependent,
-    searchAllPlans,
+    getAllPlans,
     searchPlanById,
     searchPlanByName,
     searchPlanByJson,
