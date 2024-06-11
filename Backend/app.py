@@ -1336,8 +1336,20 @@ def SearchTable(cursor, table_name, search_criteria_json):
     return json.dumps(plans)
 
 ######### Generate Report #########
-# Generate a complete company json
+#outline
+# What is this function doing? - This function is generating a report for a given employer.
+# That report is a json object.
+# The json should be formated like an xslm file
+# The json should have the following keys
+# - Employer Name
+# - Month and Year
+# - Employees {Bassed off of the Employer Format}
 
+# What are the inputs? - The inputs are the employer_id, and the month and year of the report.
+# We need to get the Employer Format and the Tier Structure.
+# We need to get all the employees for the employer.
+# For each employee we need to run the get_employee_billing_data function.
+# get_employee_billing_data takes connection, get_employee_plan, get_employee_info, get_employee_total, 
 
 ####### Run on Start #######
 
