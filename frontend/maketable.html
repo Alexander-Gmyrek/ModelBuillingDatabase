@@ -10,59 +10,53 @@
 <!-- Title of the table -->
 <h2>Editable Table with Add and Delete Row Feature</h2>
 
-<!-- Container for the table and buttons -->
-<div style="display: flex; justify-content: space-between; align-items: flex-start;">
-    <!-- Table structure with header and initial rows -->
-    <table id="editableTable">
-        <thead>
-            <tr>
-                <th>Plan Name</th>
-                <th>Funding EE</th>
-                <th>Funding E+1</th>
-                <th>Funding E+2</th>
-                <th>Admin Fee</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- Initial row with inputs and delete button -->
-            <tr>
-                <td><input type="text" value="Plan A"></td>
-                <td><input type="number" value="$"></td>
-                <td><input type="number" value="$"></td>
-                <td><input type="number" value="$"></td>
-                <td><input type="number" value="$"></td>
-                <td><button onclick="deleteRow(this)">Delete</button></td>
-            </tr>
-            <!-- Another initial row with inputs and delete button -->
-            <tr>
-                <td><input type="text" value="Plan B"></td>
-                <td><input type="number" value="$"></td>
-                <td><input type="number" value="$"></td>
-                <td><input type="number" value="$"></td>
-                <td><input type="number" value="$"></td>
-                <td><button onclick="deleteRow(this)">Delete</button></td>
-            </tr>
-            <!-- Another initial row with inputs and delete button -->
-            <tr>
-                <td><input type="text" value="Plan C"></td>
-                <td><input type="number" value="$"></td>
-                <td><input type="number" value="$"></td>
-                <td><input type="number" value="$"></td>
-                <td><input type="number" value="$"></td>
-                <td><button onclick="deleteRow(this)">Delete</button></td>
-            </tr>
-        </tbody>
-    </table>
+<!-- Table structure with header and initial rows -->
+<table id="editableTable">
+    <thead>
+        <tr>
+            <th>Plan Name</th>
+            <th>Funding EE</th>
+            <th>Funding E+1</th>
+            <th>Funding E+2</th>
+            <th>Admin Fee</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Initial row with inputs and delete button -->
+        <tr>
+            <td><input type="text" value="Plan A"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><button onclick="deleteRow(this)">Delete</button></td>
+        </tr>
+        <!-- Another initial row with inputs and delete button -->
+        <tr>
+            <td><input type="text" value="Plan B"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><button onclick="deleteRow(this)">Delete</button></td>
+        </tr>
+        <!-- Another initial row with inputs and delete button -->
+        <tr>
+            <td><input type="text" value="Plan C"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><button onclick="deleteRow(this)">Delete</button></td>
+        </tr>
+    </tbody>
+</table>
 
-    <!-- Container for the buttons -->
-    <div style="display: flex; flex-direction: column; align-items: flex-start;">
-        <!-- Button to add new rows -->
-        <button onclick="addRow()">Add Row</button>
-        <!-- Button to submit the table data -->
-        <button onclick="submitTable()">Submit</button>
-    </div>
-</div>
+<!-- Button to add new rows -->
+<button onclick="addRow()">Add Row</button>
+<!-- Button to submit the table data -->
+<button onclick="submitTable()">Submit</button>
 
 <script>
     // Function to add a new row to the table
