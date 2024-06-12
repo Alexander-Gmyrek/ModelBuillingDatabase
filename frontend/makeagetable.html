@@ -1,54 +1,226 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Age Banded table</title>
-
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editable Table with Dynamic Columns and Rows</title>
 </head>
+<body>
 
-<table>
-    <tr>
-      <th>Plan name</th>
-      <th>Funding</th>
-      <th>Admin fee</th>
-      <th>Admin fee S</th>
-      <th>Admin fee C</th>
+<!-- Title of the table -->
+<h2>Editable Table with Dynamic Columns and Rows</h2>
 
-    </tr>
-    <tr>
-      <td>blue cross hmo</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-    </tr>
-    <tr>
-      <td>kaiser hmo</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-    </tr>
-    <tr>
-        <td>sutter who</td>
-        <td>$</td>
-        <td>$</td>
-        <td>$</td>
-        <td>$</td>
-        <td>$</td>
-        <td>$</td>
-    </tr>
-  </table>
+<!-- Container for the table and buttons -->
+<div id="tableContainer">
+    <!-- Table structure with header and initial rows -->
+    <table id="editableTable">
+        <thead>
+            <tr>
+                <th><input type="text" value="Plan Name"></th>
+                <th><input type="text" value="Funding EE"></th>
+                <th><input type="text" value="Funding E+1"></th>
+                <th><input type="text" value="Funding E+2"></th>
+                <th><input type="text" value="Admin Fee"></th>
+                <th></th> <!-- Placeholder for delete button -->
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Initial row with inputs and delete button -->
+            <tr>
+                <td><input type="text" value="Plan A"></td>
+                <td><input type="number" value="$"></td>
+                <td><input type="number" value="$"></td>
+                <td><input type="number" value="$"></td>
+                <td><input type="number" value="$"></td>
+                <td><button onclick="deleteRow(this)">Delete</button></td>
+            </tr>
+            <!-- Another initial row with inputs and delete button -->
+            <tr>
+                <td><input type="text" value="Plan B"></td>
+                <td><input type="number" value="$"></td>
+                <td><input type="number" value="$"></td>
+                <td><input type="number" value="$"></td>
+                <td><input type="number" value="$"></td>
+                <td><button onclick="deleteRow(this)">Delete</button></td>
+            </tr>
+            <!-- Another initial row with inputs and delete button -->
+            <tr>
+                <td><input type="text" value="Plan C"></td>
+                <td><input type="number" value="$"></td>
+                <td><input type="number" value="$"></td>
+                <td><input type="number" value="$"></td>
+                <td><input type="number" value="$"></td>
+                <td><button onclick="deleteRow(this)">Delete</button></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Buttons to add and delete rows and columns -->
+<button onclick="addRow()">Add Row</button>
+<button onclick="addColumn()">Add Column</button>
+<button onclick="deleteLastColumn()">Delete Last Column</button>
+<button onclick="submitTable()">Submit</button>
+
+<script>
+    // Function to add a new row to the table
+    function addRow() {
+        // Get the table body
+        const table = document.getElementById('editableTable').getElementsByTagName('tbody')[0];
+        // Insert a new row at the end
+        const newRow = table.insertRow();
+        
+        // Get the number of columns (excluding the delete button column)
+        const columnCount = document.getElementById('editableTable').rows[0].cells.length - 1;
+
+        // Loop through the columns to add input fields and a delete button for the last cell
+        for (let i = 0; i < columnCount + 1; i++) {
+            const newCell = newRow.insertCell(i);
+            if (i === columnCount) {
+                // Last column: delete button
+                newCell.innerHTML = '<button onclick="deleteRow(this)">Delete</button>';
+            } else {
+                // Other columns: number input fields
+                newCell.innerHTML = '<input type="number">';
+            }
+        }
+    }
+
+    // Function to delete a row from the table
+    function deleteRow(button) {
+        // Get the row containing the button
+        const row = button.parentNode.parentNode;
+        // Remove the row from the table
+        row.parentNode.removeChild(row);
+    }
+
+    // Function to add a new column to the table
+    function addColumn() {
+        // Get the table and its rows
+        const table = document.getElementById('editableTable');
+        const headerRow = table.rows[0];
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        // Create a new header cell with an editable input for the new column
+        const newHeaderCell = document.createElement('th');
+        const newHeaderInput = document.createElement('input');
+        newHeaderInput.type = 'text';
+        newHeaderInput.value = 'New Column ' + (headerRow.cells.length - 4);
+        newHeaderCell.appendChild(newHeaderInput);
+        headerRow.insertBefore(newHeaderCell, headerRow.cells[headerRow.cells.length - 1]);
+
+        // Add a new cell to each existing row for the new column
+        for (let row of rows) {
+            const newCell = row.insertCell(row.cells.length - 1);
+            newCell.innerHTML = '<input type="number">';
+        }
+    }
+
+    // Function to delete the last column from the table
+    function deleteLastColumn() {
+        // Get the table and its rows
+        const table = document.getElementById('editableTable');
+        const headerRow = table.rows[0];
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        // Prevent deletion if only one data column is left
+        if (headerRow.cells.length <= 2) {
+            alert("You cannot delete the last column!");
+            return;
+        }
+
+        // Remove the last header cell (before the delete button column)
+        headerRow.deleteCell(headerRow.cells.length - 2);
+
+        // Remove the last cell of each row (before the delete button cell)
+        for (let row of rows) {
+            row.deleteCell(row.cells.length - 2);
+        }
+    }
+
+    // Function to submit the table data
+    async function submitTable() {
+    // Get the table
+    const table = document.getElementById('editableTable');
+    // Get all the rows in the table body
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    // Initialize an array to hold the table data
+    const tableData = [];
+
+    // Collect column names
+    const columnNames = [];
+    const headerInputs = table.getElementsByTagName('thead')[0].getElementsByTagName('input');
+    for (let headerInput of headerInputs) {
+        columnNames.push(headerInput.value);
+    }
+
+    // Loop through each row to collect the input values
+    for (let row of rows) {
+        // Get all input fields in the row
+        const inputs = row.getElementsByTagName('input');
+        // Create an object to hold the row data
+        const rowData = {};
+        for (let i = 0; i < inputs.length; i++) {
+            rowData[columnNames[i]] = inputs[i].value;
+        }
+        // Add the row data to the array
+        tableData.push(rowData);
+    }
+
+    // Add the table data to the company data object
+    companyData['Plans'] = tableData;
+
+    // Log the complete data to the console
+    console.log('Complete Data:', companyData);
+
+    // Send the complete data to the server
+    try {
+        await addEmployer(companyData);
+        alert('Data submitted successfully!');
+        // Optionally, clear the localStorage or redirect to another page
+        localStorage.removeItem('companyData'); // Clear the storage after submission
+    } catch (error) {
+        console.error('Error submitting data:', error);
+        alert('Failed to submit data.');
+    }
+}
 
 
+// Placeholder for the apiFunctions.js methods.
+    // In a real scenario, these would be imported from the actual `apiFunctions.js` file.
+    const BASE_URL = "http://localhost:5000";
 
+    // Helper function to make API requests
+    async function apiRequest(endpoint, method = "GET", body = null) {
+        const options = {
+            method,
+            headers: {
+                "Content-Type": "application/json"
+            }
+        };
 
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
 
+        try {
+            const response = await fetch(`${BASE_URL}${endpoint}`, options);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("API Request Error:", error);
+            throw error;
+        }
+    }
 
+    // Function to add an employer
+    async function addEmployer(employerJson) {
+        return await apiRequest("/employer", "POST", employerJson);
+    }
+</script>
 
-
+</body>
 </html>
+
