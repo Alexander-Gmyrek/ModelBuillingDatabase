@@ -8,7 +8,7 @@
             "UsesDivision": true,
             "UsesLocation": false,
             "UsesTitle": false,
-            "PreferedBillingDate": "2025-02-01",
+            "PerferedBillingDate": "2025-02-01",
             "RenewalDate": "2026-01-01",
             "employees": [
                 {
@@ -29,7 +29,6 @@
                     "Location": "Houston",
                     "Title": "Manager",
                     "Dependents": [],
-                    "EmployeePlans": [],
                     "Carrier": "Carrier1",
                     "Tier": "Tier3"
                 },
@@ -51,7 +50,6 @@
                     "Location": "Houston",
                     "Title": "Manager",
                     "Dependents": [],
-                    "EmployeePlans": [],
                     "Carrier": "Carrier2",
                     "Tier": "Tier1"
                 },
@@ -73,7 +71,6 @@
                     "Location": "Houston",
                     "Title": "Director",
                     "Dependents": [],
-                    "EmployeePlans": [],
                     "Carrier": "Carrier1",
                     "Tier": "Tier4"
                 }
@@ -129,7 +126,9 @@
                     "FundingAmount": 26.76,
                     "GrenzFee": 1.06,
                     "GrenzFeeC": 1.2,
-                    "GrenzFeeS": 1.56
+                    "GrenzFeeS": 1.56,
+                    "CarrierName": "Carrier1",
+                    "TierName": "Tier1"
                 },
                 {
                     "PlanID": 2,
@@ -139,7 +138,10 @@
                     "FundingAmount": 33.2,
                     "GrenzFee": 4.11,
                     "GrenzFeeC": 1.91,
-                    "GrenzFeeS": 2.15
+                    "GrenzFeeS": 2.15,
+                    "CarrierName": "Carrier1",
+                    "TierName": "Tier2"
+
                 },
                 {
                     "PlanID": 3,
@@ -149,7 +151,9 @@
                     "FundingAmount": 40.04,
                     "GrenzFee": 3.19,
                     "GrenzFeeC": 0.96,
-                    "GrenzFeeS": 1.11
+                    "GrenzFeeS": 1.11,
+                    "CarrierName": "Carrier1",
+                    "TierName": "Tier3"
                 },
                 {
                     "PlanID": 4,
@@ -159,7 +163,9 @@
                     "FundingAmount": 28.0,
                     "GrenzFee": 3.26,
                     "GrenzFeeC": 1.35,
-                    "GrenzFeeS": 0.75
+                    "GrenzFeeS": 0.75,
+                    "CarrierName": "Carrier1",
+                    "TierName": "Tier4"
                 },
                 {
                     "PlanID": 5,
@@ -169,7 +175,9 @@
                     "FundingAmount": 14.88,
                     "GrenzFee": 2.75,
                     "GrenzFeeC": 2.11,
-                    "GrenzFeeS": 1.36
+                    "GrenzFeeS": 1.36,
+                    "CarrierName": "Carrier2",
+                    "TierName": "Tier1"
                 },
                 {
                     "PlanID": 6,
@@ -179,7 +187,9 @@
                     "FundingAmount": 40.75,
                     "GrenzFee": 3.72,
                     "GrenzFeeC": 2.33,
-                    "GrenzFeeS": 1.75
+                    "GrenzFeeS": 1.75,
+                    "CarrierName": "Carrier2",
+                    "TierName": "Tier2"
                 },
                 {
                     "PlanID": 7,
@@ -189,7 +199,9 @@
                     "FundingAmount": 29.47,
                     "GrenzFee": 4.61,
                     "GrenzFeeC": 2.05,
-                    "GrenzFeeS": 1.13
+                    "GrenzFeeS": 1.13,
+                    "CarrierName": "Carrier2",
+                    "TierName": "Tier3"
                 },
                 {
                     "PlanID": 8,
@@ -199,7 +211,9 @@
                     "FundingAmount": 26.77,
                     "GrenzFee": 1.82,
                     "GrenzFeeC": 1.93,
-                    "GrenzFeeS": 2.06
+                    "GrenzFeeS": 2.06,
+                    "CarrierName": "Carrier2",
+                    "TierName": "Tier4"
                 }
             ]
         }
