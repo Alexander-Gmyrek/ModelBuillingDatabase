@@ -1,76 +1,115 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Company1</title>
-
-
+    <meta charset="UTF-8">
+    <title>Company Details</title>
 </head>
-<h1>company1</h1>
-<div class="topnav">
-    <input type="text" placeholder="Search..">
-    
-</div>
-<a href="addemployee.html" type="button" class="button">
-    <span class="button__text">Add Employee</span>
-    <span class="button__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke="currentColor" height="24" fill="none" class="svg"><line y2="19" y1="5" x2="12" x1="12"></line><line y2="12" y1="12" x2="19" x1="5"></line></svg></span>
-</a>
-<ul>
-    <li><a href="employee1.html">employee1</a></li>
-    <li>employee2</li>
-    <li>employee3</li>
+<body>
+    <h1 id="companyName"></h1>
 
+    <!-- Search input for employees -->
+    <div>
+        <input type="text" id="employeeSearchInput" placeholder="Search employees..." onkeyup="filterEmployees()">
+    </div>
 
-</ul>
+    <!-- Button to add employee -->
+    <a href="addemployee.html" class="button">
+        <span>Add Employee</span>
+    </a>
 
+    <!-- Employee list -->
+    <ul id="employeeList"></ul>
 
-<a href="addemployee.html" type="button" class="button">
-    <span class="button__text">Edit Plan</span>
-    <span class="button__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke="currentColor" height="24" fill="none" class="svg"><line y2="19" y1="5" x2="12" x1="12"></line><line y2="12" y1="12" x2="19" x1="5"></line></svg></span>
-</a>
+    <!-- Button to edit plan -->
+    <a href="editplan.html" class="button">
+        <span>Edit Plan</span>
+    </a>
 
-<table>
-    <tr>
-      <th>Plan name</th>
-      <th>Funding EE</th>
-      <th>Funding ES</th>
-      <th>Funding EC</th>
-      <th>Funding EF</th>
-      <th>Admin fee</th>
-    </tr>
-    <tr>
-      <td>blue cross hmo</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-    </tr>
-    <tr>
-      <td>kaiser hmo</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-    </tr>
-    <tr>
-        <td>sutter who</td>
-        <td>$</td>
-        <td>$</td>
-        <td>$</td>
-        <td>$</td>
-        <td>$</td>
-        <td>$</td>
-    </tr>
-  </table>
+    <!-- Table for plans -->
+    <table id="planTable">
+        <thead>
+            <tr>
+                <th>Plan Name</th>
+                <th>Funding EE</th>
+                <th>Funding E+1</th>
+                <th>Funding E+2</th>
+                <th>Admin Fee</th>
+            </tr>
+        </thead>
+        <tbody id="planTableBody">
+            <!-- Plan rows will be added dynamically -->
+        </tbody>
+    </table>
 
+    <script type="module">
+        import {
+            searchEmployerById,
+            searchEmployeeByJson,
+            searchEmployeePlanByJson
+        } from './apiFunctions.js';
 
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const companyId = urlParams.get('id');
 
+            if (!companyId) {
+                console.error('No company ID found in URL parameters');
+                return;
+            }
 
+            try {
+                // Fetch company details by ID
+                const company = await searchEmployerById(companyId);
+                document.getElementById('companyName').textContent = company.Name;
 
+                // Fetch and display employees
+                const employees = await searchEmployeeByJson({ EmployerID: companyId });
+                displayEmployees(employees);
 
+                // Display plans associated with the company
+                displayPlans(company.Plans);
+            } catch (error) {
+                console.error('Error fetching company details:', error);
+            }
+        });
 
+        // Function to filter employees by name
+        async function filterEmployees() {
+            const searchInput = document.getElementById('employeeSearchInput').value.toLowerCase();
+            try {
+                const employees = await searchEmployeeByJson({
+                    EmployerID: companyId,
+                    EmployeeFullName: searchInput
+                });
+                displayEmployees(employees);
+            } catch (error) {
+                console.error('Error searching employees:', error);
+            }
+        }
 
+        // Function to display employees in the list
+        function displayEmployees(employees) {
+            const employeeList = document.getElementById('employeeList');
+            employeeList.innerHTML = '';
+            employees.forEach(employee => {
+                const listItem = document.createElement('li');
+                listItem.textContent = employee.EmployeeFullName;
+                employeeList.appendChild(listItem);
+            });
+        }
+
+        // Function to display plans in the table
+        function displayPlans(plans) {
+            const planTableBody = document.getElementById('planTableBody');
+            planTableBody.innerHTML = '';
+            plans.forEach(plan => {
+                const row = planTableBody.insertRow();
+                Object.keys(plan).forEach(key => {
+                    const cell = row.insertCell();
+                    cell.textContent = plan[key];
+                });
+            });
+        }
+    </script>
+</body>
 </html>
