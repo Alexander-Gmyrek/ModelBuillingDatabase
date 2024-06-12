@@ -1,4 +1,3 @@
-DELETE DATABASE IF EXISTS modelBillingDBv1;
 CREATE DATABASE IF NOT EXISTS modelBillingDBv1;
 USE modelBillingDBv1;
 CREATE TABLE Employer (
