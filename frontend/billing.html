@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Grenz & Co Invoice Generator</title>
 </head>
 <body>
@@ -38,10 +39,14 @@
                     listItem.dataset.name = company.EmployerName.toLowerCase();
                     listItem.dataset.id = company.EmployerID;
                     listItem.addEventListener('click', () => {
-                        window.location.href = `company.html?id=${company.EmployerID}`;
+                        navigateToCompany(company.EmployerID);
                     });
                     companyList.appendChild(listItem);
                 });
+            }
+
+            async function navigateToCompany(companyId) {
+                window.location.href = `company.html?id=${companyId}`;
             }
 
             window.filterCompanies = async function() {
