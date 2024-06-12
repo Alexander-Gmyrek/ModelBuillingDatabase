@@ -17,6 +17,9 @@
         <label for="RenewalDate">Renewal Date:</label>
         <input type="date" id="RenewalDate" name="RenewalDate">
         <p></p>
+        <label for="BillingDate">Preferred Billing Date:</label>
+        <input type="date" id="BillingDate" name="BillingDate">
+        <p></p>
         <h4>Choose tier:</h4>
         <input type="radio" id="tier3" name="Tier" value="3 Tier">
         <label for="tier3"> 3 Tier</label><br>
@@ -46,6 +49,9 @@
 
             // Extract renewal date
             data['RenewalDate'] = formData.get('RenewalDate');
+
+            // Extract preferred billing date
+            data['BillingDate'] = formData.get('BillingDate');
 
             // Extract tier
             data['Tier'] = formData.get('Tier');
