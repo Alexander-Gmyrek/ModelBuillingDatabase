@@ -97,13 +97,23 @@
     }
 
     // Function to submit the table data
-    function submitTable() {
+    async function submitTable() {
+        // Retrieve the stored data object from localStorage
+        const companyDataString = localStorage.getItem('companyData');
+        if (!companyDataString) {
+            console.error('No company data found in localStorage');
+            return;
+        }
+
+        // Parse the stored JSON string into an object
+        const companyData = JSON.parse(companyDataString);
+
         // Get the table
         const table = document.getElementById('editableTable');
         // Get all the rows in the table body
         const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
         // Initialize an array to hold the table data
-        const data = [];
+        const tableData = [];
 
         // Loop through each row to collect the input values
         for (let row of rows) {
@@ -119,14 +129,62 @@
                 adminFee: inputs[5].value
             };
             // Add the row data to the array
-            data.push(rowData);
+            tableData.push(rowData);
         }
 
-        // Log the collected data to the console
-        console.log('Table Data:', data);
-        // Here you can send 'data' to the server or save it locally
+        // Add the table data to the company data object
+        companyData['Plans'] = tableData;
+
+        // Log the complete data to the console
+        console.log('Complete Data:', companyData);
+
+        // Send the complete data to the server
+        try {
+            await addEmployer(companyData);
+            alert('Data submitted successfully!');
+            // Optionally, clear the localStorage or redirect to another page
+            localStorage.removeItem('companyData'); // Clear the storage after submission
+        } catch (error) {
+            console.error('Error submitting data:', error);
+            alert('Failed to submit data.');
+        }
+    }
+
+    // Placeholder for the apiFunctions.js methods.
+    // In a real scenario, these would be imported from the actual `apiFunctions.js` file.
+    const BASE_URL = "http://localhost:5000";
+
+    // Helper function to make API requests
+    async function apiRequest(endpoint, method = "GET", body = null) {
+        const options = {
+            method,
+            headers: {
+                "Content-Type": "application/json"
+            }
+        };
+
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
+
+        try {
+            const response = await fetch(`${BASE_URL}${endpoint}`, options);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("API Request Error:", error);
+            throw error;
+        }
+    }
+
+    // Function to add an employer
+    async function addEmployer(employerJson) {
+        return await apiRequest("/employer", "POST", employerJson);
     }
 </script>
 
 </body>
 </html>
+
