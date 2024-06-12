@@ -1,5 +1,5 @@
 import calendar
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import mysql.connector
 import pandas as pd
 import json
@@ -44,7 +44,7 @@ def testconection():
 
 # Add
 @app.route('/plan', methods=['POST'])
-def add_plan():
+def add_new_plan():
     data = request.get_json()
     try:
         connection = get_db_connection()
@@ -1064,8 +1064,10 @@ def add_employee(cursor, employee_json):
     add_employee_plan(cursor, {
         'EmployeeID': new_employee_id,
         'PlanID': plan_id,
+        'InformStartDate': employee_json['JoinDate'],
         'StartDate': employee_json['JoinDate'],
-        'EndDate': employee_json['TermDate']
+        'EndDate': None,
+        'InformEndDate': None
     })
     
     
@@ -1083,9 +1085,9 @@ def get_carrier_id(cursor, carrier_name, employer_id):
     """
     get_carrier_query = "SELECT CarrierID FROM Carrier WHERE CarrierName = %s AND EmployerID = %s"
     cursor.execute(get_carrier_query, (carrier_name, employer_id))
-    carrier = cursor.fetchone()
+    carrier = cursor.fetchall()
     if carrier:
-        return carrier[0]
+        return carrier[0][0]
     raise ValueError(f"Carrier with name {carrier_name} and employer ID {employer_id} does not exist.")
 
 def get_tier_id(cursor, tier_name, dob, employer_id):
@@ -1108,7 +1110,7 @@ def get_tier_id(cursor, tier_name, dob, employer_id):
         cursor.execute(get_tier_query, (calculate_age(employer_id, dob, date.today().year, cursor), employer_id))
     tier = cursor.fetchall()
     if tier:
-        return tier[0]
+        return tier[0][0]
     raise ValueError(f"Tier with name {tier_name} and employer ID {employer_id} does not exist.")
 
 def get_plan_id(cursor, carrier_id, tier_id):
@@ -1245,21 +1247,25 @@ def add_employer(cursor, employer_json):
         carriers = employer_json['carriers']
         for carrier in carriers:
             carrier['EmployerID'] = new_employer_id
-            add_carrier(cursor, carrier)
+            carrier['CarrierID'] = add_carrier(cursor, carrier)
     
     # Add tiers
     if 'tiers' in employer_json:
         tiers = employer_json['tiers']
         for tier in tiers:
             tier['EmployerID'] = new_employer_id
-            add_tier(cursor, tier)
+            tier['TierID'] = add_tier(cursor, tier)
     
     # Add plans
     if 'plans' in employer_json:
         plans = employer_json['plans']
         for plan in plans:
             plan['EmployerID'] = new_employer_id
+            #use the TierName in the plan to get the tier id from the list of tiers.
+            plan['TierID'] = [tier['TierID'] for tier in tiers if tier['TierName'] == plan['TierName']][0]
+            plan['CarrierID'] = [carrier['CarrierID'] for carrier in carriers if carrier['CarrierName'] == plan['CarrierName']][0]
             add_plan(cursor, plan)
+            
     
     # Add employees
     if 'employees' in employer_json:
@@ -1353,12 +1359,12 @@ def generate_month_range(start, end):
         current += timedelta(days=calendar.monthrange(current.year, current.month)[1])
         current = datetime(current.year, current.month, 1)
 
-def calculate_funding_amount_normal(cursor, plan_id, date, employee_id=None):
+def calculate_funding_amount_normal(cursor, date, plan_id, employee_id=None):
     query = f"SELECT CarrierID, TierID, FundingAmount, GrenzFee FROM Plan WHERE PlanID = {plan_id}"
     plan_info = execute_query(cursor, query)
     if not plan_info:
-        print(f"Plan {plan_id} info not found")
-        return 0, "", ""
+        raise ValueError (f"Plan {plan_id} info not found")
+        return 0, "", "", []
 
     carrier_id, tier_id, funding_amount, grenz_fee = plan_info[0]
     
@@ -1496,20 +1502,6 @@ def get_format_normal(employer_info=None):
     columns += ["Plan", "Tier", "Funding Amount"]
     return add_data_normal, columns
 
-def get_format_normal(employer_info=None):
-    columns = ["Notes", "Employee Name"]
-    if employer_info:
-        employer_id, tier_structure, uses_gl_code, uses_division, uses_location, uses_title = employer_info
-        if uses_gl_code:
-            columns.append("GL Code")
-        if uses_division:
-            columns.append("Division")
-        if uses_location:
-            columns.append("Location")
-        if uses_title:
-            columns.append("Title")
-    columns += ["Plan", "Tier", "Funding Amount"]
-    return add_data_normal, columns
 
 
 def add_data_normal(df, notes, employee_name, plan, tier, funding_amount, gl_code = None, division=None, location=None, title=None, dependents=[]):
@@ -1522,7 +1514,8 @@ def add_data_normal(df, notes, employee_name, plan, tier, funding_amount, gl_cod
         new_row["Location"] = location
     if title:
         new_row["Title"] = title
-    return df._append(new_row, ignore_index=True)
+    df = df._append(new_row, ignore_index=True)
+    return df
 
 def add_data_age_banded(df, notes, employee_name, plan, tier, funding_amount, gl_code = None, division=None, location=None, title=None, dependents=[]):
     new_row = {"Notes": notes, "Employee Name": employee_name, "Plan": plan, "Tier": tier, "Funding Amount": funding_amount}
@@ -1542,19 +1535,18 @@ def add_data_age_banded(df, notes, employee_name, plan, tier, funding_amount, gl
 
     return df._append(new_row, ignore_index=True)
 
-def generate_report(connection, config, employer_name, date, get_format=get_format_normal):
+def generate_report(connection, employer_name, date, get_format=get_format_normal):
     if not connection:
-        return
+        raise ValueError("No connection to the database")
 
     cursor = connection.cursor()
 
-    current_month = datetime.strptime(date, '%Y-%m-%d').month
-    current_year = datetime.strptime(date, '%Y-%m-%d').year
+    current_month = date.month
+    current_year = date.year
 
     employer_info = execute_query(cursor, f"SELECT EmployerID, TierStructure, UsesGLCode, UsesDivision, UsesLocation, UsesTitle FROM Employer WHERE EmployerName = '{employer_name}'")[0]
     if not employer_info:
-        print(f"Employer {employer_name} not found")
-        return
+        raise ValueError(f"Employer {employer_name} not found")
     
     add_data, columns = get_format(employer_info)
 
@@ -1569,11 +1561,11 @@ def generate_report(connection, config, employer_name, date, get_format=get_form
     df = pd.DataFrame(columns=columns)
     
     
-    employees = execute_query(cursor, f"SELECT EmployeeID, EmployeeFullName, JoinDate, JoinInformDate, TermDate, TermEndDate FROM Employee WHERE EmployerID = {employer_id} AND JoinDate <= '{date}' AND (TermEndDate >= '{date}' OR TermEndDate IS NULL)")
+    employees = execute_query(cursor, f"SELECT EmployeeID, EmployeeFullName, JoinDate, JoinInformDate, TermDate, TermEndDate FROM Employee WHERE EmployerID = {employer_id}")
 
     if not employees:
-        print(f"No employees found for {employer_name} on {date}")
-        return
+        raise ValueError(f"No employees found for {employer_name} on {date}")
+        
 
     for employee in employees:
         employee_id, employee_name, join_date, join_inform_date, term_date, term_inform_date = employee
@@ -1582,8 +1574,8 @@ def generate_report(connection, config, employer_name, date, get_format=get_form
         carrier_names = []
         tier_names = []
         dependents = []
-
-        employee_plans = execute_query(cursor, f"SELECT PlanID, StartDate, InformStartDate, EndDate, InformEndDate FROM EmployeePlan WHERE EmployeeID = {employee_id} AND InformStartDate <= '{date}'")
+        #raise ValueError(f"We made it to employee {employee_name}")
+        employee_plans = execute_query(cursor, f"SELECT PlanID, StartDate, InformStartDate, EndDate, InformEndDate FROM EmployeePlan WHERE EmployeeID = {employee_id} AND InformStartDate <= '{date}' ")
         
         if not employee_plans:
             print(f"No plans found for {employee_name} on {date}")
@@ -1594,6 +1586,8 @@ def generate_report(connection, config, employer_name, date, get_format=get_form
             print(f"{employee_name} is terminated")
             for back_date in generate_month_range(term_date, term_inform_date):
                 plan_id = execute_query(cursor, f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = {employee_id} AND StartDate <= '{back_date}' AND (EndDate >= '{back_date}' OR EndDate IS NULL)")[0][0]
+                if not plan_id:
+                    raise ValueError(f"No plan found for {employee_name} on {back_date}")
                 f_amount, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
                 funding_amount -= f_amount
                 carrier_names.append(carrier_name)
@@ -1611,7 +1605,7 @@ def generate_report(connection, config, employer_name, date, get_format=get_form
                 carrier_names.append(carrier_name)
                 tier_names.append(tier_name)
                 dependents = new_dependents
-
+        
         for plan in employee_plans:
             plan_id, start_date, inform_start_date, end_date, inform_end_date = plan
             if end_date and inform_end_date < datetime(current_year, current_month, 1):
@@ -1632,9 +1626,14 @@ def generate_report(connection, config, employer_name, date, get_format=get_form
                     tier_names.append(tier_name)
                     dependents = new_dependents
             
-
+        #raise ValueError(f"checking plan {employee_name} carrier_names: {carrier_names} tier_names {tier_names}")
         if not carrier_names or not tier_names:
-            plan_id = execute_query(cursor, f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = {employee_id} AND StartDate <= '{date}' AND (EndDate >= '{date}' OR EndDate IS NULL)")[0][0]
+            try:
+                plan_id = execute_query(cursor, f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = {employee_id} AND InformStartDate <= '{date}' AND (InformEndDate >= '{date}' OR EndDate IS NULL)")[0][0]
+            except(e):
+                raise ValueError(f"Error getting plan for {employee_name}: {e}")
+            if not plan_id:
+                    raise ValueError(f"No plan found for {employee_name} on {back_date}")
             f_amount, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, f"{current_year}-{current_month}-01", plan_id, employee_id)
             funding_amount += f_amount
             carrier_names.append(carrier_name)
@@ -1643,20 +1642,39 @@ def generate_report(connection, config, employer_name, date, get_format=get_form
 
         carrier_name = "/ ".join(set(carrier_names))
         tier_name = "/ ".join(set(tier_names))
-
-        gl_code = execute_query(cursor, f"SELECT GLCode FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
-        division = execute_query(cursor, f"SELECT Division FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
-        location = execute_query(cursor, f"SELECT Location FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
-        title = execute_query(cursor, f"SELECT Title FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
-
-        df = add_data(df, notes, employee_name, carrier_name, tier_name, funding_amount, gl_code, division, location, title, dependents)
+        if(uses_gl_code):
+            gl_code = execute_query(cursor, f"SELECT GLCode FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
+        else:
+            gl_code = None
+        if(uses_division):
+            division = execute_query(cursor, f"SELECT Division FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
+        else:
+            division = None
+        if(uses_location):
+            location = execute_query(cursor, f"SELECT Location FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
+        else:
+            location = None
+        if(uses_title):
+            title = execute_query(cursor, f"SELECT Title FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
+        else:
+            title = None
+        try:
+            df = add_data(df, notes, employee_name, carrier_name, tier_name, funding_amount, gl_code, division, location, title, dependents)
+        except Exception as e:
+            raise ValueError(f"Error adding data for {employee_name}: {e}")
 
     total_funding = df["Funding Amount"].sum()
     df = df._append({"Funding Amount": total_funding}, ignore_index=True)
-    df.to_excel("employee_funding1.xlsx", index=False, engine='openpyxl')
+    #filePath = f"{employer_name}_report_{current_year}_{current_month}.xlsx"
+    try:
+        filePath = "output.xlsx"
+        df.to_excel(filePath, index=False, engine='openpyxl')
+    except Exception as e:
+        raise ValueError(f"Error generating report: {e}")
 
     cursor.close()
-    connection.close() 
+    return filePath
+
 
 ########### Test Data ############
 test_json_1 = """{
@@ -1690,7 +1708,6 @@ test_json_1 = """{
                     "Location": "Houston",
                     "Title": "Manager",
                     "Dependents": [],
-                    "EmployeePlans": [],
                     "Carrier": "Carrier1",
                     "Tier": "Tier3"
                 },
@@ -1712,7 +1729,6 @@ test_json_1 = """{
                     "Location": "Houston",
                     "Title": "Manager",
                     "Dependents": [],
-                    "EmployeePlans": [],
                     "Carrier": "Carrier2",
                     "Tier": "Tier1"
                 },
@@ -1734,7 +1750,6 @@ test_json_1 = """{
                     "Location": "Houston",
                     "Title": "Director",
                     "Dependents": [],
-                    "EmployeePlans": [],
                     "Carrier": "Carrier1",
                     "Tier": "Tier4"
                 }
@@ -1790,7 +1805,9 @@ test_json_1 = """{
                     "FundingAmount": 26.76,
                     "GrenzFee": 1.06,
                     "GrenzFeeC": 1.2,
-                    "GrenzFeeS": 1.56
+                    "GrenzFeeS": 1.56,
+                    "CarrierName": "Carrier1",
+                    "TierName": "Tier1"
                 },
                 {
                     "PlanID": 2,
@@ -1800,7 +1817,10 @@ test_json_1 = """{
                     "FundingAmount": 33.2,
                     "GrenzFee": 4.11,
                     "GrenzFeeC": 1.91,
-                    "GrenzFeeS": 2.15
+                    "GrenzFeeS": 2.15,
+                    "CarrierName": "Carrier1",
+                    "TierName": "Tier2"
+
                 },
                 {
                     "PlanID": 3,
@@ -1810,7 +1830,9 @@ test_json_1 = """{
                     "FundingAmount": 40.04,
                     "GrenzFee": 3.19,
                     "GrenzFeeC": 0.96,
-                    "GrenzFeeS": 1.11
+                    "GrenzFeeS": 1.11,
+                    "CarrierName": "Carrier1",
+                    "TierName": "Tier3"
                 },
                 {
                     "PlanID": 4,
@@ -1820,7 +1842,9 @@ test_json_1 = """{
                     "FundingAmount": 28.0,
                     "GrenzFee": 3.26,
                     "GrenzFeeC": 1.35,
-                    "GrenzFeeS": 0.75
+                    "GrenzFeeS": 0.75,
+                    "CarrierName": "Carrier1",
+                    "TierName": "Tier4"
                 },
                 {
                     "PlanID": 5,
@@ -1830,7 +1854,9 @@ test_json_1 = """{
                     "FundingAmount": 14.88,
                     "GrenzFee": 2.75,
                     "GrenzFeeC": 2.11,
-                    "GrenzFeeS": 1.36
+                    "GrenzFeeS": 1.36,
+                    "CarrierName": "Carrier2",
+                    "TierName": "Tier1"
                 },
                 {
                     "PlanID": 6,
@@ -1840,7 +1866,9 @@ test_json_1 = """{
                     "FundingAmount": 40.75,
                     "GrenzFee": 3.72,
                     "GrenzFeeC": 2.33,
-                    "GrenzFeeS": 1.75
+                    "GrenzFeeS": 1.75,
+                    "CarrierName": "Carrier2",
+                    "TierName": "Tier2"
                 },
                 {
                     "PlanID": 7,
@@ -1850,7 +1878,9 @@ test_json_1 = """{
                     "FundingAmount": 29.47,
                     "GrenzFee": 4.61,
                     "GrenzFeeC": 2.05,
-                    "GrenzFeeS": 1.13
+                    "GrenzFeeS": 1.13,
+                    "CarrierName": "Carrier2",
+                    "TierName": "Tier3"
                 },
                 {
                     "PlanID": 8,
@@ -1860,23 +1890,78 @@ test_json_1 = """{
                     "FundingAmount": 26.77,
                     "GrenzFee": 1.82,
                     "GrenzFeeC": 1.93,
-                    "GrenzFeeS": 2.06
+                    "GrenzFeeS": 2.06,
+                    "CarrierName": "Carrier2",
+                    "TierName": "Tier4"
                 }
             ]
         }
     ]
 }"""
-@app.route('/testaddemployer', methods=['GET'])
+@app.route('/test/addemployer', methods=['GET'])
 def test_add_employer():
     connection = get_db_connection()
     cursor = connection.cursor()
     test_json = json.loads(test_json_1)
     for employer in test_json['employers']:
-        add_employer(cursor, employer)
+        employer['EmployerID'] = add_employer(cursor, employer)
     connection.commit()
     cursor.close()
     connection.close()
     return jsonify("Employer added")
+
+@app.route('/test/deleteemployer', methods=['GET'])
+def test_delete_employer():
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    test_json = json.loads(test_json_1)
+    for employer in test_json['employers']:
+        delete_employer(cursor, employer['EmployerID'])
+    connection.commit()
+    cursor.close()
+    connection.close()
+    return jsonify("Employer deleted")
+
+@app.route('/test/cleardb', methods=['GET'])
+def clear_database():
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("SELECT EmployerID FROM Employer")
+        employers = cursor.fetchall()
+    except Exception as e:
+        return jsonify({"Error Getting Employers ": str(e)}), 400
+
+    for employer in employers:
+        delete_employer(cursor, employer[0])
+    connection.commit()
+    cursor.close()
+    connection.close()
+    return jsonify("Database cleared")
+
+@app.route('/test/generatereport/<EmployerID>/<Year>/<Month>', methods=['GET'])
+def test_generate_report(EmployerID, Year, Month):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute(f"SELECT EmployerName FROM Employer WHERE EmployerID = {EmployerID}")
+    try:
+        EmployerName = cursor.fetchall()[0][0]
+    except Exception as e:
+        return jsonify({"Error Getting Employer Name": str(e)}), 400
+    date = datetime(int(Year), int(Month), 1)
+    cursor.close()
+    try:
+        report = generate_report(connection, EmployerName, date, get_format=get_format_normal)
+    except Exception as e:
+        return jsonify({"Error Gennerating Report": str(e)}), 400
+    
+    if(not report):
+        return jsonify("Report not generated"), 400
+        #report = "output.xlsx"
+    connection.close()
+    return send_file(report, as_attachment=True, download_name="output.xlsx")
+    
+
 ####### Run on Start #######
 
 if __name__ == '__main__':
