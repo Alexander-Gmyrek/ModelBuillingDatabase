@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Company</title>
 </head>
 <body>
@@ -11,6 +13,9 @@
         <p></p>
         <label for="file">Upload employee template file:</label>
         <input type="file" id="file" name="file">
+        <p></p>
+        <label for="RenewalDate">Renewal Date:</label>
+        <input type="date" id="RenewalDate" name="RenewalDate">
         <p></p>
         <h4>Choose tier:</h4>
         <input type="radio" id="tier3" name="Tier" value="3 Tier">
@@ -36,23 +41,17 @@
             // Extract company name
             data['Name'] = formData.get('Name');
 
-            // Extract file
-            const file = formData.get('file');
-            if (file) {
-                data['File'] = file.name; // Assuming you want to store the file name
-            }
+            // Extract file (for demo purposes, just using a placeholder)
+            const file = formData.get('file'); // Use this to upload the file, not handling actual file here
+
+            // Extract renewal date
+            data['RenewalDate'] = formData.get('RenewalDate');
 
             // Extract tier
             data['Tier'] = formData.get('Tier');
 
-            // Retrieve existing companies from localStorage or initialize an empty array
-            let companies = JSON.parse(localStorage.getItem('companies')) || [];
-
-            // Store the data object in the array
-            companies.push(data);
-
-            // Store the updated array back into localStorage
-            localStorage.setItem('companies', JSON.stringify(companies));
+            // Store data locally
+            localStorage.setItem('companyData', JSON.stringify(data));
 
             // Determine the next page based on the selected tier
             let nextPage;
