@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Table</title>
+</head>
+<body>
+
+<!-- Title of the table -->
+<h2>Edit Table</h2>
+
+<!-- Container for the table and buttons -->
+<div id="tableContainer">
+    <!-- Table structure with header and initial rows -->
+    <table id="editableTable">
+        <thead>
+            <tr>
+                <th>Plan Name</th>
+                <th>Funding EE</th>
+                <th>Funding E+1</th>
+                <th>Funding E+2</th>
+                <th>Admin Fee</th>
+                <th></th> <!-- Placeholder for delete button -->
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Table rows will be dynamically added here -->
+        </tbody>
+    </table>
+</div>
+
+<!-- Button to save changes -->
+<button onclick="saveChanges()">Save Changes</button>
+<!-- Button to cancel and go back -->
+<button onclick="goBack()">Cancel</button>
+
+<script>
+    // Retrieve the stored company data object from localStorage
+    const companyDataString = localStorage.getItem('companyData');
+    if (!companyDataString) {
+        console.error('No company data found in localStorage');
+        alert('No company data found. Redirecting to company.html...');
+        window.location.href = 'company.html'; // Redirect to company1.html if no data found
+    }
+
+    // Parse the stored JSON string into an object
+    const companyData = JSON.parse(companyDataString);
+
+    // Initialize the table with existing data
+    initializeTable(companyData.Plans);
+
+    // Function to initialize the table with existing data
+    function initializeTable(plans) {
+        const tableBody = document.querySelector('#editableTable tbody');
+
+        plans.forEach(plan => {
+            const newRow = tableBody.insertRow();
+
+            // Add cells with input fields for each column
+            addCell(newRow, plan.planName);
+            addCell(newRow, plan.fundingEE);
+            addCell(newRow, plan.fundingE1);
+            addCell(newRow, plan.fundingE2);
+            addCell(newRow, plan.adminFee);
+
+            // Add delete button cell
+            const deleteCell = newRow.insertCell();
+            deleteCell.innerHTML = '<button onclick="deleteRow(this)">Delete</button>';
+        });
+    }
+
+    // Helper function to add a cell with an input field
+    function addCell(row, value) {
+        const cell = row.insertCell();
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = value;
+        cell.appendChild(input);
+    }
+
+    // Function to delete a row from the table
+    function deleteRow(button) {
+        const row = button.closest('tr');
+        row.parentNode.removeChild(row);
+    }
+
+    // Function to save changes made to the table
+    async function saveChanges() {
+        const table = document.getElementById('editableTable');
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        // Prepare data array to store updated plan information
+        const updatedPlans = [];
+
+        // Loop through rows to gather updated data
+        Array.from(rows).forEach(row => {
+            const inputs = row.getElementsByTagName('input');
+            const planName = inputs[0].value;
+            const fundingEE = inputs[1].value;
+            const fundingE1 = inputs[2].value;
+            const fundingE2 = inputs[3].value;
+            const adminFee = inputs[4].value;
+
+            updatedPlans.push({
+                planName,
+                fundingEE,
+                fundingE1,
+                fundingE2,
+                adminFee
+            });
+        });
+
+        // Update the companyData object with new plan data
+        companyData.Plans = updatedPlans;
+
+        // Send updated data to the server
+        try {
+            await changeEmployer(companyData); // Use changeEmployer function to update existing employer data
+            alert('Changes saved successfully!');
+            localStorage.removeItem('companyData'); // Clear localStorage after saving
+            window.location.href = 'company.html'; // Redirect back to company1.html
+        } catch (error) {
+            console.error('Error saving changes:', error);
+            alert('Failed to save changes.');
+        }
+    }
+
+    // Function to cancel and go back to company1.html
+    function goBack() {
+        localStorage.removeItem('companyData'); // Clear localStorage if canceling
+        window.location.href = 'company.html'; // Redirect back to company1.html
+    }
+
+    // Placeholder for the apiFunctions.js methods.
+    // In a real scenario, these would be imported from the actual `apiFunctions.js` file.
+    const BASE_URL = "http://localhost:5000";
+
+    // Helper function to make API requests
+    async function apiRequest(endpoint, method = "GET", body = null) {
+        const options = {
+            method,
+            headers: {
+                "Content-Type": "application/json"
+            }
+        };
+
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
+
+        try {
+            const response = await fetch(`${BASE_URL}${endpoint}`, options);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("API Request Error:", error);
+            throw error;
+        }
+    }
+
+    // Function to change employer data
+    async function changeEmployer(companyData) {
+        const { EmployerID } = companyData; // Assuming EmployerID is part of companyData
+        const endpoint = `/employer/${EmployerID}`; // Adjust endpoint based on API specification
+        const method = "PATCH"; // Use PATCH method for updating existing data
+
+        try {
+            await apiRequest(endpoint, method, companyData);
+        } catch (error) {
+            throw error;
+        }
+    }
+</script>
+
+</body>
+</html>
