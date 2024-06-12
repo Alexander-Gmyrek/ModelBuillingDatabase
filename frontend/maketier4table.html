@@ -1,51 +1,132 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>4 Tier table</title>
-
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editable Table with Add and Delete Row Feature</title>
 </head>
+<body>
 
-<table>
-    <tr>
-      <th>Plan name</th>
-      <th>Funding EE</th>
-      <th>Funding ES</th>
-      <th>Funding EC</th>
-      <th>Funding EF</th>
-      <th>Admin fee</th>
-    </tr>
-    <tr>
-      <td>blue cross hmo</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-    </tr>
-    <tr>
-      <td>kaiser hmo</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-      <td>$</td>
-    </tr>
-    <tr>
-        <td>sutter who</td>
-        <td>$</td>
-        <td>$</td>
-        <td>$</td>
-        <td>$</td>
-        <td>$</td>
-    </tr>
-  </table>
+<!-- Title of the table -->
+<h2>Editable Table with Add and Delete Row Feature</h2>
 
+<!-- Table structure with header and initial rows -->
+<table id="editableTable">
+    <thead>
+        <tr>
+            <th>Plan Name</th>
+            <th>Funding EE</th>
+            <th>Funding ES</th>
+            <th>Funding EC</th>
+            <th>Funding EF</th>
+            <th>Admin Fee</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Initial row with inputs and delete button -->
+        <tr>
+            <td><input type="text" value="Plan A"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><button onclick="deleteRow(this)">Delete</button></td>
+        </tr>
+        <!-- Another initial row with inputs and delete button -->
+        <tr>
+            <td><input type="text" value="Plan B"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><button onclick="deleteRow(this)">Delete</button></td>
+        </tr>
+        <!-- Another initial row with inputs and delete button -->
+        <tr>
+            <td><input type="text" value="Plan C"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><input type="number" value="$"></td>
+            <td><button onclick="deleteRow(this)">Delete</button></td>
+        </tr>
+    </tbody>
+</table>
 
+<!-- Button to add new rows -->
+<button onclick="addRow()">Add Row</button>
+<!-- Button to submit the table data -->
+<button onclick="submitTable()">Submit</button>
 
+<script>
+    // Function to add a new row to the table
+    function addRow() {
+        // Get the table body
+        const table = document.getElementById('editableTable').getElementsByTagName('tbody')[0];
+        // Insert a new row at the end
+        const newRow = table.insertRow();
+        
+        // Loop through the columns to add input fields and a delete button
+        for (let i = 0; i < 7; i++) {
+            // Insert a new cell in the row
+            const newCell = newRow.insertCell(i);
+            // Add appropriate input field or button based on the column index
+            if (i === 0) {
+                // First column: text input for plan name
+                newCell.innerHTML = '<input type="text">';
+            } else if (i === 6) {
+                // Last column: delete button
+                newCell.innerHTML = '<button onclick="deleteRow(this)">Delete</button>';
+            } else {
+                // Other columns: number input fields
+                newCell.innerHTML = '<input type="number">';
+            }
+        }
+    }
 
+    // Function to delete a row from the table
+    function deleteRow(button) {
+        // Get the row containing the button
+        const row = button.parentNode.parentNode;
+        // Remove the row from the table
+        row.parentNode.removeChild(row);
+    }
 
+    // Function to submit the table data
+    function submitTable() {
+        // Get the table
+        const table = document.getElementById('editableTable');
+        // Get all the rows in the table body
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        // Initialize an array to hold the table data
+        const data = [];
 
+        // Loop through each row to collect the input values
+        for (let row of rows) {
+            // Get all input fields in the row
+            const inputs = row.getElementsByTagName('input');
+            // Create an object to hold the row data
+            const rowData = {
+                planName: inputs[0].value,
+                fundingEE: inputs[1].value,
+                fundingES: inputs[2].value,
+                fundingEC: inputs[3].value,
+                fundingEF: inputs[4].value,
+                adminFee: inputs[5].value
+            };
+            // Add the row data to the array
+            data.push(rowData);
+        }
 
+        // Log the collected data to the console
+        console.log('Table Data:', data);
+        // Here you can send 'data' to the server or save it locally
+    }
+</script>
 
+</body>
 </html>
