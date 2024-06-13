@@ -32,125 +32,185 @@
         <input type="radio" id="ageBanded" name="Tier" value="Age Banded">
         <label for="ageBanded"> Age Banded</label><br>
         <p></p>
+
+        <!-- Carrier Information Section -->
+        <h4>Carrier Information:</h4>
+        <table id="carriersTable">
+            <thead>
+                <tr>
+                    <th>Carrier Name</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="carriersBody">
+                <!-- Carrier rows will be added here -->
+            </tbody>
+        </table>
+        <button type="button" id="addCarrierButton">Add Carrier</button>
+        <p></p>
+
         <button type="submit">Next</button>
     </form>
 
     <script>
-        document.getElementById('companyForm').addEventListener('submit', async function(event) {
-            event.preventDefault(); // Prevent the default form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            let carrierIDCounter = 1;
 
-            // Retrieve form data
-            const formData = new FormData(this);
-            const data = {};
+            // Add initial empty carrier field
+            addCarrierRow();
 
-            // Extract company name
-            data['Name'] = formData.get('Name');
+            // Function to add a new row for a carrier
+            function addCarrierRow() {
+                const carriersBody = document.getElementById('carriersBody');
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td><input type="text" name="CarrierName" placeholder="Carrier Name"></td>
+                    <td><button type="button" class="removeCarrierButton">Remove</button></td>
+                `;
+                carriersBody.appendChild(newRow);
 
-            // Extract renewal date
-            data['RenewalDate'] = formData.get('RenewalDate');
-
-            // Extract preferred billing date
-            data['BillingDate'] = formData.get('BillingDate');
-
-            // Extract tier
-            data['Tier'] = formData.get('Tier');
-
-            // Extract and parse the Excel file
-            const file = formData.get('file');
-            if (file) {
-                data['Employees'] = await parseExcelFile(file);
-            } else {
-                data['Employees'] = [];
+                // Attach event listener to the remove button
+                newRow.querySelector('.removeCarrierButton').addEventListener('click', function() {
+                    carriersBody.removeChild(newRow);
+                });
             }
 
-            // Store data locally
-            localStorage.setItem('companyData', JSON.stringify(data));
+            // Add carrier row when the add button is clicked
+            document.getElementById('addCarrierButton').addEventListener('click', addCarrierRow);
 
-            // Determine the next page based on the selected tier
-            let nextPage;
-            switch (data['Tier']) {
-                case '3 Tier':
-                    nextPage = 'maketier3table.html';
-                    break;
-                case '4 Tier':
-                    nextPage = 'maketier4table.html';
-                    break;
-                case 'Supercomposite':
-                    nextPage = 'makesupertable.html';
-                    break;
-                case 'Age Banded':
-                    nextPage = 'makeagetable.html';
-                    break;
-                default:
-                    nextPage = 'default_page.html'; // Default page if tier is not specified
-            }
+            // Handle form submission
+            document.getElementById('companyForm').addEventListener('submit', async function(event) {
+                event.preventDefault(); // Prevent the default form submission
 
-            // Redirect to the next page
-            window.location.href = nextPage;
-        });
+                // Retrieve form data
+                const formData = new FormData(this);
+                const data = {};
 
-        async function parseExcelFile(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
+                // Extract company name
+                data['Name'] = formData.get('Name');
 
-                    // Assuming the first sheet contains the employee data
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                // Extract renewal date
+                data['RenewalDate'] = formData.get('RenewalDate');
 
-                    // Define the structure of the employee object with default values
-                    const employeeTemplate = {
-                        "EmployeeID": null,
-                        "EmployerID": null,
-                        "EmployeeFullName": null,
-                        "EmployeeFirstName": null,
-                        "EmployeeLastName": null,
-                        "JoinDate": null,
-                        "TermDate": null,
-                        "JoinInformDate": null,
-                        "TermEndDate": null,
-                        "DOB": null,
-                        "CobraStatus": null,
-                        "Notes": null,
-                        "GL": null,
-                        "Division": null,
-                        "Location": null,
-                        "Title": null,
-                        "Dependents": [],
-                        "Carrier": null,
-                        "Tier": null
-                    };
+                // Extract preferred billing date
+                data['BillingDate'] = formData.get('BillingDate');
 
-                    // Convert the Excel data to the employee objects
-                    const employees = jsonData.map((row, index) => {
-                        const employee = { ...employeeTemplate };
-                        employee.EmployeeID = index + 1;
-                        employee.EmployerID = 1; // Assuming a fixed EmployerID for demo
+                // Extract tier
+                data['Tier'] = formData.get('Tier');
 
-                        // Split Employee Name into first and last names
-                        if (row['Employee Name']) {
-                            const nameParts = row['Employee Name'].split(' ');
-                            employee.EmployeeFirstName = nameParts[0];
-                            employee.EmployeeLastName = nameParts.slice(1).join(' ');
-                            employee.EmployeeFullName = row['Employee Name'];
-                        }
+                // Extract and parse the Excel file
+                const file = formData.get('file');
+                if (file) {
+                    data['Employees'] = await parseExcelFile(file);
+                } else {
+                    data['Employees'] = [];
+                }
 
-                        employee.Notes = row['Notes'] || null;
-                        employee.Tier = row['Tier'] || null;
-                        employee.Plan = row['Plan'] || null;
+                // Extract carrier information
+                data['Carriers'] = [];
+                const carrierRows = document.querySelectorAll('#carriersBody tr');
+                carrierRows.forEach((row, index) => {
+                    const carrierName = row.querySelector('input[name="CarrierName"]').value;
+                    if (carrierName) {
+                        data['Carriers'].push({
+                            "CarrierID": carrierIDCounter++,
+                            "EmployerID": 1, // Assuming a fixed EmployerID for demo
+                            "CarrierName": carrierName
+                        });
+                    }
+                });
 
-                        return employee;
-                    });
+                // Store data locally
+                localStorage.setItem('companyData', JSON.stringify(data));
 
-                    resolve(employees);
-                };
-                reader.onerror = reject;
-                reader.readAsArrayBuffer(file);
+                // Determine the next page based on the selected tier
+                let nextPage;
+                switch (data['Tier']) {
+                    case '3 Tier':
+                        nextPage = 'maketier3table.html';
+                        break;
+                    case '4 Tier':
+                        nextPage = 'maketier4table.html';
+                        break;
+                    case 'Supercomposite':
+                        nextPage = 'makesupertable.html';
+                        break;
+                    case 'Age Banded':
+                        nextPage = 'makeagetable.html';
+                        break;
+                    default:
+                        nextPage = 'default_page.html'; // Default page if tier is not specified
+                }
+
+                // Redirect to the next page
+                window.location.href = nextPage;
             });
-        }
+
+            async function parseExcelFile(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+
+                        // Assuming the first sheet contains the employee data
+                        const sheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[sheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                        // Define the structure of the employee object with default values
+                        const employeeTemplate = {
+                            "EmployeeID": null,
+                            "EmployerID": null,
+                            "EmployeeFullName": null,
+                            "EmployeeFirstName": null,
+                            "EmployeeLastName": null,
+                            "JoinDate": null,
+                            "TermDate": null,
+                            "JoinInformDate": null,
+                            "TermEndDate": null,
+                            "DOB": null,
+                            "CobraStatus": null,
+                            "Notes": null,
+                            "GL": null,
+                            "Division": null,
+                            "Location": null,
+                            "Title": null,
+                            "Dependents": [],
+                            "Carrier": null,
+                            "Tier": null,
+                            "Plan": null
+                        };
+
+                        // Convert the Excel data to the employee objects
+                        const employees = jsonData.map((row, index) => {
+                            const employee = { ...employeeTemplate };
+                            employee.EmployeeID = index + 1;
+                            employee.EmployerID = 1; // Assuming a fixed EmployerID for demo
+
+                            // Split Employee Name into first and last names
+                            if (row['Employee Name']) {
+                                const nameParts = row['Employee Name'].split(' ');
+                                employee.EmployeeFirstName = nameParts[0];
+                                employee.EmployeeLastName = nameParts.slice(1).join(' ');
+                                employee.EmployeeFullName = row['Employee Name'];
+                            }
+
+                            // Map Notes, Plan, and Tier from the row if available
+                            employee.Notes = row['Notes'] || null;
+                            employee.Tier = row['Tier'] || null;
+                            employee.Plan = row['Plan'] || null;
+
+                            return employee;
+                        });
+
+                        resolve(employees);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+        });
     </script>
 </body>
 </html>
