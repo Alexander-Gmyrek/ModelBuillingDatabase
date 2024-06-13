@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Company</title>
+    <!-- Include the xlsx library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.3/xlsx.full.min.js"></script>
 </head>
 <body>
     <h1>New Company</h1>
@@ -34,7 +36,7 @@
     </form>
 
     <script>
-        document.getElementById('companyForm').addEventListener('submit', function(event) {
+        document.getElementById('companyForm').addEventListener('submit', async function(event) {
             event.preventDefault(); // Prevent the default form submission
 
             // Retrieve form data
@@ -44,9 +46,6 @@
             // Extract company name
             data['Name'] = formData.get('Name');
 
-            // Extract file (for demo purposes, just using a placeholder)
-            const file = formData.get('file'); // Use this to upload the file, not handling actual file here
-
             // Extract renewal date
             data['RenewalDate'] = formData.get('RenewalDate');
 
@@ -55,6 +54,14 @@
 
             // Extract tier
             data['Tier'] = formData.get('Tier');
+
+            // Extract and parse the Excel file
+            const file = formData.get('file');
+            if (file) {
+                data['Employees'] = await parseExcelFile(file);
+            } else {
+                data['Employees'] = [];
+            }
 
             // Store data locally
             localStorage.setItem('companyData', JSON.stringify(data));
@@ -81,6 +88,69 @@
             // Redirect to the next page
             window.location.href = nextPage;
         });
+
+        async function parseExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    // Assuming the first sheet contains the employee data
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    // Define the structure of the employee object with default values
+                    const employeeTemplate = {
+                        "EmployeeID": null,
+                        "EmployerID": null,
+                        "EmployeeFullName": null,
+                        "EmployeeFirstName": null,
+                        "EmployeeLastName": null,
+                        "JoinDate": null,
+                        "TermDate": null,
+                        "JoinInformDate": null,
+                        "TermEndDate": null,
+                        "DOB": null,
+                        "CobraStatus": null,
+                        "Notes": null,
+                        "GL": null,
+                        "Division": null,
+                        "Location": null,
+                        "Title": null,
+                        "Dependents": [],
+                        "Carrier": null,
+                        "Tier": null
+                    };
+
+                    // Convert the Excel data to the employee objects
+                    const employees = jsonData.map((row, index) => {
+                        const employee = { ...employeeTemplate };
+                        employee.EmployeeID = index + 1;
+                        employee.EmployerID = 1; // Assuming a fixed EmployerID for demo
+
+                        // Split Employee Name into first and last names
+                        if (row['Employee Name']) {
+                            const nameParts = row['Employee Name'].split(' ');
+                            employee.EmployeeFirstName = nameParts[0];
+                            employee.EmployeeLastName = nameParts.slice(1).join(' ');
+                            employee.EmployeeFullName = row['Employee Name'];
+                        }
+
+                        employee.Notes = row['Notes'] || null;
+                        employee.Tier = row['Tier'] || null;
+                        employee.Plan = row['Plan'] || null;
+
+                        return employee;
+                    });
+
+                    resolve(employees);
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
     </script>
 </body>
 </html>
