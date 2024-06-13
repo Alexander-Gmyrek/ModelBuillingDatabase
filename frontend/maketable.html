@@ -3,88 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editable Table with Add and Delete Row Feature</title>
+    <title>Editable Tables with Dynamic Columns and Rows</title>
 </head>
 <body>
 
-<!-- Title of the table -->
-<h2>Editable Table with Add and Delete Row Feature</h2>
+<!-- Title of the page -->
+<h1>Editable Tables with Dynamic Columns and Rows</h1>
 
-<!-- Table structure with header and initial rows -->
-<table id="editableTable">
-    <thead>
-        <tr>
-            <th>Plan Name</th>
-            <th>Funding EE</th>
-            <th>Funding E+1</th>
-            <th>Funding E+2</th>
-            <th>Admin Fee</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        <!-- Initial row with inputs and delete button -->
-        <tr>
-            <td><input type="text" value="Plan A"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><button onclick="deleteRow(this)">Delete</button></td>
-        </tr>
-        <!-- Another initial row with inputs and delete button -->
-        <tr>
-            <td><input type="text" value="Plan B"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><button onclick="deleteRow(this)">Delete</button></td>
-        </tr>
-        <!-- Another initial row with inputs and delete button -->
-        <tr>
-            <td><input type="text" value="Plan C"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><button onclick="deleteRow(this)">Delete</button></td>
-        </tr>
-    </tbody>
-</table>
+<!-- Container for the tables and buttons -->
+<div id="tableContainer">
+    <!-- Initial table with a header and rows -->
+    <div class="tableWrapper" id="tableWrapper_1">
+        <h2>Table 1: <input id="carrierName_1" type="text" value="Carrier 1"></h2>
+        <table id="editableTable_1">
+            <thead>
+                <tr>
+                    <th><input type="text" value="Plan Name"></th>
+                    <th><input type="text" value="Funding EE"></th>
+                    <th><input type="text" value="Funding E+1"></th>
+                    <th><input type="text" value="Funding E+2"></th>
+                    <th><input type="text" value="Admin Fee"></th>
+                    <th></th> <!-- Placeholder for delete button -->
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Initial row with inputs and delete button -->
+                <tr>
+                    <td><input type="text" value="Plan A"></td>
+                    <td><input type="number" value="$"></td>
+                    <td><input type="number" value="$"></td>
+                    <td><input type="number" value="$"></td>
+                    <td><input type="number" value="$"></td>
+                    <td><button onclick="deleteRow(this)">Delete</button></td>
+                </tr>
+            </tbody>
+        </table>
+        <!-- Buttons for this table -->
+        <button onclick="addRow(1)">Add Row</button>
+        <button onclick="addColumn(1)">Add Column</button>
+        <button onclick="deleteLastColumn(1)">Delete Last Column</button>
+    </div>
+</div>
 
-<!-- Button to add new rows -->
-<button onclick="addRow()">Add Row</button>
-<!-- Button to submit the table data -->
-<button onclick="submitTable()">Submit</button>
+<!-- Button to add new tables -->
+<button onclick="addTable()">Add Table</button>
 
 <script>
-    // Function to add a new row to the table
-    function addRow() {
+    let tableCount = 1; // Counter for tracking tables
+
+    // Function to add a new row to a specific table
+    function addRow(tableId) {
         // Get the table body
-        const table = document.getElementById('editableTable').getElementsByTagName('tbody')[0];
+        const table = document.getElementById(`editableTable_${tableId}`).getElementsByTagName('tbody')[0];
         // Insert a new row at the end
         const newRow = table.insertRow();
-        
-        // Loop through the columns to add input fields and a delete button
-        for (let i = 0; i < 6; i++) {
-            // Insert a new cell in the row
-            const newCell = newRow.insertCell(i);
-            // Add appropriate input field or button based on the column index
-            if (i === 0) {
-                // First column: text input for plan name
-                newCell.innerHTML = '<input type="text">';
-            } else if (i === 5) {
-                // Last column: delete button
-                newCell.innerHTML = '<button onclick="deleteRow(this)">Delete</button>';
-            } else {
-                // Other columns: number input fields
-                newCell.innerHTML = '<input type="number">';
-            }
+
+        // Add a text input in the first column
+        const newCell1 = newRow.insertCell(0);
+        newCell1.innerHTML = '<input type="text">';
+
+        // Get the number of columns (excluding the delete button column)
+        const columnCount = document.getElementById(`editableTable_${tableId}`).rows[0].cells.length - 2;
+
+        // Loop through the remaining columns to add number input fields and a delete button
+        for (let i = 0; i < columnCount; i++) {
+            const newCell = newRow.insertCell(i + 1);
+            newCell.innerHTML = '<input type="number">';
         }
+
+        // Add a delete button cell at the end
+        const deleteCell = newRow.insertCell(columnCount + 1);
+        deleteCell.innerHTML = '<button onclick="deleteRow(this)">Delete</button>';
     }
 
-    // Function to delete a row from the table
+    // Function to delete a row from any table
     function deleteRow(button) {
         // Get the row containing the button
         const row = button.parentNode.parentNode;
@@ -92,36 +84,92 @@
         row.parentNode.removeChild(row);
     }
 
-    // Function to submit the table data
-    function submitTable() {
-        // Get the table
-        const table = document.getElementById('editableTable');
-        // Get all the rows in the table body
+    // Function to add a new column to a specific table
+    function addColumn(tableId) {
+        // Get the table and its rows
+        const table = document.getElementById(`editableTable_${tableId}`);
+        const headerRow = table.rows[0];
         const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-        // Initialize an array to hold the table data
-        const data = [];
 
-        // Loop through each row to collect the input values
+        // Create a new header cell with an editable input for the new column
+        const newHeaderCell = document.createElement('th');
+        const newHeaderInput = document.createElement('input');
+        newHeaderInput.type = 'text';
+        newHeaderInput.value = 'New Column ' + (headerRow.cells.length - 6); // Adjusted for the delete column
+        newHeaderCell.appendChild(newHeaderInput);
+        headerRow.insertBefore(newHeaderCell, headerRow.cells[headerRow.cells.length - 1]);
+
+        // Add a new cell to each existing row for the new column
         for (let row of rows) {
-            // Get all input fields in the row
-            const inputs = row.getElementsByTagName('input');
-            // Create an object to hold the row data
-            const rowData = {
-                planName: inputs[0].value,
-                fundingEE: inputs[1].value,
-                fundingE1: inputs[2].value,
-                fundingE2: inputs[3].value,
-                adminFee: inputs[4].value
-            };
-            // Add the row data to the array
-            data.push(rowData);
+            const newCell = row.insertCell(row.cells.length - 1);
+            newCell.innerHTML = '<input type="number">';
+        }
+    }
+
+    // Function to delete the last column from a specific table
+    function deleteLastColumn(tableId) {
+        // Get the table and its rows
+        const table = document.getElementById(`editableTable_${tableId}`);
+        const headerRow = table.rows[0];
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        // Prevent deletion if only one data column is left
+        if (headerRow.cells.length <= 2) {
+            alert("You cannot delete the last column!");
+            return;
         }
 
-        // Log the collected data to the console
-        console.log('Table Data:', data);
-        // Here you can send 'data' to the server or save it locally
+        // Remove the last header cell (before the delete button column)
+        headerRow.deleteCell(headerRow.cells.length - 2);
+
+        // Remove the last cell of each row (before the delete button cell)
+        for (let row of rows) {
+            row.deleteCell(row.cells.length - 2);
+        }
+    }
+
+    // Function to add a new table with its own header, rows, and buttons
+    function addTable() {
+        tableCount++; // Increment table counter
+        const tableContainer = document.getElementById('tableContainer');
+        const newTableWrapper = document.createElement('div');
+        newTableWrapper.className = 'tableWrapper';
+        newTableWrapper.id = `tableWrapper_${tableCount}`;
+        newTableWrapper.innerHTML = `
+            <h2>Table ${tableCount}: <input id="carrierName_${tableCount}" type="text" value="Carrier ${tableCount}"></h2>
+            <table id="editableTable_${tableCount}">
+                <thead>
+                    <tr>
+                        <th><input type="text" value="Plan Name"></th>
+                        <th><input type="text" value="Funding EE"></th>
+                        <th><input type="text" value="Funding E+1"></th>
+                        <th><input type="text" value="Funding E+2"></th>
+                        <th><input type="text" value="Admin Fee"></th>
+                        <th></th> <!-- Placeholder for delete button -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><input type="text" value="Plan A"></td>
+                        <td><input type="number" value="$"></td>
+                        <td><input type="number" value="$"></td>
+                        <td><input type="number" value="$"></td>
+                        <td><input type="number" value="$"></td>
+                        <td><button onclick="deleteRow(this)">Delete</button></td>
+                    </tr>
+                </tbody>
+            </table>
+            <!-- Buttons for this table -->
+            <button onclick="addRow(${tableCount})">Add Row</button>
+            <button onclick="addColumn(${tableCount})">Add Column</button>
+            <button onclick="deleteLastColumn(${tableCount})">Delete Last Column</button>
+        `;
+        tableContainer.appendChild(newTableWrapper);
     }
 </script>
 
 </body>
 </html>
+
+
+<!-- make code able to store the table correctly acording to test data.json and honestly you could copy and pase for all make tables it looks pretty chill -->
