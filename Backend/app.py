@@ -1023,14 +1023,14 @@ def add_employee(cursor, employee_json):
     # Add new employee
     add_employee_query = """
     INSERT INTO Employee (EmployerID, EmployeeFullName, EmployeeFirstName, EmployeeLastName, JoinDate, TermDate, 
-                          JoinInformDate, TermEndDate, DOB, CobraStatus, Notes, GL, Division, Location, Title)
+                          JoinInformDate, TermEndDate, DOB, CobraStatus, Notes, GlCode, Division, Location, Title)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     employee_data = (
         employee_json['EmployerID'], employee_json['EmployeeFullName'], employee_json['EmployeeFirstName'], 
         employee_json['EmployeeLastName'], employee_json['JoinDate'], employee_json['TermDate'], 
         employee_json['JoinInformDate'], employee_json['TermEndDate'], employee_json['DOB'], 
-        employee_json['CobraStatus'], employee_json['Notes'], employee_json['GL'], employee_json['Division'], 
+        employee_json['CobraStatus'], employee_json['Notes'], employee_json['GlCode'], employee_json['Division'], 
         employee_json['Location'], employee_json['Title']
     )
     cursor.execute(add_employee_query, employee_data)
@@ -1718,7 +1718,7 @@ test_json_1 = """{
                     "DOB": "1990-06-25",
                     "CobraStatus": true,
                     "Notes": "This is a sample note.",
-                    "GL": "GL85327",
+                    "GlCode": "GL85327",
                     "Division": "HR",
                     "Location": "Houston",
                     "Title": "Manager",
@@ -1739,7 +1739,7 @@ test_json_1 = """{
                     "DOB": "1990-06-25",
                     "CobraStatus": true,
                     "Notes": "This is a sample note.",
-                    "GL": "GL61683",
+                    "GlCode": "GL61683",
                     "Division": "Marketing",
                     "Location": "Houston",
                     "Title": "Manager",
@@ -1760,7 +1760,7 @@ test_json_1 = """{
                     "DOB": "1990-06-25",
                     "CobraStatus": false,
                     "Notes": "This is a sample note.",
-                    "GL": "GL99914",
+                    "GlCode": "GL99914",
                     "Division": "Marketing",
                     "Location": "Houston",
                     "Title": "Director",
@@ -1935,7 +1935,7 @@ test_json_1 = """{
                     "DOB": "1990-06-25",
                     "CobraStatus": true,
                     "Notes": "This is a sample note.",
-                    "GL": "GL35688",
+                    "GlCode": "GL35688",
                     "Division": "Marketing",
                     "Location": "Houston",
                     "Title": "Director",
@@ -1979,7 +1979,7 @@ test_json_1 = """{
                     "DOB": "1990-06-25",
                     "CobraStatus": false,
                     "Notes": "This is a sample note.",
-                    "GL": "GL78881",
+                    "GlCode": "GL78881",
                     "Division": "Finance",
                     "Location": "New York",
                     "Title": "Analyst",
@@ -2023,7 +2023,7 @@ test_json_1 = """{
                     "DOB": "1990-06-25",
                     "CobraStatus": false,
                     "Notes": "This is a sample note.",
-                    "GL": "GL38764",
+                    "GlCode": "GL38764",
                     "Division": "Marketing",
                     "Location": "Chicago",
                     "Title": "Manager",
@@ -2067,7 +2067,7 @@ test_json_1 = """{
                     "DOB": "1990-06-25",
                     "CobraStatus": false,
                     "Notes": "This is a sample note.",
-                    "GL": "GL44430",
+                    "GlCode": "GL44430",
                     "Division": "HR",
                     "Location": "Chicago",
                     "Title": "Director",
@@ -2111,7 +2111,7 @@ test_json_1 = """{
                     "DOB": "1990-06-25",
                     "CobraStatus": true,
                     "Notes": "This is a sample note.",
-                    "GL": "GL35279",
+                    "GlCode": "GL35279",
                     "Division": "Finance",
                     "Location": "Los Angeles",
                     "Title": "Manager",
@@ -2162,7 +2162,7 @@ test_json_1 = """{
                     "TierID": 2,
                     "EmployerID": 1,
                     "TierName": "Tier2",
-                    "MaxAge": 100,
+                    "MaxAge": 10000,
                     "MinAge": 51
                 }
             ],
