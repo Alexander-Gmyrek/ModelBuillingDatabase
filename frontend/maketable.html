@@ -3,14 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editable Tables with Dynamic Columns and Rows</title>
+    <title>make table</title>
 </head>
 <body>
 
-<!-- Title of the page -->
-<h1>Editable Tables with Dynamic Columns and Rows</h1>
+<h1>make table</h1>
 
-<!-- Container for the tables and buttons -->
 <div id="tableContainer">
     <!-- Initial table with a header and rows -->
     <div class="tableWrapper" id="tableWrapper_1">
@@ -27,110 +25,70 @@
                 </tr>
             </thead>
             <tbody>
-                <!-- Initial row with inputs and delete button -->
                 <tr>
                     <td><input type="text" value="Plan A"></td>
                     <td><input type="number" value="$"></td>
                     <td><input type="number" value="$"></td>
                     <td><input type="number" value="$"></td>
                     <td><input type="number" value="$"></td>
-                    <td><button onclick="deleteRow(this)">Delete</button></td>
+                    
                 </tr>
             </tbody>
         </table>
-        <!-- Buttons for this table -->
-        <button onclick="addRow(1)">Add Row</button>
+        
         <button onclick="addColumn(1)">Add Column</button>
         <button onclick="deleteLastColumn(1)">Delete Last Column</button>
     </div>
 </div>
 
-<!-- Button to add new tables -->
 <button onclick="addTable()">Add Table</button>
+<button onclick="submitTable()">Submit</button>
 
 <script>
     let tableCount = 1; // Counter for tracking tables
+    let columnCount=0;
 
     // Function to add a new row to a specific table
-    function addRow(tableId) {
-        // Get the table body
-        const table = document.getElementById(`editableTable_${tableId}`).getElementsByTagName('tbody')[0];
-        // Insert a new row at the end
-        const newRow = table.insertRow();
+    
 
-        // Add a text input in the first column
-        const newCell1 = newRow.insertCell(0);
-        newCell1.innerHTML = '<input type="text">';
+    
 
-        // Get the number of columns (excluding the delete button column)
-        const columnCount = document.getElementById(`editableTable_${tableId}`).rows[0].cells.length - 2;
-
-        // Loop through the remaining columns to add number input fields and a delete button
-        for (let i = 0; i < columnCount; i++) {
-            const newCell = newRow.insertCell(i + 1);
-            newCell.innerHTML = '<input type="number">';
-        }
-
-        // Add a delete button cell at the end
-        const deleteCell = newRow.insertCell(columnCount + 1);
-        deleteCell.innerHTML = '<button onclick="deleteRow(this)">Delete</button>';
-    }
-
-    // Function to delete a row from any table
-    function deleteRow(button) {
-        // Get the row containing the button
-        const row = button.parentNode.parentNode;
-        // Remove the row from the table
-        row.parentNode.removeChild(row);
-    }
-
-    // Function to add a new column to a specific table
     function addColumn(tableId) {
-        // Get the table and its rows
         const table = document.getElementById(`editableTable_${tableId}`);
         const headerRow = table.rows[0];
         const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
 
-        // Create a new header cell with an editable input for the new column
         const newHeaderCell = document.createElement('th');
         const newHeaderInput = document.createElement('input');
         newHeaderInput.type = 'text';
-        newHeaderInput.value = 'New Column ' + (headerRow.cells.length - 6); // Adjusted for the delete column
+        newHeaderInput.value = 'New Column ' + (headerRow.cells.length - 5);
         newHeaderCell.appendChild(newHeaderInput);
         headerRow.insertBefore(newHeaderCell, headerRow.cells[headerRow.cells.length - 1]);
 
-        // Add a new cell to each existing row for the new column
         for (let row of rows) {
             const newCell = row.insertCell(row.cells.length - 1);
             newCell.innerHTML = '<input type="number">';
         }
     }
 
-    // Function to delete the last column from a specific table
     function deleteLastColumn(tableId) {
-        // Get the table and its rows
         const table = document.getElementById(`editableTable_${tableId}`);
         const headerRow = table.rows[0];
         const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
 
-        // Prevent deletion if only one data column is left
         if (headerRow.cells.length <= 2) {
             alert("You cannot delete the last column!");
             return;
         }
 
-        // Remove the last header cell (before the delete button column)
         headerRow.deleteCell(headerRow.cells.length - 2);
-
-        // Remove the last cell of each row (before the delete button cell)
         for (let row of rows) {
             row.deleteCell(row.cells.length - 2);
         }
     }
 
-    // Function to add a new table with its own header, rows, and buttons
     function addTable() {
-        tableCount++; // Increment table counter
+        tableCount++;
         const tableContainer = document.getElementById('tableContainer');
         const newTableWrapper = document.createElement('div');
         newTableWrapper.className = 'tableWrapper';
@@ -155,21 +113,119 @@
                         <td><input type="number" value="$"></td>
                         <td><input type="number" value="$"></td>
                         <td><input type="number" value="$"></td>
-                        <td><button onclick="deleteRow(this)">Delete</button></td>
+                        
                     </tr>
                 </tbody>
             </table>
-            <!-- Buttons for this table -->
-            <button onclick="addRow(${tableCount})">Add Row</button>
+            
             <button onclick="addColumn(${tableCount})">Add Column</button>
             <button onclick="deleteLastColumn(${tableCount})">Delete Last Column</button>
         `;
         tableContainer.appendChild(newTableWrapper);
     }
+
+    // Modified submitTable function
+    async function submitTable() {
+        // Initialize arrays to hold the collected data
+        // Retrieve the stored data object from localStorage
+        const companyDataString = localStorage.getItem('companyData');
+        if (!companyDataString) {
+            console.error('No company data found in localStorage');
+            return;
+        }
+
+        // Parse the stored JSON string into an object
+        const companyData = JSON.parse(companyDataString);
+        const plans = [];
+
+        let planID = 1;
+
+        for (let i = 1; i <= tableCount; i++) {
+            const carrierName = document.getElementById(`carrierName_${i}`).value;
+
+            const table = document.getElementById(`editableTable_${i}`);
+            const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+            for (let row of rows) {
+                const inputs = row.getElementsByTagName('input');
+                const planName = inputs[0].value;
+                
+                for(let j=1; j < inputs.length-1; j++){
+                    
+                    // Create a plan object for each row
+                    const planObject = {
+                        "PlanID": planID,
+                        "EmployerID": 1, // Replace with actual EmployerID
+                        "CarrierID": i, // Replace with actual CarrierID
+                        "CarrierName": carrierName,
+                        "PlanName": planName,
+                        "FundingAmount": parseFloat(inputs[j].value) || 0,// Assuming funding amount is in the second input field
+                        "GrenzFee": parseFloat(inputs[inputs.length-1].value) || 0,
+                        "TierID": j
+                    };
+
+                    plans.push(planObject);
+                    planID++;
+                }
+            }
+        }
+
+        // Display the collected plans for debugging
+        console.log('Final plans:', plans);
+
+        // Add the table data to the company data object
+        companyData['Plans'] = plans;
+
+    // Log the complete data to the console
+    console.log('Complete Data:', companyData);
+
+    // Send the complete data to the server
+    try {
+        await addEmployer(companyData);
+        alert('Data submitted successfully!');
+        // Optionally, clear the localStorage or redirect to another page
+        localStorage.removeItem('companyData'); // Clear the storage after submission
+    } catch (error) {
+        console.error('Error submitting data:', error);
+        alert('Failed to submit data.');
+    }
+    }
+
+
+    // Placeholder for the apiFunctions.js methods.
+    // In a real scenario, these would be imported from the actual `apiFunctions.js` file.
+    const BASE_URL = "http://localhost:5000";
+
+    // Helper function to make API requests
+    async function apiRequest(endpoint, method = "GET", body = null) {
+        const options = {
+            method,
+            headers: {
+                "Content-Type": "application/json"
+            }
+        };
+
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
+
+        try {
+            const response = await fetch(`${BASE_URL}${endpoint}`, options);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("API Request Error:", error);
+            throw error;
+        }
+    }
+
+    // Function to add an employer
+    async function addEmployer(employerJson) {
+        return await apiRequest("/employer", "POST", employerJson);
+}
 </script>
 
 </body>
 </html>
-
-
-<!-- make code able to store the table correctly acording to test data.json and honestly you could copy and pase for all make tables it looks pretty chill -->
