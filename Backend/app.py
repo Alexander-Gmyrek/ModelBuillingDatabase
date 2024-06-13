@@ -1129,16 +1129,18 @@ def get_plan_id(cursor, carrier_id, tier_id):
     if plan:
         return plan[0]
     raise ValueError(f"Plan with carrier ID {carrier_id} and tier ID {tier_id} does not exist.")
-
+from datetime import date
 def calculate_age(employer_id, dob, year, cursor):
     #Ages are only updated on the renewal date
     query = f"SELECT RenewalDate FROM Employer WHERE EmployerID = {employer_id}"
     cursor.execute(query)
-    renewal_date = cursor.fetchone()[0]
-    dob = dob.split('-')
-    dob = datetime.date(int(dob[0]), int(dob[1]), int(dob[2]))
-    renewal_date = renewal_date.split('-')
-    renewal_date = datetime.date(int(year), int(renewal_date[1]), int(renewal_date[2]))
+    renewal_date = cursor.fetchall()[0][0]
+    dob_list = [int(part) for part in dob.split('-')]
+    
+    # Create a date object from the integers
+    dob = date(dob_list[0], dob_list[1], dob_list[2])
+    #renewal_date = renewal_date.split('-')
+    #renewal_date = datetime.date(int(year), int(renewal_date[1]), int(renewal_date[2]))
     age = renewal_date.year - dob.year - ((renewal_date.month, renewal_date.day) < (dob.month, dob.day))
     return age
 
@@ -1345,8 +1347,11 @@ def SearchTable(cursor, table_name, search_criteria_json):
 
 ######### Generate Report #########
 def execute_query(cursor, query):
-    cursor.execute(query)
-    return cursor.fetchall()
+    try:
+        cursor.execute(query)
+        return cursor.fetchall()
+    except Exception as e:
+        raise Exception(f"Error Executing Queary: {query} Error: " + str(e))
 
 def add_data_test(df, notes, employee_name, plan, tier, funding_amount):
     new_row = {"Notes": notes, "Employee Name": employee_name, "Plan": plan, "Tier": tier, "Funding Amount": funding_amount}
@@ -1373,37 +1378,39 @@ def calculate_funding_amount_normal(cursor, date, plan_id, employee_id=None):
 
     return funding_amount + grenz_fee, carrier_name, tier_name, []
 
-def calculate_funding_amount_age_banded(cursor, date, plan_id=None, employee_id=None):
+def calculate_funding_amount_age_banded(cursor, current_date, plan_id=None, employee_id=None):
     funding_amount = 0
     dependents = []
     # Get Renewal Date
-    query = f"SELECT RenewalDate FROM Emloyer WHERE EmployerID = SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
-    renewal_date = execute_query(cursor, query)[0][0]
+    query = f"SELECT RenewalDate FROM Employer WHERE EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
+
+    # Execute the query with the variable
+    renewal_date = execute_query(cursor, (query))[0][0]
     # Get the year from the date and combine it with renewal date month
-    date = datetime.strptime(date, '%Y-%m-%d') # Convert date to datetime
-    date = renewal_date.replace(year=date.year) # Replace the year with the current year
+    current_date = datetime.strptime(current_date, '%Y-%m-%d') # Convert date to datetime
+    current_date = renewal_date.replace(year=current_date.year) # Replace the year with the current year
     # Get the age of the employee
     query = f"SELECT DOB FROM Employee WHERE EmployeeID = {employee_id}"
     dob = execute_query(cursor, query)[0][0]
-    age = date.year - dob.year - ((date.month, date.day) < (dob.month, dob.day))
+    age = current_date.year - dob.year - ((current_date.month, current_date.day) < (dob.month, dob.day))
     # Get the age banded tier
-    query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
+    query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
     tier_id = execute_query(cursor, query)[0][0]
     # Get the funding amount for the Plan
-    query = f"SELECT FundingAmount, GrenzFee FROM Plan WHERE TeirID = {tier_id} AND CarrierID = SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}"
-    fund_amount, grenz_fee = execute_query(cursor, query)
+    query = f"SELECT FundingAmount, GrenzFee FROM Plan WHERE TierID = {tier_id} AND CarrierID = (SELECT CarrierID FROM Plan WHERE PlanID = {plan_id})"
+    fund_amount, grenz_fee = execute_query(cursor, query)[0]
     funding_amount += fund_amount + grenz_fee
     tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
-    carrier_id = execute_query(cursor, f"SELECT CarrierID FROM Carrier WHERE CarrierID = SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}")[0][0]
+    carrier_id = execute_query(cursor, f"SELECT CarrierID FROM Carrier WHERE CarrierID = (SELECT CarrierID FROM Plan WHERE PlanID = {plan_id})")[0][0]
     carrier = execute_query(cursor, f"SELECT CarrierName FROM Carrier WHERE CarrierID = {carrier_id}")[0][0]
     # Get the dependents
     query = f"SELECT DependentID FROM Dependent WHERE EmployeeID = {employee_id}"
     dependent_ids = execute_query(cursor, query)
     for dependent_id in dependent_ids:
         # check if dependent is active
-        query = f"SELECT StartDate, InformStartDate, EndDate, InformStartDate FROM Dependent WHERE DependentID = {dependent_id}"
+        query = f"SELECT StartDate, InformStartDate, EndDate, InformStartDate FROM Dependent WHERE DependentID = {dependent_id[0]}"
         start_date, inform_start_date, end_date, inform_end_date = execute_query(cursor, query)[0]
-        if inform_start_date == datetime(date.year, date.month, 1):
+        if inform_start_date == datetime(current_date.year, current_date.month, 1).date():
             query = f"SELECT DependentName, DOB, Relationship FROM Dependent WHERE DependentID = {dependent_id}"
             dep_name, dob, relationship = execute_query(cursor, query)[0][0]
             for back_date in generate_month_range(start_date, inform_start_date):
@@ -1411,9 +1418,9 @@ def calculate_funding_amount_age_banded(cursor, date, plan_id=None, employee_id=
                 query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
                 tier_id = execute_query(cursor, query)[0][0]
                 if relationship == "Spouse":
-                    query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TeirID = {tier_id} AND CarrierID = {carrier_id}"
+                    query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
                 elif relationship == "Child":
-                    query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TeirID = {tier_id} AND CarrierID = {carrier_id}"
+                    query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
                 else:
                     raise ValueError("Invalid Relationship")
                 fund_amount, grenz_fee = execute_query(cursor, query)
@@ -1421,7 +1428,7 @@ def calculate_funding_amount_age_banded(cursor, date, plan_id=None, employee_id=
                 dep_tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
                 #add the dependent (name, tier, relationship) to the list
             dependents.append((dep_name, dep_tier, relationship))
-        if inform_end_date == datetime(date.year, date.month, 1):
+        if inform_end_date == datetime(current_date.year, current_date.month, 1).date():
             query = f"SELECT DependentName, DOB, Relationship FROM Dependent WHERE DependentID = {dependent_id}"
             dep_name, dob, relationship = execute_query(cursor, query)[0][0]
             for back_date in generate_month_range(start_date, inform_start_date):
@@ -1429,9 +1436,9 @@ def calculate_funding_amount_age_banded(cursor, date, plan_id=None, employee_id=
                 query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
                 tier_id = execute_query(cursor, query)[0][0]
                 if relationship == "Spouse":
-                    query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TeirID = {tier_id} AND CarrierID = {carrier_id}"
+                    query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
                 elif relationship == "Child":
-                    query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TeirID = {tier_id} AND CarrierID = {carrier_id}"
+                    query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
                 else:
                     raise ValueError("Invalid Relationship")
                 fund_amount, grenz_fee = execute_query(cursor, query)
@@ -1440,17 +1447,17 @@ def calculate_funding_amount_age_banded(cursor, date, plan_id=None, employee_id=
                 #add the dependent (name, tier, relationship) to the list
             dependents.append((dep_name, dep_tier, relationship))
         #if the dependent is not active
-        if ((inform_end_date is not None) and (inform_end_date < datetime(date.year, date.month, 1)) or (inform_start_date > datetime(date.year, date.month, 1))):
+        if ((inform_end_date is not None) and (inform_end_date < datetime(current_date.year, current_date.month, 1).date()) or (inform_start_date > datetime(current_date.year, current_date.month, 1).date())):
             continue
         query = f"SELECT DependentName, DOB, Relationship FROM Dependent WHERE DependentID = {dependent_id}"
         dep_name, dob, relationship = execute_query(cursor, query)[0][0]
-        age = date.year - dob.year - ((date.month, date.day) < (dob.month, dob.day))
-        query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
+        age = current_date.year - dob.year - ((current_date.month, current_date.day) < (dob.month, dob.day))
+        query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
         tier_id = execute_query(cursor, query)[0][0]
         if relationship == "Spouse":
-            query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TeirID = {tier_id} AND CarrierID = {carrier_id}"
+            query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
         elif relationship == "Child":
-            query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TeirID = {tier_id} AND CarrierID = {carrier_id}"
+            query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
         else:
             raise ValueError("Invalid Relationship")
         fund_amount, grenz_fee = execute_query(cursor, query)
@@ -1471,14 +1478,14 @@ def calculate_funding_amount_composite(cursor, date, plan_id=None, employee_id=N
     date = datetime.strptime(date, '%Y-%m-%d') # Convert date to datetime
     date = renewal_date.replace(year=date.year) # Replace the year with the current year
     # Get the age of the employee
-    query = f"SELECT DOB FROM Employee WHERE EmployeeID = {employee_id}"
+    query = f"SELECT DOB FROM Employee WHERE EmployeeID = {employee_id};"
     dob = execute_query(cursor, query)[0][0]
     age = date.year - dob.year - ((date.month, date.day) < (dob.month, dob.day))
     # Get the age banded tier
     query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
     tier_id = execute_query(cursor, query)[0][0]
     # Get the funding amount for the Plan
-    query = f"SELECT FundingAmount, GrenzFee FROM Plan WHERE TeirID = {tier_id} AND CarrierID = SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}"
+    query = f"SELECT FundingAmount, GrenzFee FROM Plan WHERE TierID = {tier_id} AND CarrierID = SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}"
     fund_amount, grenz_fee = execute_query(cursor, query)
     funding_amount += fund_amount + grenz_fee
     tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
@@ -1544,7 +1551,7 @@ def generate_report(connection, employer_name, date, get_format=get_format_norma
     current_month = date.month
     current_year = date.year
 
-    employer_info = execute_query(cursor, f"SELECT EmployerID, TierStructure, UsesGLCode, UsesDivision, UsesLocation, UsesTitle FROM Employer WHERE EmployerName = '{employer_name}'")[0]
+    employer_info = execute_query(cursor, f"SELECT EmployerID, TierStructure, UsesGlCode, UsesDivision, UsesLocation, UsesTitle FROM Employer WHERE EmployerName = '{employer_name}'")[0]
     if not employer_info:
         raise ValueError(f"Employer {employer_name} not found")
     
@@ -1634,7 +1641,15 @@ def generate_report(connection, employer_name, date, get_format=get_format_norma
                 raise ValueError(f"Error getting plan for {employee_name}: {e}")
             if not plan_id:
                     raise ValueError(f"No plan found for {employee_name} on {back_date}")
-            f_amount, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, f"{current_year}-{current_month}-01", plan_id, employee_id)
+            try:
+                #test the connection to the db
+                execute_query(cursor, f"SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}")
+            except Exception as e:
+                raise ValueError(f"Error with getting connection before plan: {e}")
+            try:
+                f_amount, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, f"{current_year}-{current_month}-01", plan_id, employee_id)
+            except Exception as e:
+                raise ValueError(f"Error calculating funding amount for {employee_name}: {e}")
             funding_amount += f_amount
             carrier_names.append(carrier_name)
             tier_names.append(tier_name)
@@ -1643,7 +1658,7 @@ def generate_report(connection, employer_name, date, get_format=get_format_norma
         carrier_name = "/ ".join(set(carrier_names))
         tier_name = "/ ".join(set(tier_names))
         if(uses_gl_code):
-            gl_code = execute_query(cursor, f"SELECT GLCode FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
+            gl_code = execute_query(cursor, f"SELECT GlCode FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
         else:
             gl_code = None
         if(uses_division):
@@ -1893,6 +1908,288 @@ test_json_1 = """{
                     "GrenzFeeS": 2.06,
                     "CarrierName": "Carrier2",
                     "TierName": "Tier4"
+                }
+            ]
+        },
+        {
+            "EmployerID": 2,
+            "EmployerName": "Test Employer 2 AgeBanded",
+            "TierStructure": "AgeBanded",
+            "UsesGlCode": true,
+            "UsesDivision": false,
+            "UsesLocation": true,
+            "UsesTitle": true,
+            "PerferedBillingDate": "2025-05-01",
+            "RenewalDate": "2025-07-01",
+            "employees": [
+                {
+                    "EmployeeID": 1,
+                    "EmployerID": 1,
+                    "EmployeeFullName": "Jane Johnson",
+                    "EmployeeFirstName": "Jane",
+                    "EmployeeLastName": "Johnson",
+                    "JoinDate": "2000-01-01",
+                    "TermDate": null,
+                    "JoinInformDate": "2000-01-01",
+                    "TermEndDate": null,
+                    "DOB": "1990-06-25",
+                    "CobraStatus": true,
+                    "Notes": "This is a sample note.",
+                    "GL": "GL35688",
+                    "Division": "Marketing",
+                    "Location": "Houston",
+                    "Title": "Director",
+                    "Dependents": [
+                        {
+                            "DependentID": 1,
+                            "EmployeeID": 1,
+                            "DependentName": "Chris Smith",
+                            "Relationship": "Child",
+                            "DOB": "1990-06-25",
+                            "StartDate": "2023-01-01",
+                            "InformStartDate": "2023-01-01",
+                            "EndDate": "2024-01-01",
+                            "InformEndDate": "2024-01-01"
+                        },
+                        {
+                            "DependentID": 2,
+                            "EmployeeID": 1,
+                            "DependentName": "Casey Smith",
+                            "Relationship": "Spouse",
+                            "DOB": "1990-06-25",
+                            "StartDate": "2023-01-01",
+                            "InformStartDate": "2023-01-01",
+                            "EndDate": "2024-01-01",
+                            "InformEndDate": "2024-01-01"
+                        }
+                    ],
+                    "Carrier": "Carrier1",
+                    "Tier": null
+                },
+                {
+                    "EmployeeID": 2,
+                    "EmployerID": 1,
+                    "EmployeeFullName": "Alice Smith",
+                    "EmployeeFirstName": "Alice",
+                    "EmployeeLastName": "Smith",
+                    "JoinDate": "2000-01-01",
+                    "TermDate": null,
+                    "JoinInformDate": "2000-01-01",
+                    "TermEndDate": null,
+                    "DOB": "1990-06-25",
+                    "CobraStatus": false,
+                    "Notes": "This is a sample note.",
+                    "GL": "GL78881",
+                    "Division": "Finance",
+                    "Location": "New York",
+                    "Title": "Analyst",
+                    "Dependents": [
+                        {
+                            "DependentID": 1,
+                            "EmployeeID": 2,
+                            "DependentName": "Sam Jones",
+                            "Relationship": "Spouse",
+                            "DOB": "1990-06-25",
+                            "StartDate": "2023-01-01",
+                            "InformStartDate": "2023-01-01",
+                            "EndDate": "2024-01-01",
+                            "InformEndDate": "2024-01-01"
+                        },
+                        {
+                            "DependentID": 2,
+                            "EmployeeID": 2,
+                            "DependentName": "Casey Jones",
+                            "Relationship": "Child",
+                            "DOB": "1990-06-25",
+                            "StartDate": "2023-01-01",
+                            "InformStartDate": "2023-01-01",
+                            "EndDate": "2024-01-01",
+                            "InformEndDate": "2024-01-01"
+                        }
+                    ],
+                    "Carrier": "Carrier1",
+                    "Tier": null
+                },
+                {
+                    "EmployeeID": 3,
+                    "EmployerID": 1,
+                    "EmployeeFullName": "Alice Brown",
+                    "EmployeeFirstName": "Alice",
+                    "EmployeeLastName": "Brown",
+                    "JoinDate": "2000-01-01",
+                    "TermDate": null,
+                    "JoinInformDate": "2000-01-01",
+                    "TermEndDate": null,
+                    "DOB": "1990-06-25",
+                    "CobraStatus": false,
+                    "Notes": "This is a sample note.",
+                    "GL": "GL38764",
+                    "Division": "Marketing",
+                    "Location": "Chicago",
+                    "Title": "Manager",
+                    "Dependents": [
+                        {
+                            "DependentID": 1,
+                            "EmployeeID": 3,
+                            "DependentName": "Jordan Johnson",
+                            "Relationship": "Child",
+                            "DOB": "1990-06-25",
+                            "StartDate": "2023-01-01",
+                            "InformStartDate": "2023-01-01",
+                            "EndDate": "2024-01-01",
+                            "InformEndDate": "2024-01-01"
+                        },
+                        {
+                            "DependentID": 2,
+                            "EmployeeID": 3,
+                            "DependentName": "Jordan Brown",
+                            "Relationship": "Spouse",
+                            "DOB": "1990-06-25",
+                            "StartDate": "2023-01-01",
+                            "InformStartDate": "2023-01-01",
+                            "EndDate": "2024-01-01",
+                            "InformEndDate": "2024-01-01"
+                        }
+                    ],
+                    "Carrier": "Carrier1",
+                    "Tier": null
+                },
+                {
+                    "EmployeeID": 4,
+                    "EmployerID": 1,
+                    "EmployeeFullName": "Mike Doe",
+                    "EmployeeFirstName": "Mike",
+                    "EmployeeLastName": "Doe",
+                    "JoinDate": "2000-01-01",
+                    "TermDate": null,
+                    "JoinInformDate": "2000-01-01",
+                    "TermEndDate": null,
+                    "DOB": "1990-06-25",
+                    "CobraStatus": false,
+                    "Notes": "This is a sample note.",
+                    "GL": "GL44430",
+                    "Division": "HR",
+                    "Location": "Chicago",
+                    "Title": "Director",
+                    "Dependents": [
+                        {
+                            "DependentID": 1,
+                            "EmployeeID": 4,
+                            "DependentName": "Sam Jones",
+                            "Relationship": "Spouse",
+                            "DOB": "1990-06-25",
+                            "StartDate": "2023-01-01",
+                            "InformStartDate": "2023-01-01",
+                            "EndDate": "2024-01-01",
+                            "InformEndDate": "2024-01-01"
+                        },
+                        {
+                            "DependentID": 2,
+                            "EmployeeID": 4,
+                            "DependentName": "Taylor Jones",
+                            "Relationship": "Child",
+                            "DOB": "1990-06-25",
+                            "StartDate": "2023-01-01",
+                            "InformStartDate": "2023-01-01",
+                            "EndDate": "2024-01-01",
+                            "InformEndDate": "2024-01-01"
+                        }
+                    ],
+                    "Carrier": "Carrier1",
+                    "Tier": null
+                },
+                {
+                    "EmployeeID": 5,
+                    "EmployerID": 1,
+                    "EmployeeFullName": "Alex Williams",
+                    "EmployeeFirstName": "Alex",
+                    "EmployeeLastName": "Williams",
+                    "JoinDate": "2000-01-01",
+                    "TermDate": null,
+                    "JoinInformDate": "2000-01-01",
+                    "TermEndDate": null,
+                    "DOB": "1990-06-25",
+                    "CobraStatus": true,
+                    "Notes": "This is a sample note.",
+                    "GL": "GL35279",
+                    "Division": "Finance",
+                    "Location": "Los Angeles",
+                    "Title": "Manager",
+                    "Dependents": [
+                        {
+                            "DependentID": 1,
+                            "EmployeeID": 5,
+                            "DependentName": "Pat Williams",
+                            "Relationship": "Spouse",
+                            "DOB": "1990-06-25",
+                            "StartDate": "2023-01-01",
+                            "InformStartDate": "2023-01-01",
+                            "EndDate": "2024-01-01",
+                            "InformEndDate": "2024-01-01"
+                        },
+                        {
+                            "DependentID": 2,
+                            "EmployeeID": 5,
+                            "DependentName": "Pat Jones",
+                            "Relationship": "Spouse",
+                            "DOB": "1990-06-25",
+                            "StartDate": "2023-01-01",
+                            "InformStartDate": "2023-01-01",
+                            "EndDate": "2024-01-01",
+                            "InformEndDate": "2024-01-01"
+                        }
+                    ],
+                    "Carrier": "Carrier1",
+                    "Tier": null
+                }
+            ],
+            "carriers": [
+                {
+                    "CarrierID": 1,
+                    "EmployerID": 1,
+                    "CarrierName": "Carrier1"
+                }
+            ],
+            "tiers": [
+                {
+                    "TierID": 1,
+                    "EmployerID": 1,
+                    "TierName": "Tier1",
+                    "MaxAge": 50,
+                    "MinAge": 0
+                },
+                {
+                    "TierID": 2,
+                    "EmployerID": 1,
+                    "TierName": "Tier2",
+                    "MaxAge": 100,
+                    "MinAge": 51
+                }
+            ],
+            "plans": [
+                {
+                    "PlanID": 1,
+                    "EmployerID": 1,
+                    "CarrierID": 1,
+                    "TierID": 1,
+                    "FundingAmount": 28.76,
+                    "GrenzFee": 1.1,
+                    "GrenzFeeC": 1.78,
+                    "GrenzFeeS": 1.17,
+                    "CarrierName": "Carrier1",
+                    "TierName": "Tier1"
+                },
+                {
+                    "PlanID": 2,
+                    "EmployerID": 1,
+                    "CarrierID": 1,
+                    "TierID": 2,
+                    "FundingAmount": 19.66,
+                    "GrenzFee": 4.96,
+                    "GrenzFeeC": 0.85,
+                    "GrenzFeeS": 2.21,
+                    "CarrierName": "Carrier1",
+                    "TierName": "Tier2"
                 }
             ]
         }

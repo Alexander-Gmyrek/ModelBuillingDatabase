@@ -72,7 +72,7 @@ CREATE TABLE Employee (
     DOB DATE,
     CobraStatus BOOLEAN,
     Notes TEXT,
-    GL VARCHAR(255),
+    GlCode VARCHAR(255),
     Division VARCHAR(255),
     Location VARCHAR(255),
     Title VARCHAR(255),
