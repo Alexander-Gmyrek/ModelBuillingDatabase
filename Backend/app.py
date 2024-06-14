@@ -1135,7 +1135,7 @@ def calculate_age(employer_id, dob, year, cursor):
     query = f"SELECT RenewalDate FROM Employer WHERE EmployerID = {employer_id}"
     cursor.execute(query)
     renewal_date = cursor.fetchall()[0][0]
-    dob_list = [int(part) for part in dob.split('-')]
+    dob_list = [int(part) for part in str(dob).split('-')]
     
     # Create a date object from the integers
     dob = date(dob_list[0], dob_list[1], dob_list[2])
@@ -1392,12 +1392,12 @@ def calculate_funding_amount_age_banded(cursor, current_date, plan_id=None, empl
     # Execute the query with the variable
     renewal_date = execute_query(cursor, (query))[0][0]
     # Get the year from the date and combine it with renewal date month
-    current_date = datetime.strptime(current_date, '%Y-%m-%d') # Convert date to datetime
-    current_date = renewal_date.replace(year=current_date.year) # Replace the year with the current year
+    current_date = datetime.strptime(str(current_date), '%Y-%m-%d') # Convert date to datetime
+    renewal_date = renewal_date.replace(year=current_date.year) # Replace the year with the current year
     # Get the age of the employee
     query = f"SELECT DOB FROM Employee WHERE EmployeeID = {employee_id}"
     dob = execute_query(cursor, query)[0][0]
-    age = current_date.year - dob.year - ((current_date.month, current_date.day) < (dob.month, dob.day))
+    age = renewal_date.year - dob.year - ((renewal_date.month, renewal_date.day) < (dob.month, dob.day))
     # Get the age banded tier
     query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
     tier_id = execute_query(cursor, query)[0][0]
@@ -1411,66 +1411,88 @@ def calculate_funding_amount_age_banded(cursor, current_date, plan_id=None, empl
     # Get the dependents
     query = f"SELECT DependentID FROM Dependent WHERE EmployeeID = {employee_id}"
     dependent_ids = execute_query(cursor, query)
-    for dependent_id in dependent_ids:
-        # check if dependent is active
-        query = f"SELECT StartDate, InformStartDate, EndDate, InformStartDate FROM Dependent WHERE DependentID = {dependent_id[0]}"
-        start_date, inform_start_date, end_date, inform_end_date = execute_query(cursor, query)[0]
-        if inform_start_date == datetime(current_date.year, current_date.month, 1).date():
-            query = f"SELECT DependentName, DOB, Relationship FROM Dependent WHERE DependentID = {dependent_id}"
-            dep_name, dob, relationship = execute_query(cursor, query)[0][0]
-            for back_date in generate_month_range(start_date, inform_start_date):
-                age = back_date.year - dob.year - ((back_date.month, back_date.day) < (dob.month, dob.day))
-                query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
-                tier_id = execute_query(cursor, query)[0][0]
-                if relationship == "Spouse":
-                    query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
-                elif relationship == "Child":
-                    query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
-                else:
-                    raise ValueError("Invalid Relationship")
-                fund_amount, grenz_fee = execute_query(cursor, query)
-                funding_amount += fund_amount + grenz_fee
-                dep_tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
+    try:
+        log = []
+        for dependent_id in dependent_ids:
+            # check if dependent is active
+            dep_name, dep_tier, relationship = str(""), " ", " "
+            query = f"SELECT StartDate, InformStartDate, EndDate, InformStartDate FROM Dependent WHERE DependentID = {dependent_id[0]}"
+            start_date, inform_start_date, end_date, inform_end_date = execute_query(cursor, query)[0]
+            log.append(f"Dependent starts Id: {dependent_id} Inform Start Date: {inform_start_date} Start Date: {start_date} End Date: {end_date} Inform End Date: {inform_end_date} current date: {datetime(current_date.year, current_date.month, 1).date()}")
+            if inform_start_date == datetime(current_date.year, current_date.month, 1).date():
+                query = f"SELECT DependentName, DOB, Relationship FROM Dependent WHERE DependentID = {dependent_id[0]}"
+                log.append("Dependent started works")
+                dep_name, dob, relationship = execute_query(cursor, query)[0]
+                for back_date in generate_month_range(start_date, inform_start_date):
+                    log.append("Spot 1")
+                    age = back_date.year - dob.year - ((back_date.month, back_date.day) < (dob.month, dob.day))
+                    #query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
+                    query = f"SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
+                    employerID = execute_query(cursor, query)[0][0]
+                    tier_id = get_tier_id(cursor, None, dob, employerID)
+                    log.append("Spot 2")
+                    if relationship == "Spouse":
+                        query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
+                    elif relationship == "Child":
+                        query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
+                    else:
+                        raise ValueError("Invalid Relationship")
+                    log.append("Spot 3")
+                    fund_amount, grenz_fee = execute_query(cursor, query)[0]
+                    funding_amount += fund_amount + grenz_fee
+                    dep_tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
+                    log.append("Spot 4")
+                log.append("Spot 5")
                 #add the dependent (name, tier, relationship) to the list
+                dependents.append((dep_name, dep_tier, relationship))
+                log.append("Spot 6")
+                continue
+            if inform_end_date == datetime(current_date.year, current_date.month, 1).date():
+                query = f"SELECT DependentName, DOB, Relationship FROM Dependent WHERE DependentID = {dependent_id[0]}"
+                dep_name, dob, relationship = execute_query(cursor, query)[0]
+                for back_date in generate_month_range(start_date, inform_start_date):
+                    age = back_date.year - dob.year - ((back_date.month, back_date.day) < (dob.month, dob.day))
+                    query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
+                    tier_id = execute_query(cursor, query)[0][0]
+                    if relationship == "Spouse":
+                        query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
+                    elif relationship == "Child":
+                        query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
+                    else:
+                        raise ValueError("Invalid Relationship")
+                    fund_amount, grenz_fee = execute_query(cursor, query)[0]
+                    funding_amount -= fund_amount + grenz_fee
+                    dep_tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
+                    #add the dependent (name, tier, relationship) to the list
+                dependents.append((dep_name, dep_tier, relationship))
+                continue
+            #if the dependent is not active
+            if ((inform_end_date is not None) and (inform_end_date < datetime(current_date.year, current_date.month, 1).date())) or (inform_start_date > datetime(current_date.year, current_date.month, 1).date()):
+                log.append("Dependent not active Id: " + str(dependent_id))
+                continue
+            log.append("Spot 7")
+            query = f"SELECT DependentName, DOB, Relationship FROM Dependent WHERE DependentID = {dependent_id[0]}"
+            dep_name, dob, relationship = execute_query(cursor, query)[0]
+            age = current_date.year - dob.year - ((current_date.month, current_date.day) < (dob.month, dob.day))
+            query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
+            tier_id = execute_query(cursor, query)[0][0]
+            if relationship == "Spouse":
+                query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
+            elif relationship == "Child":
+                query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
+            else:
+                raise ValueError("Invalid Relationship")
+            fund_amount, grenz_fee = execute_query(cursor, query)[0]
+            
+            funding_amount += fund_amount + grenz_fee
+            dep_tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
+            log.append("Active Dependent Works. Funding Amount: " + str(funding_amount) + " Dependent Name: " + dep_name + " Dependent Tier: " + dep_tier + " Dependent Relationship: " + relationship) + " Fund Amount: " + str(fund_amount) + " Grenz Fee: " + str(grenz_fee)
+            #add the dependent (name, tier, relationship) to the list
             dependents.append((dep_name, dep_tier, relationship))
-        if inform_end_date == datetime(current_date.year, current_date.month, 1).date():
-            query = f"SELECT DependentName, DOB, Relationship FROM Dependent WHERE DependentID = {dependent_id}"
-            dep_name, dob, relationship = execute_query(cursor, query)[0][0]
-            for back_date in generate_month_range(start_date, inform_start_date):
-                age = back_date.year - dob.year - ((back_date.month, back_date.day) < (dob.month, dob.day))
-                query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
-                tier_id = execute_query(cursor, query)[0][0]
-                if relationship == "Spouse":
-                    query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
-                elif relationship == "Child":
-                    query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
-                else:
-                    raise ValueError("Invalid Relationship")
-                fund_amount, grenz_fee = execute_query(cursor, query)
-                funding_amount -= fund_amount + grenz_fee
-                dep_tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
-                #add the dependent (name, tier, relationship) to the list
-            dependents.append((dep_name, dep_tier, relationship))
-        #if the dependent is not active
-        if ((inform_end_date is not None) and (inform_end_date < datetime(current_date.year, current_date.month, 1).date()) or (inform_start_date > datetime(current_date.year, current_date.month, 1).date())):
-            continue
-        query = f"SELECT DependentName, DOB, Relationship FROM Dependent WHERE DependentID = {dependent_id}"
-        dep_name, dob, relationship = execute_query(cursor, query)[0][0]
-        age = current_date.year - dob.year - ((current_date.month, current_date.day) < (dob.month, dob.day))
-        query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
-        tier_id = execute_query(cursor, query)[0][0]
-        if relationship == "Spouse":
-            query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
-        elif relationship == "Child":
-            query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
-        else:
-            raise ValueError("Invalid Relationship")
-        fund_amount, grenz_fee = execute_query(cursor, query)
-        funding_amount += fund_amount + grenz_fee
-        dep_tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
-        #add the dependent (name, tier, relationship) to the list
-        dependents.append((dep_name, dep_tier, relationship))
-
+        log.append("Spot 8")
+        #raise ValueError(log)
+    except Exception as e:
+        raise Exception(f"Error getting dependents: {e} Log:"  + str(log))
     
     return funding_amount, carrier, tier, dependents
 
@@ -1649,7 +1671,7 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
             raise ValueError(f"Error handling plans for {employee_name}: {e}")
             
         #raise ValueError(f"checking plan {employee_name} carrier_names: {carrier_names} tier_names {tier_names}")
-        
+
         if not carrier_names or not tier_names:
             try:
                 plan_id = execute_query(cursor, f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = {employee_id} AND InformStartDate <= '{Date}' AND (InformEndDate >= '{Date}' OR EndDate IS NULL)")[0][0]
@@ -1663,7 +1685,7 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
             except Exception as e:
                 raise ValueError(f"Error with getting connection before plan: {e}")
             try:
-                f_amount, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, f"{current_year}-{current_month}-01", plan_id, employee_id)
+                f_amount, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, datetime(current_year, current_month, 1).date(), plan_id, employee_id)
             except Exception as e:
                 raise ValueError(f"Error calculating funding amount for {employee_name}: {e}")
             funding_amount += f_amount
@@ -1973,8 +1995,8 @@ test_json_1 = """{
                             "DependentName": "Casey Smith",
                             "Relationship": "Spouse",
                             "DOB": "1990-06-25",
-                            "StartDate": "2023-01-01",
-                            "InformStartDate": "2023-01-01",
+                            "StartDate": "2020-01-01",
+                            "InformStartDate": "2021-01-01",
                             "EndDate": "2024-01-01",
                             "InformEndDate": "2024-01-01"
                         }
@@ -1988,9 +2010,9 @@ test_json_1 = """{
                     "EmployeeFullName": "Alice Smith",
                     "EmployeeFirstName": "Alice",
                     "EmployeeLastName": "Smith",
-                    "JoinDate": "2000-01-01",
+                    "JoinDate": "2019-01-01",
                     "TermDate": null,
-                    "JoinInformDate": "2000-01-01",
+                    "JoinInformDate": "2020-02-01",
                     "TermEndDate": null,
                     "DOB": "1990-06-25",
                     "CobraStatus": false,
@@ -2188,10 +2210,10 @@ test_json_1 = """{
                     "EmployerID": 1,
                     "CarrierID": 1,
                     "TierID": 1,
-                    "FundingAmount": 28.76,
-                    "GrenzFee": 1.1,
-                    "GrenzFeeC": 1.78,
-                    "GrenzFeeS": 1.17,
+                    "FundingAmount": 3,
+                    "GrenzFee": 0.2,
+                    "GrenzFeeC": 0.3,
+                    "GrenzFeeS": 0.7,
                     "CarrierName": "Carrier1",
                     "TierName": "Tier1"
                 },
@@ -2200,10 +2222,10 @@ test_json_1 = """{
                     "EmployerID": 1,
                     "CarrierID": 1,
                     "TierID": 2,
-                    "FundingAmount": 19.66,
-                    "GrenzFee": 4.96,
-                    "GrenzFeeC": 0.85,
-                    "GrenzFeeS": 2.21,
+                    "FundingAmount": 5,
+                    "GrenzFee": 0.2,
+                    "GrenzFeeC": 0.3,
+                    "GrenzFeeS": 0.7,
                     "CarrierName": "Carrier1",
                     "TierName": "Tier2"
                 }
@@ -2213,15 +2235,16 @@ test_json_1 = """{
 }"""
 @app.route('/test/addemployer', methods=['GET'])
 def test_add_employer():
+    response = ""
     connection = get_db_connection()
     cursor = connection.cursor()
     test_json = json.loads(test_json_1)
     for employer in test_json['employers']:
-        employer['EmployerID'] = add_employer(cursor, employer)
+        response += (str(add_employer(cursor, employer)) + ", ")
     connection.commit()
     cursor.close()
     connection.close()
-    return jsonify("Employer added")
+    return jsonify("Employer added: " + response)
 
 @app.route('/test/deleteemployer', methods=['GET'])
 def test_delete_employer():
@@ -2251,6 +2274,12 @@ def clear_database():
     cursor.close()
     connection.close()
     return jsonify("Database cleared")
+
+@app.route('/test/resetdb', methods=['GET'])
+def reset_database():
+    clear_database()
+    employers = test_add_employer()
+    return jsonify("Database reset! Employers: " + str(employers))
 
 @app.route('/test/generatereport/<EmployerID>/<Year>/<Month>', methods=['GET'])
 def test_generate_report(EmployerID, Year, Month):

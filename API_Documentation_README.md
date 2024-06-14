@@ -205,6 +205,23 @@ Getters:
 
 - Get Active Employee Plan: Rout: /employeeplan/<EmployeeID>/active Method: [Get] Returns: Any employee plans that have not been ended
 
+*Modifying employee plan
+
+Call /employeeplan/<EmployeeID>/active to get the active plan for the employee and use that to get the employee plan id
+
+Then just do /employeeplan/<EmployeePlanID> [PATCH] 
+
+{
+
+"EndDate": DATE,
+"InformEndDate": DATE
+
+}
+
+Then /employeeplan [PUT]
+
+With the new employee plan
+
 ### Dependent
 
 **Cascading Class Json:**
