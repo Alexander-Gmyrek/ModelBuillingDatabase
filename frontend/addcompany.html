@@ -58,7 +58,11 @@
                 data['BillingDate'] = formData.get('BillingDate');
 
                 // Extract tier
-                data['Tier'] = formData.get('Tier');
+                let tier = formData.get('Tier');
+                if (tier === 'Age Banded Tiered') {
+                    tier = 'Age Banded Composite'; // Change Age Banded Tiered to Age Banded Composite
+                }
+                data['Tier'] = tier;
 
                 // Extract and parse the Excel file
                 const file = formData.get('file');
@@ -86,7 +90,7 @@
                     case 'Age Banded':
                         nextPage = 'makeagetable.html';
                         break;
-                    case 'Age Banded Tiered':
+                    case 'Age Banded Composite': // Redirect Age Banded Composite to the appropriate page
                         nextPage = 'makeagetiertable.html';
                         break;
                     default:
@@ -170,10 +174,10 @@
                             employee.Plan = row['Plan'] || null;
                             employee.Carrier = row['Carrier'] || null;
                             employee.GL = row['GL'] || null;
-                            employee.Division = row['Division'] || null;x
+                            employee.Division = row['Division'] || null;
                             employee.Location = row['Location'] || null;
-                            employee.cobra= row['cobra'] || null
-                            employee.cobra= row['Title'] || null
+                            employee.Cobra= row['cobra'] || null
+                            employee.Title= row['Title'] || null
 
                             // Parse dependents if present in the row
                             if (row['Dependent Name'] && row['Relationship'] && row['Dependent DOB']) {
@@ -206,5 +210,3 @@
     </script>
 </body>
 </html>
-// make ability to activate gl div title location and cobra
-//name age tiered agebanded composite
