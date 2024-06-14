@@ -147,24 +147,19 @@
             };
             carriers.push(carrierObject);
 
-            // Assume a tier based on the table's index, and handle age banding if required
-            const tierName = `Tier ${i}`; // You can modify this if the tier name comes from another source
-            let minAge = 0;
-            let maxAge = 100;
-            const isAgeBanded = /(\d+)-(\d+)/.test(tierName); // Regex to detect age banding in the tier name
-            if (isAgeBanded) {
-                const ageRangeMatch = tierName.match(/(\d+)-(\d+)/);
-                minAge = parseInt(ageRangeMatch[1]);
-                maxAge = parseInt(ageRangeMatch[2]);
+            // Collect tier data based on the fixed tiers
+            const fixedTiers = ["Funding EE", "Funding E+1", "Funding E+2"];
+            for (let j = 0; j < fixedTiers.length; j++) {
+                const tierObject = {
+                    "TierID": tierID,
+                    "EmployerID": 1, // Replace with actual EmployerID
+                    "TierName": fixedTiers[j],
+                    "MaxAge": null, // Not applicable for fixed tiers
+                    "MinAge": null  // Not applicable for fixed tiers
+                };
+                tiers.push(tierObject);
+                tierID++;
             }
-            const tierObject = {
-                "TierID": tierID,
-                "EmployerID": 1, // Replace with actual EmployerID
-                "TierName": tierName,
-                "MaxAge": maxAge,
-                "MinAge": minAge
-            };
-            tiers.push(tierObject);
 
             // Collect plan data for each row in the table
             const table = document.getElementById(`editableTable_${i}`);
@@ -185,16 +180,15 @@
                         "PlanName": planName,
                         "FundingAmount": parseFloat(inputs[j].value) || 0,
                         "GrenzFee": parseFloat(inputs[inputs.length - 1].value) || 0,
-                        "TierID": j // This maps to the tier position (1 for EE, 2 for E+1, etc.)
+                        "TierID": tierID - 3 + j // Offset to map to the correct tier
                     };
                     plans.push(planObject);
                     planID++;
                 }
             }
 
-            // Increment the carrier and tier IDs for the next table
+            // Increment the carrier ID for the next table
             carrierID++;
-            tierID++;
         }
 
         // Add the collected data to the company data object
