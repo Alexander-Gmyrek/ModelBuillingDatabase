@@ -1,25 +1,180 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Employee</title>
-
-
+    <meta charset="UTF-8">
+    <title>Edit Employee</title>
 </head>
-<h1>employee1</h1>
-<ul>
-    <li>name:</a></li>
-    <li>date of birth:</li>
-    <li>plan</li>
+<body>
+    <h1>Edit Employee</h1>
+
+        <label for="employeeFullName">Full Name:</label><br>
+        <input type="text" id="employeeFullName" name="EmployeeFullName"><br>
+        <label for="joinDate">Join Date:</label><br>
+        <input type="date" id="joinDate" name="JoinDate"><br>
+        <label for="informJoinDate">Inform Join Date:</label><br>
+        <input type="date" id="informJoinDate" name="InformJoinDate"><br>
+        <label for="dob">Date of Birth:</label><br>
+        <input type="date" id="dob" name="DOB"><br>
+        <label for="notes">Notes:</label><br>
+        <input id="notes" name="Notes"></input><br>
+
+        
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <!-- Table structure with header and initial rows -->
+        <table id="editableTable">
+            <thead>
+                <tr>
+                    <th>dependent name</th>
+                    <th>dependent dob</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Initial row with inputs and delete button -->
+                <tr>
+                    <td><input type="text" value="name"></td>
+                    <td><input type="spouse or child" value=""></td>
+                    <td><input type="date" value=""></td>
+                    
+                    <td><button onclick="deleteRow(this)">Delete</button></td>
+                </tr>
+                <!-- Another initial row with inputs and delete button -->
+                <tr>
+                    <td><input type="text" value="name"></td>
+                    <td><input type="spouse or child" value=""></td>
+                    <td><input type="date" value=""></td>
+                    <td><button onclick="deleteRow(this)">Delete</button></td>
+                </tr>
+                <!-- Another initial row with inputs and delete button -->
+                <tr>
+                    <td><input type="text" value="name"></td>
+                    <td><input type="spouse or child" value=""></td>
+                    <td><input type="date" value=""></td>
+                    <td><button onclick="deleteRow(this)">Delete</button></td>
+                </tr>
+            </tbody>
+        </table>
+    
+        
+    </div>
+        <button onclick="addRow()">Add Row</button>
+        <input type="submit" value="Submit">
+    <script>
+        // Function to add a new row to the table
+        function addRow() {
+            // Get the table body
+            const table = document.getElementById('editableTable').getElementsByTagName('tbody')[0];
+            // Insert a new row at the end
+            const newRow = table.insertRow();
+    
+            // Loop through the columns to add input fields and a delete button
+            for (let i = 0; i <= 3; i++) {
+                // Insert a new cell in the row
+                const newCell = newRow.insertCell(i);
+                // Add appropriate input field or button based on the column index
+                if (i === 0 || i == 1) {
+                    // First column: text input for plan name
+                    newCell.innerHTML = '<input type="text">';
+                } else if (i === 3) {
+                    // Last column: delete button
+                    newCell.innerHTML = '<button onclick="deleteRow(this)">Delete</button>';
+                } else {
+                    // Other columns: number input fields
+                    newCell.innerHTML = '<input type="date">';
+                }
+            }
+        }
+    
+        // Function to delete a row from the table
+        function deleteRow(button) {
+            // Get the row containing the button
+            const row = button.parentNode.parentNode;
+            // Remove the row from the table
+            row.parentNode.removeChild(row);
+        }
+    
+        // Function to submit the table data possibly useful
+        function submitTable() {
+            // Get the table
+            const table = document.getElementById('editableTable');
+            // Get all the rows in the table body
+            const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+            // Initialize an array to hold the table data
+            const data = [];
+    
+            // Loop through each row to collect the input values
+            for (let row of rows) {
+                // Get all input fields in the row
+                const inputs = row.getElementsByTagName('input');
+                // Create an object to hold the row data
+                const rowData = {
+                    planName: inputs[0].value,
+                    fundingEE: inputs[1].value,
+                    fundingE1: inputs[2].value,
+                    fundingE2: inputs[3].value,
+                    adminFee: inputs[4].value
+                };
+                // Add the row data to the array
+                data.push(rowData);
+            }
+    
+            // Log the collected data to the console
+            console.log('Table Data:', data);
+            // Here you can send 'data' to the server or save it locally
+        }
+    </script>
+    <script type="module">
+        import { searchEmployeeById, changeEmployee } from './apiFunctions.js';
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const employeeId = urlParams.get('employeeId');
+
+            if (!employeeId) {
+                console.error('No employee ID found in URL parameters');
+                return;
+            }
+
+            try {
+                // Fetch employee details by ID
+                const employee = await searchEmployeeById(employeeId);
+                populateForm(employee);
+            } catch (error) {
+                console.error('Error fetching employee details:', error);
+            }
+        });
+
+        function populateForm(employee) {
+            document.getElementById('employeeId').value = employee.EmployeeID;
+            document.getElementById('employeeFullName').value = employee.EmployeeFullName;
+            document.getElementById('joinDate').value = employee.JoinDate;
+            document.getElementById('informJoinDate').value = employee.InformJoinDate;
+            document.getElementById('dob').value = employee.DOB;
+            document.getElementById('notes').value = employee.Notes;
+        }
+
+        
 
 
-</ul>
+        document.getElementById('employeeForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
 
+            const formData = new FormData(event.target);
+            const employeeJson = Object.fromEntries(formData);
 
-
-
-
-
-
-
-
+            try {
+                // Submit updated employee data
+                await changeEmployee(employeeJson.EmployeeID, employeeJson);
+                alert('Employee information updated successfully!');
+                // Redirect or handle success as needed
+            } catch (error) {
+                console.error('Error updating employee information:', error);
+                alert('Failed to update employee information.');
+            }
+        });
+    </script>
+</body>
 </html>
+//add div adress gl codes cobra Etc 
+//add termination button for edit employee
+//connect Dependents
+//make choosing plan and tier easy

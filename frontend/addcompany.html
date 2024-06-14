@@ -33,51 +33,11 @@
         <label for="ageBanded"> Age Banded</label><br>
         <p></p>
 
-        <!-- Carrier Information Section -->
-        <h4>Carrier Information:</h4>
-        <table id="carriersTable">
-            <thead>
-                <tr>
-                    <th>Carrier Name</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="carriersBody">
-                <!-- Carrier rows will be added here -->
-            </tbody>
-        </table>
-        <button type="button" id="addCarrierButton">Add Carrier</button>
-        <p></p>
-
         <button type="submit">Next</button>
     </form>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            let carrierIDCounter = 1;
-
-            // Add initial empty carrier field
-            addCarrierRow();
-
-            // Function to add a new row for a carrier
-            function addCarrierRow() {
-                const carriersBody = document.getElementById('carriersBody');
-                const newRow = document.createElement('tr');
-                newRow.innerHTML = `
-                    <td><input type="text" name="CarrierName" placeholder="Carrier Name"></td>
-                    <td><button type="button" class="removeCarrierButton">Remove</button></td>
-                `;
-                carriersBody.appendChild(newRow);
-
-                // Attach event listener to the remove button
-                newRow.querySelector('.removeCarrierButton').addEventListener('click', function() {
-                    carriersBody.removeChild(newRow);
-                });
-            }
-
-            // Add carrier row when the add button is clicked
-            document.getElementById('addCarrierButton').addEventListener('click', addCarrierRow);
-
             // Handle form submission
             document.getElementById('companyForm').addEventListener('submit', async function(event) {
                 event.preventDefault(); // Prevent the default form submission
@@ -105,20 +65,6 @@
                 } else {
                     data['Employees'] = [];
                 }
-
-                // Extract carrier information
-                data['Carriers'] = [];
-                const carrierRows = document.querySelectorAll('#carriersBody tr');
-                carrierRows.forEach((row, index) => {
-                    const carrierName = row.querySelector('input[name="CarrierName"]').value;
-                    if (carrierName) {
-                        data['Carriers'].push({
-                            "CarrierID": carrierIDCounter++,
-                            "EmployerID": 1, // Assuming a fixed EmployerID for demo
-                            "CarrierName": carrierName
-                        });
-                    }
-                });
 
                 // Store data locally
                 localStorage.setItem('companyData', JSON.stringify(data));
@@ -196,11 +142,15 @@
                                 employee.EmployeeFullName = row['Employee Name'];
                             }
 
-                            // Map Notes, Plan, and Tier from the row if available
+                            // Map fields from the row if available
                             employee.Notes = row['Notes'] || null;
+                            employee.DOB = row['DOB'] || null;
                             employee.Tier = row['Tier'] || null;
                             employee.Plan = row['Plan'] || null;
-                            employee.carrier = row['Carrier'] || null;
+                            employee.Carrier = row['Carrier'] || null;
+                            employee.GL = row['GL'] || null;
+                            employee.Division = row['Division'] || null;
+                            employee.Location = row['Location'] || null;
 
                             return employee;
                         });

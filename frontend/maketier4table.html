@@ -3,101 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editable Table with Add and Delete Row Feature</title>
+    <title>make 4 tier table</title>
 </head>
 <body>
 
-<!-- Title of the table -->
-<h2>Editable Table with Add and Delete Row Feature</h2>
+<h1>make 4 tier table</h1>
 
-<!-- Table structure with header and initial rows -->
-<table id="editableTable">
-    <thead>
-        <tr>
-            <th>Plan Name</th>
-            <th>Funding EE</th>
-            <th>Funding ES</th>
-            <th>Funding EC</th>
-            <th>Funding EF</th>
-            <th>Admin Fee</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        <!-- Initial row with inputs and delete button -->
-        <tr>
-            <td><input type="text" value="Plan A"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><button onclick="deleteRow(this)">Delete</button></td>
-        </tr>
-        <!-- Another initial row with inputs and delete button -->
-        <tr>
-            <td><input type="text" value="Plan B"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><button onclick="deleteRow(this)">Delete</button></td>
-        </tr>
-        <!-- Another initial row with inputs and delete button -->
-        <tr>
-            <td><input type="text" value="Plan C"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><input type="number" value="$"></td>
-            <td><button onclick="deleteRow(this)">Delete</button></td>
-        </tr>
-    </tbody>
-</table>
+<div id="tableContainer">
+    <!-- Initial table with a header and rows -->
+    <div class="tableWrapper" id="tableWrapper_1">
+        <h2>Table 1: <input id="carrierName_1" type="text" value="Carrier 1"></h2>
+        <table id="editableTable_1">
+            <thead>
+                <tr>
+                    <th><input type="text" value="Plan Name"></th>
+                    <th><input type="text" value="Funding EE"></th>
+                    <th><input type="text" value="Funding E+1"></th>
+                    <th><input type="text" value="Funding E+2"></th>
+                    <th><input type="text" value="Admin Fee"></th>
+                    <th></th> <!-- Placeholder for delete button -->
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><input type="text" value="Plan A"></td>
+                    <td><input type="number" value="$"></td>
+                    <td><input type="number" value="$"></td>
+                    <td><input type="number" value="$"></td>
+                    <td><input type="number" value="$"></td>
+                    
+                </tr>
+            </tbody>
+        </table>
+        
+        <button onclick="addColumn(1)">Add Column</button>
+        <button onclick="deleteLastColumn(1)">Delete Last Column</button>
+    </div>
+</div>
 
-<!-- Button to add new rows -->
-<button onclick="addRow()">Add Row</button>
-<!-- Button to submit the table data -->
+<button onclick="addTable()">Add Table</button>
 <button onclick="submitTable()">Submit</button>
 
 <script>
-    // Function to add a new row to the table
-    function addRow() {
-        // Get the table body
-        const table = document.getElementById('editableTable').getElementsByTagName('tbody')[0];
-        // Insert a new row at the end
-        const newRow = table.insertRow();
-        
-        // Loop through the columns to add input fields and a delete button
-        for (let i = 0; i < 7; i++) {
-            // Insert a new cell in the row
-            const newCell = newRow.insertCell(i);
-            // Add appropriate input field or button based on the column index
-            if (i === 0) {
-                // First column: text input for plan name
-                newCell.innerHTML = '<input type="text">';
-            } else if (i === 6) {
-                // Last column: delete button
-                newCell.innerHTML = '<button onclick="deleteRow(this)">Delete</button>';
-            } else {
-                // Other columns: number input fields
-                newCell.innerHTML = '<input type="number">';
-            }
+    let tableCount = 1; // Counter for tracking tables
+    let columnCount=0;
+
+    // Function to add a new row to a specific table
+    
+
+    
+
+    function addColumn(tableId) {
+        const table = document.getElementById(`editableTable_${tableId}`);
+        const headerRow = table.rows[0];
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        const newHeaderCell = document.createElement('th');
+        const newHeaderInput = document.createElement('input');
+        newHeaderInput.type = 'text';
+        newHeaderInput.value = 'New Column ' + (headerRow.cells.length - 5);
+        newHeaderCell.appendChild(newHeaderInput);
+        headerRow.insertBefore(newHeaderCell, headerRow.cells[headerRow.cells.length - 1]);
+
+        for (let row of rows) {
+            const newCell = row.insertCell(row.cells.length - 1);
+            newCell.innerHTML = '<input type="number">';
         }
     }
 
-    // Function to delete a row from the table
-    function deleteRow(button) {
-        // Get the row containing the button
-        const row = button.parentNode.parentNode;
-        // Remove the row from the table
-        row.parentNode.removeChild(row);
+    function deleteLastColumn(tableId) {
+        const table = document.getElementById(`editableTable_${tableId}`);
+        const headerRow = table.rows[0];
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        if (headerRow.cells.length <= 2) {
+            alert("You cannot delete the last column!");
+            return;
+        }
+
+        headerRow.deleteCell(headerRow.cells.length - 2);
+        for (let row of rows) {
+            row.deleteCell(row.cells.length - 2);
+        }
     }
 
-    // Function to submit the table data
+    function addTable() {
+        tableCount++;
+        const tableContainer = document.getElementById('tableContainer');
+        const newTableWrapper = document.createElement('div');
+        newTableWrapper.className = 'tableWrapper';
+        newTableWrapper.id = `tableWrapper_${tableCount}`;
+        newTableWrapper.innerHTML = `
+            <h2>Table ${tableCount}: <input id="carrierName_${tableCount}" type="text" value="Carrier ${tableCount}"></h2>
+            <table id="editableTable_${tableCount}">
+                <thead>
+                    <tr>
+                        <th><input type="text" value="Plan Name"></th>
+                        <th><input type="text" value="Funding EE"></th>
+                        <th><input type="text" value="Funding E+1"></th>
+                        <th><input type="text" value="Funding E+2"></th>
+                        <th><input type="text" value="Admin Fee"></th>
+                        <th></th> <!-- Placeholder for delete button -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><input type="text" value="Plan A"></td>
+                        <td><input type="number" value="$"></td>
+                        <td><input type="number" value="$"></td>
+                        <td><input type="number" value="$"></td>
+                        <td><input type="number" value="$"></td>
+                        
+                    </tr>
+                </tbody>
+            </table>
+            
+            <button onclick="addColumn(${tableCount})">Add Column</button>
+            <button onclick="deleteLastColumn(${tableCount})">Delete Last Column</button>
+        `;
+        tableContainer.appendChild(newTableWrapper);
+    }
+
+    // Modified submitTable function
     async function submitTable() {
+        // Initialize arrays to hold the collected data
         // Retrieve the stored data object from localStorage
         const companyDataString = localStorage.getItem('companyData');
         if (!companyDataString) {
@@ -107,48 +136,61 @@
 
         // Parse the stored JSON string into an object
         const companyData = JSON.parse(companyDataString);
+        const plans = [];
 
-        // Get the table
-        const table = document.getElementById('editableTable');
-        // Get all the rows in the table body
-        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-        // Initialize an array to hold the table data
-        const tableData = [];
+        let planID = 1;
 
-        // Loop through each row to collect the input values
-        for (let row of rows) {
-            // Get all input fields in the row
-            const inputs = row.getElementsByTagName('input');
-            // Create an object to hold the row data
-            const rowData = {
-                planName: inputs[0].value,
-                fundingEE: inputs[1].value,
-                fundingES: inputs[2].value,
-                fundingEC: inputs[3].value,
-                fundingEF: inputs[4].value,
-                adminFee: inputs[5].value
-            };
-            // Add the row data to the array
-            tableData.push(rowData);
+        for (let i = 1; i <= tableCount; i++) {
+            const carrierName = document.getElementById(`carrierName_${i}`).value;
+
+            const table = document.getElementById(`editableTable_${i}`);
+            const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+            for (let row of rows) {
+                const inputs = row.getElementsByTagName('input');
+                const planName = inputs[0].value;
+                
+                for(let j=1; j < inputs.length-1; j++){
+                    
+                    // Create a plan object for each row
+                    const planObject = {
+                        "PlanID": planID,
+                        "EmployerID": 1, // Replace with actual EmployerID
+                        "CarrierID": i, // Replace with actual CarrierID
+                        "CarrierName": carrierName,
+                        "PlanName": planName,
+                        "FundingAmount": parseFloat(inputs[j].value) || 0,// Assuming funding amount is in the second input field
+                        "GrenzFee": parseFloat(inputs[inputs.length-1].value) || 0,
+                        "TierID": j
+                    };
+
+                    plans.push(planObject);
+                    planID++;
+                }
+            }
         }
+
+        // Display the collected plans for debugging
+        console.log('Final plans:', plans);
 
         // Add the table data to the company data object
-        companyData['Plans'] = tableData;
+        companyData['Plans'] = plans;
 
-        // Log the complete data to the console
-        console.log('Complete Data:', companyData);
+    // Log the complete data to the console
+    console.log('Complete Data:', companyData);
 
-        // Send the complete data to the server
-        try {
-            await addEmployer(companyData);
-            alert('Data submitted successfully!');
-            // Optionally, clear the localStorage or redirect to another page
-            localStorage.removeItem('companyData'); // Clear the storage after submission
-        } catch (error) {
-            console.error('Error submitting data:', error);
-            alert('Failed to submit data.');
-        }
+    // Send the complete data to the server
+    try {
+        await addEmployer(companyData);
+        alert('Data submitted successfully!');
+        // Optionally, clear the localStorage or redirect to another page
+        localStorage.removeItem('companyData'); // Clear the storage after submission
+    } catch (error) {
+        console.error('Error submitting data:', error);
+        alert('Failed to submit data.');
     }
+    }
+
 
     // Placeholder for the apiFunctions.js methods.
     // In a real scenario, these would be imported from the actual `apiFunctions.js` file.
@@ -182,9 +224,8 @@
     // Function to add an employer
     async function addEmployer(employerJson) {
         return await apiRequest("/employer", "POST", employerJson);
-    }
+}
 </script>
 
 </body>
 </html>
-
