@@ -47,7 +47,7 @@ RUN apk add --no-cache supervisor
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Expose port 80 for Nginx and 5000 for Flask
-EXPOSE 80 5000
+EXPOSE 80 3000
 
 # Start supervisord
 CMD ["/usr/bin/supervisord"]
