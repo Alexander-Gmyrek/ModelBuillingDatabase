@@ -19,6 +19,11 @@
         <label for="notes">Notes:</label><br>
         <input type="text" id="notes" name="Notes"><br>
 
+        <!-- Inputs for GL, Division, Location, Title, and COBRA -->
+        <div id="companyInfoInputs">
+            <!-- These inputs will be dynamically added based on company data -->
+        </div>
+
         <!-- Table structure with header and initial rows -->
         <table id="editableTable">
             <thead>
@@ -45,6 +50,79 @@
     </form>
 
     <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const companyId = urlParams.get('companyId');
+
+            if (!companyId) {
+                console.error('No company ID found in URL parameters');
+                return;
+            }
+
+            try {
+                const company = await searchEmployerById(companyId);
+                displayCompanyInfoInputs(company);
+            } catch (error) {
+                console.error('Error fetching company details:', error);
+            }
+        });
+
+        function displayCompanyInfoInputs(company) {
+            const companyInfoInputs = document.getElementById('companyInfoInputs');
+            
+            if (company.GL !== null) {
+                const glInput = createInputField('GL', company.GL);
+                companyInfoInputs.appendChild(glInput);
+            } else {
+                const glInput = createInputField('GL');
+                companyInfoInputs.appendChild(glInput);
+            }
+
+            if (company.Division !== null) {
+                const divisionInput = createInputField('Division', company.Division);
+                companyInfoInputs.appendChild(divisionInput);
+            } else {
+                const divisionInput = createInputField('Division');
+                companyInfoInputs.appendChild(divisionInput);
+            }
+
+            if (company.Location !== null) {
+                const locationInput = createInputField('Location', company.Location);
+                companyInfoInputs.appendChild(locationInput);
+            } else {
+                const locationInput = createInputField('Location');
+                companyInfoInputs.appendChild(locationInput);
+            }
+
+            if (company.Title !== null) {
+                const titleInput = createInputField('Title', company.Title);
+                companyInfoInputs.appendChild(titleInput);
+            } else {
+                const titleInput = createInputField('Title');
+                companyInfoInputs.appendChild(titleInput);
+            }
+
+            if (company.COBRA !== null) {
+                const cobraInput = createInputField('COBRA', company.COBRA);
+                companyInfoInputs.appendChild(cobraInput);
+            } else {
+                const cobraInput = createInputField('COBRA');
+                companyInfoInputs.appendChild(cobraInput);
+            }
+        }
+
+        function createInputField(labelText, value = '') {
+            const label = document.createElement('label');
+            label.textContent = `${labelText}:`;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = labelText;
+            input.value = value;
+            label.appendChild(input);
+            label.appendChild(document.createElement('br'));
+            return label;
+        }
+
         // Function to add a new row to the table
         function addRow() {
             const table = document.getElementById('editableTable').getElementsByTagName('tbody')[0];
