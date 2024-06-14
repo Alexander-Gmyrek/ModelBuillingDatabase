@@ -2,26 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Add Employee</title>
+    <title>Edit Employee</title>
 </head>
 <body>
-    <h1>Add Employee</h1>
+    <h1>Edit Employee</h1>
 
     <form id="employeeForm">
         <label for="employeeFullName">Full Name:</label><br>
-        <input type="text" id="employeeFullName" name="EmployeeFullName" required><br>
+        <input type="text" id="employeeFullName" name="EmployeeFullName"><br>
         <label for="joinDate">Join Date:</label><br>
-        <input type="date" id="joinDate" name="JoinDate" required><br>
+        <input type="date" id="joinDate" name="JoinDate"><br>
         <label for="informJoinDate">Inform Join Date:</label><br>
-        <input type="date" id="informJoinDate" name="InformJoinDate" required><br>
+        <input type="date" id="informJoinDate" name="InformJoinDate"><br>
         <label for="dob">Date of Birth:</label><br>
-        <input type="date" id="dob" name="DOB" required><br>
+        <input type="date" id="dob" name="DOB"><br>
         <label for="notes">Notes:</label><br>
         <input type="text" id="notes" name="Notes"><br>
 
-        <!-- Inputs for GL, Division, Location, Title, and COBRA -->
         <div id="companyInfoInputs">
-            <!-- These inputs will be dynamically added based on company data -->
+            <!-- These inputs will be dynamically added based on employee data -->
         </div>
 
         <!-- Table structure with header and initial rows -->
@@ -46,82 +45,39 @@
         </table>
 
         <button type="button" onclick="addRow()">Add Row</button>
-        <button type="submit">Submit</button>
+        <input type="submit" value="Submit">
+
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="terminationCheckbox" name="terminationCheckbox">
+                Termination
+            </label>
+        </div>
+
+        <div class="form-group">
+            <label for="termDate">Term Date:</label>
+            <input type="date" id="termDate" name="termDate" disabled>
+        </div>
+
+        <div class="form-group">
+            <label for="informedTermDate">Informed Term Date:</label>
+            <input type="date" id="informedTermDate" name="informedTermDate" disabled>
+        </div>
     </form>
 
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const companyId = urlParams.get('companyId');
-
-            if (!companyId) {
-                console.error('No company ID found in URL parameters');
-                return;
-            }
-
-            try {
-                const company = await searchEmployerById(companyId);
-                displayCompanyInfoInputs(company);
-            } catch (error) {
-                console.error('Error fetching company details:', error);
+        document.getElementById('terminationCheckbox').addEventListener('change', function() {
+            var termDateInput = document.getElementById('termDate');
+            var informedTermDateInput = document.getElementById('informedTermDate');
+            
+            if (this.checked) {
+                termDateInput.disabled = false;
+                informedTermDateInput.disabled = false;
+            } else {
+                termDateInput.disabled = true;
+                informedTermDateInput.disabled = true;
             }
         });
-
-        function displayCompanyInfoInputs(company) {
-            const companyInfoInputs = document.getElementById('companyInfoInputs');
-            
-            if (company.GL !== null) {
-                const glInput = createInputField('GL', company.GL);
-                companyInfoInputs.appendChild(glInput);
-            } else {
-                const glInput = createInputField('GL');
-                companyInfoInputs.appendChild(glInput);
-            }
-
-            if (company.Division !== null) {
-                const divisionInput = createInputField('Division', company.Division);
-                companyInfoInputs.appendChild(divisionInput);
-            } else {
-                const divisionInput = createInputField('Division');
-                companyInfoInputs.appendChild(divisionInput);
-            }
-
-            if (company.Location !== null) {
-                const locationInput = createInputField('Location', company.Location);
-                companyInfoInputs.appendChild(locationInput);
-            } else {
-                const locationInput = createInputField('Location');
-                companyInfoInputs.appendChild(locationInput);
-            }
-
-            if (company.Title !== null) {
-                const titleInput = createInputField('Title', company.Title);
-                companyInfoInputs.appendChild(titleInput);
-            } else {
-                const titleInput = createInputField('Title');
-                companyInfoInputs.appendChild(titleInput);
-            }
-
-            if (company.COBRA !== null) {
-                const cobraInput = createInputField('COBRA', company.COBRA);
-                companyInfoInputs.appendChild(cobraInput);
-            } else {
-                const cobraInput = createInputField('COBRA');
-                companyInfoInputs.appendChild(cobraInput);
-            }
-        }
-
-        function createInputField(labelText, value = '') {
-            const label = document.createElement('label');
-            label.textContent = `${labelText}:`;
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.name = labelText;
-            input.value = value;
-            label.appendChild(input);
-            label.appendChild(document.createElement('br'));
-            return label;
-        }
 
         // Function to add a new row to the table
         function addRow() {
@@ -148,29 +104,93 @@
             row.parentNode.removeChild(row);
         }
     
+        // Function to populate the form with employee data
+        function populateForm(employee) {
+            document.getElementById('employeeFullName').value = employee.EmployeeFullName;
+            document.getElementById('joinDate').value = employee.JoinDate;
+            document.getElementById('informJoinDate').value = employee.InformJoinDate;
+            document.getElementById('dob').value = employee.DOB;
+            document.getElementById('notes').value = employee.Notes;
+
+            // Populate company information if available
+            if (employee.GL !== null) {
+                addCompanyInput('GL', employee.GL);
+            }
+            if (employee.Division !== null) {
+                addCompanyInput('Division', employee.Division);
+            }
+            if (employee.Location !== null) {
+                addCompanyInput('Location', employee.Location);
+            }
+            if (employee.Title !== null) {
+                addCompanyInput('Title', employee.Title);
+            }
+            if (employee.COBRA !== null) {
+                addCompanyInput('COBRA', employee.COBRA);
+            }
+        }
+
+        // Function to add company information input dynamically
+        function addCompanyInput(labelText, value) {
+            const companyInfoInputs = document.getElementById('companyInfoInputs');
+            const label = document.createElement('label');
+            label.textContent = `${labelText}:`;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = labelText;
+            input.value = value || ''; // Set value if available
+            label.appendChild(input);
+            companyInfoInputs.appendChild(label);
+            companyInfoInputs.appendChild(document.createElement('br'));
+        }
+
         // Function to submit the form
         document.getElementById('employeeForm').addEventListener('submit', async (event) => {
             event.preventDefault();
-    
+
             const formData = new FormData(event.target);
             const employeeJson = Object.fromEntries(formData);
-    
+
             try {
-                await addEmployee(employeeJson); // Using the API function to add employee
-                alert('Employee added successfully!');
+                // Submit updated employee data
+                await changeEmployee(employeeJson.EmployeeID, employeeJson);
+                alert('Employee information updated successfully!');
                 // Redirect or handle success as needed
             } catch (error) {
-                console.error('Error adding employee:', error);
-                alert('Failed to add employee.');
+                console.error('Error updating employee information:', error);
+                alert('Failed to update employee information.');
             }
         });
-    
-        // API function to add an employee
-        async function addEmployee(employeeData) {
+
+        // API function to fetch employee details by ID
+        async function searchEmployeeById(employeeId) {
             try {
-                const response = await addEmployee(employeeData);
-                console.log('Employee added:', response);
-                // Handle response if needed
+                const response = await fetch(`/api/employees/${employeeId}`); // Replace with actual endpoint
+                if (!response.ok) {
+                    throw new Error('Employee not found');
+                }
+                const employee = await response.json();
+                return employee;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        // API function to update employee data
+        async function changeEmployee(employeeId, employeeData) {
+            try {
+                const response = await fetch(`/api/employees/${employeeId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(employeeData)
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to update employee');
+                }
+                const updatedEmployee = await response.json();
+                return updatedEmployee;
             } catch (error) {
                 throw error;
             }
