@@ -170,8 +170,10 @@
                             employee.Plan = row['Plan'] || null;
                             employee.Carrier = row['Carrier'] || null;
                             employee.GL = row['GL'] || null;
-                            employee.Division = row['Division'] || null;
+                            employee.Division = row['Division'] || null;x
                             employee.Location = row['Location'] || null;
+                            employee.cobra= row['cobra'] || null
+                            employee.cobra= row['Title'] || null
 
                             // Parse dependents if present in the row
                             if (row['Dependent Name'] && row['Relationship'] && row['Dependent DOB']) {
