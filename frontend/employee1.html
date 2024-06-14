@@ -17,7 +17,6 @@
         <input type="date" id="dob" name="DOB"><br>
         <label for="notes">Notes:</label><br>
         <input id="notes" name="Notes"></input><br>
-
         
     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <!-- Table structure with header and initial rows -->
@@ -60,7 +59,37 @@
     </div>
         <button onclick="addRow()">Add Row</button>
         <input type="submit" value="Submit">
+
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="terminationCheckbox" name="terminationCheckbox">
+                Termination
+            </label>
+        </div>
+        
+        <div class="form-group">
+            <label for="termDate">Term Date:</label>
+            <input type="date" id="termDate" name="termDate" disabled>
+        </div>
+
+        <div class="form-group">
+            <label for="informedTermDate">Informed Term Date:</label>
+            <input type="date" id="informedTermDate" name="informedTermDate" disabled>
+        </div>
     <script>
+        document.getElementById('terminationCheckbox').addEventListener('change', function() {
+            var termDateInput = document.getElementById('termDate');
+            var informedTermDateInput = document.getElementById('informedTermDate');
+            
+            if (this.checked) {
+                termDateInput.disabled = false;
+                informedTermDateInput.disabled = false;
+            } else {
+                termDateInput.disabled = true;
+                informedTermDateInput.disabled = true;
+            }
+        });
+
         // Function to add a new row to the table
         function addRow() {
             // Get the table body
