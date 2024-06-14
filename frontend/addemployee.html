@@ -1,27 +1,102 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Add Employee</title>
-
-
 </head>
-<h1>New Employee</h1>
 <body>
-    <label for :"Name">Name:</label>
-    <input type="text" id="Name"
-    name="Name" placeholder="Name"><br>
+    <h1>Add Employee</h1>
 
-    <p> </p>
+    <form id="employeeForm">
+        <label for="employeeFullName">Full Name:</label><br>
+        <input type="text" id="employeeFullName" name="EmployeeFullName" required><br>
+        <label for="joinDate">Join Date:</label><br>
+        <input type="date" id="joinDate" name="JoinDate" required><br>
+        <label for="informJoinDate">Inform Join Date:</label><br>
+        <input type="date" id="informJoinDate" name="InformJoinDate" required><br>
+        <label for="dob">Date of Birth:</label><br>
+        <input type="date" id="dob" name="DOB" required><br>
+        <label for="notes">Notes:</label><br>
+        <input type="text" id="notes" name="Notes"><br>
 
-    <label for :"DOB">Date of Birth:</label>
-    <input type="text" id="DOB"
-    name="Name" placeholder="MM/DD/YYYY"><br>
+        <!-- Table structure with header and initial rows -->
+        <table id="editableTable">
+            <thead>
+                <tr>
+                    <th>Dependent Name</th>
+                    <th>Dependent Relationship</th>
+                    <th>Dependent DOB</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Initial row with inputs and delete button -->
+                <tr>
+                    <td><input type="text" name="dependentName"></td>
+                    <td><input type="text" name="dependentRelationship"></td>
+                    <td><input type="date" name="dependentDOB"></td>
+                    <td><button onclick="deleteRow(this)">Delete</button></td>
+                </tr>
+            </tbody>
+        </table>
 
-    <p> </p>
+        <button type="button" onclick="addRow()">Add Row</button>
+        <button type="submit">Submit</button>
+    </form>
 
-    <label for :"plan">Plan:</label>
-    <input type="text" id="Plan"
-    name="Name" placeholder="Plan"><br>
-
+    <script>
+        // Function to add a new row to the table
+        function addRow() {
+            const table = document.getElementById('editableTable').getElementsByTagName('tbody')[0];
+            const newRow = table.insertRow();
+    
+            // Insert cells with input fields and delete button
+            const cell1 = newRow.insertCell(0);
+            cell1.innerHTML = '<input type="text" name="dependentName">';
+    
+            const cell2 = newRow.insertCell(1);
+            cell2.innerHTML = '<input type="text" name="dependentRelationship">';
+    
+            const cell3 = newRow.insertCell(2);
+            cell3.innerHTML = '<input type="date" name="dependentDOB">';
+    
+            const cell4 = newRow.insertCell(3);
+            cell4.innerHTML = '<button onclick="deleteRow(this)">Delete</button>';
+        }
+    
+        // Function to delete a row from the table
+        function deleteRow(button) {
+            const row = button.parentNode.parentNode;
+            row.parentNode.removeChild(row);
+        }
+    
+        // Function to submit the form
+        document.getElementById('employeeForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+    
+            const formData = new FormData(event.target);
+            const employeeJson = Object.fromEntries(formData);
+    
+            try {
+                await addEmployee(employeeJson); // Using the API function to add employee
+                alert('Employee added successfully!');
+                // Redirect or handle success as needed
+            } catch (error) {
+                console.error('Error adding employee:', error);
+                alert('Failed to add employee.');
+            }
+        });
+    
+        // API function to add an employee
+        async function addEmployee(employeeData) {
+            try {
+                const response = await addEmployee(employeeData);
+                console.log('Employee added:', response);
+                // Handle response if needed
+            } catch (error) {
+                throw error;
+            }
+        }
+    </script>
 </body>
 </html>
