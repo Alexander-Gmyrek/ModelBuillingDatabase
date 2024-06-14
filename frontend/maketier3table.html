@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>make 3 tier table</title>
+    <title>Make 3 Tier Table</title>
 </head>
 <body>
 
-<h1>make 3 tier table</h1>
+<h1>Make 3 Tier Table</h1>
 
 <div id="tableContainer">
     <!-- Initial table with a header and rows -->
@@ -31,11 +31,9 @@
                     <td><input type="number" value="$"></td>
                     <td><input type="number" value="$"></td>
                     <td><input type="number" value="$"></td>
-                    
                 </tr>
             </tbody>
         </table>
-        
         <button onclick="addColumn(1)">Add Column</button>
         <button onclick="deleteLastColumn(1)">Delete Last Column</button>
     </div>
@@ -46,13 +44,8 @@
 
 <script>
     let tableCount = 1; // Counter for tracking tables
-    let columnCount=0;
 
-    // Function to add a new row to a specific table
-    
-
-    
-
+    // Function to add a new column to a specific table
     function addColumn(tableId) {
         const table = document.getElementById(`editableTable_${tableId}`);
         const headerRow = table.rows[0];
@@ -113,11 +106,9 @@
                         <td><input type="number" value="$"></td>
                         <td><input type="number" value="$"></td>
                         <td><input type="number" value="$"></td>
-                        
                     </tr>
                 </tbody>
             </table>
-            
             <button onclick="addColumn(${tableCount})">Add Column</button>
             <button onclick="deleteLastColumn(${tableCount})">Delete Last Column</button>
         `;
@@ -126,8 +117,7 @@
 
     // Modified submitTable function
     async function submitTable() {
-        // Initialize arrays to hold the collected data
-        // Retrieve the stored data object from localStorage
+        // Retrieve the stored company data from localStorage
         const companyDataString = localStorage.getItem('companyData');
         if (!companyDataString) {
             console.error('No company data found in localStorage');
@@ -136,61 +126,90 @@
 
         // Parse the stored JSON string into an object
         const companyData = JSON.parse(companyDataString);
+
+        // Initialize arrays to hold the collected data
+        const carriers = [];
+        const tiers = [];
         const plans = [];
 
+        // Track IDs for Carriers and Tiers
+        let carrierID = 1;
+        let tierID = 1;
         let planID = 1;
 
         for (let i = 1; i <= tableCount; i++) {
+            // Collect carrier data
             const carrierName = document.getElementById(`carrierName_${i}`).value;
+            const carrierObject = {
+                "CarrierID": carrierID,
+                "EmployerID": 1, // Replace with actual EmployerID
+                "CarrierName": carrierName,
+            };
+            carriers.push(carrierObject);
 
+            // Collect tier data based on the fixed tiers
+            const fixedTiers = ["Funding EE", "Funding E+1", "Funding E+2"];
+            for (let j = 0; j < fixedTiers.length; j++) {
+                const tierObject = {
+                    "TierID": tierID,
+                    "EmployerID": 1, // Replace with actual EmployerID
+                    "TierName": fixedTiers[j],
+                    "MaxAge": null, // Not applicable for fixed tiers
+                    "MinAge": null  // Not applicable for fixed tiers
+                };
+                tiers.push(tierObject);
+                tierID++;
+            }
+
+            // Collect plan data for each row in the table
             const table = document.getElementById(`editableTable_${i}`);
             const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
 
             for (let row of rows) {
                 const inputs = row.getElementsByTagName('input');
                 const planName = inputs[0].value;
-                
-                for(let j=1; j < inputs.length-1; j++){
-                    
-                    // Create a plan object for each row
+
+                // Iterate over each input for funding details, except the last which is the admin fee
+                for (let j = 1; j < inputs.length - 1; j++) {
+                    // Create a plan object for each column
                     const planObject = {
                         "PlanID": planID,
                         "EmployerID": 1, // Replace with actual EmployerID
-                        "CarrierID": i, // Replace with actual CarrierID
+                        "CarrierID": carrierID,
                         "CarrierName": carrierName,
                         "PlanName": planName,
-                        "FundingAmount": parseFloat(inputs[j].value) || 0,// Assuming funding amount is in the second input field
-                        "GrenzFee": parseFloat(inputs[inputs.length-1].value) || 0,
-                        "TierID": j
+                        "FundingAmount": parseFloat(inputs[j].value) || 0,
+                        "GrenzFee": parseFloat(inputs[inputs.length - 1].value) || 0,
+                        "TierID": tierID - 3 + j // Offset to map to the correct tier
                     };
-
                     plans.push(planObject);
                     planID++;
                 }
             }
+
+            // Increment the carrier ID for the next table
+            carrierID++;
         }
 
-        // Display the collected plans for debugging
-        console.log('Final plans:', plans);
-
-        // Add the table data to the company data object
+        // Add the collected data to the company data object
+        companyData['Carriers'] = carriers;
+        companyData['Tiers'] = tiers;
         companyData['Plans'] = plans;
 
-    // Log the complete data to the console
-    console.log('Complete Data:', companyData);
+        // Log the complete data to the console for debugging
+        console.log('Complete Data:', companyData);
 
-    // Send the complete data to the server
-    try {
-        await addEmployer(companyData);
-        alert('Data submitted successfully!');
-        // Optionally, clear the localStorage or redirect to another page
-        localStorage.removeItem('companyData'); // Clear the storage after submission
-    } catch (error) {
-        console.error('Error submitting data:', error);
-        alert('Failed to submit data.');
+        // Send the complete data to the server
+        try {
+            await addEmployer(companyData);
+            alert('Data submitted successfully!');
+            // Optionally, clear the localStorage or redirect to another page
+            localStorage.removeItem('companyData'); // Clear the storage after submission
+        } catch (error) {
+            console.error('Error submitting data:', error);
+            alert('Failed to submit data.');
+        }
     }
-    }
-
 
     // Placeholder for the apiFunctions.js methods.
     // In a real scenario, these would be imported from the actual `apiFunctions.js` file.
@@ -224,7 +243,7 @@
     // Function to add an employer
     async function addEmployer(employerJson) {
         return await apiRequest("/employer", "POST", employerJson);
-}
+    }
 </script>
 
 </body>

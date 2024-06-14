@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>make age Tier table</title>
+    <title>Make Age Tiered Table</title>
 </head>
 <body>
 
-<h1>make age table</h1>
+<h1>Make Age Table</h1>
 
 <div id="tableContainer">
     <!-- Initial table with a header and rows -->
@@ -17,9 +17,10 @@
             <thead>
                 <tr>
                     <th><input type="text" value="Plan Name"></th>
-                    <th><input type="text" value="Funding EE"></th>
-                    <th><input type="text" value="Funding E+1"></th>
-                    <th><input type="text" value="Funding E+2"></th>
+                    <th><input type="text" value="0-17"></th>
+                    <th><input type="text" value="18-25"></th>
+                    <th><input type="text" value="26-35"></th>
+                    <th><input type="text" value="36-45"></th>
                     <th><input type="text" value="Admin Fee"></th>
                     <th></th> <!-- Placeholder for delete button -->
                 </tr>
@@ -31,7 +32,6 @@
                     <td><input type="number" value="$"></td>
                     <td><input type="number" value="$"></td>
                     <td><input type="number" value="$"></td>
-                    
                 </tr>
             </tbody>
         </table>
@@ -46,12 +46,6 @@
 
 <script>
     let tableCount = 1; // Counter for tracking tables
-    let columnCount=0;
-
-    // Function to add a new row to a specific table
-    
-
-    
 
     function addColumn(tableId) {
         const table = document.getElementById(`editableTable_${tableId}`);
@@ -99,9 +93,10 @@
                 <thead>
                     <tr>
                         <th><input type="text" value="Plan Name"></th>
-                        <th><input type="text" value="Funding EE"></th>
-                        <th><input type="text" value="Funding E+1"></th>
-                        <th><input type="text" value="Funding E+2"></th>
+                        <th><input type="text" value="0-17"></th>
+                        <th><input type="text" value="18-25"></th>
+                        <th><input type="text" value="26-35"></th>
+                        <th><input type="text" value="36-45"></th>
                         <th><input type="text" value="Admin Fee"></th>
                         <th></th> <!-- Placeholder for delete button -->
                     </tr>
@@ -113,7 +108,6 @@
                         <td><input type="number" value="$"></td>
                         <td><input type="number" value="$"></td>
                         <td><input type="number" value="$"></td>
-                        
                     </tr>
                 </tbody>
             </table>
@@ -126,8 +120,7 @@
 
     // Modified submitTable function
     async function submitTable() {
-        // Initialize arrays to hold the collected data
-        // Retrieve the stored data object from localStorage
+        // Retrieve the stored company data from localStorage
         const companyDataString = localStorage.getItem('companyData');
         if (!companyDataString) {
             console.error('No company data found in localStorage');
@@ -136,61 +129,102 @@
 
         // Parse the stored JSON string into an object
         const companyData = JSON.parse(companyDataString);
+
+        // Initialize arrays to hold the collected data
+        const carriers = [];
+        const tiers = [];
         const plans = [];
 
+        // Track IDs for Carriers and Tiers
+        let carrierID = 1;
+        let tierID = 1;
         let planID = 1;
 
         for (let i = 1; i <= tableCount; i++) {
+            // Collect carrier data
             const carrierName = document.getElementById(`carrierName_${i}`).value;
+            const carrierObject = {
+                "CarrierID": carrierID,
+                "EmployerID": 1, // Replace with actual EmployerID
+                "CarrierName": carrierName,
+            };
+            carriers.push(carrierObject);
 
+            // Collect tier data based on the header row of the table
             const table = document.getElementById(`editableTable_${i}`);
+            const headerCells = table.rows[0].cells;
+            
+            for (let j = 1; j < headerCells.length - 1; j++) { // Ignore the first cell (Plan Name) and the last cell (Admin Fee)
+                const tierNameInput = headerCells[j].getElementsByTagName('input')[0].value;
+                let minAge = 0;
+                let maxAge = 100;
+
+                // Parse min and max age from the tier name
+                const ageRangeMatch = tierNameInput.match(/(\d+)-(\d+)/);
+                if (ageRangeMatch) {
+                    minAge = parseInt(ageRangeMatch[1]);
+                    maxAge = parseInt(ageRangeMatch[2]);
+                }
+
+                const tierObject = {
+                    "TierID": tierID,
+                    "EmployerID": 1, // Replace with actual EmployerID
+                    "TierName": null, // Set to null as per the requirements
+                    "MaxAge": maxAge,
+                    "MinAge": minAge
+                };
+                tiers.push(tierObject);
+                tierID++;
+            }
+
+            // Collect plan data for each row in the table
             const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
 
             for (let row of rows) {
                 const inputs = row.getElementsByTagName('input');
                 const planName = inputs[0].value;
-                
-                for(let j=1; j < inputs.length-1; j++){
-                    
-                    // Create a plan object for each row
+
+                // Iterate over each input for funding details, except the last which is the admin fee
+                for (let j = 1; j < inputs.length - 1; j++) {
+                    // Create a plan object for each column
                     const planObject = {
                         "PlanID": planID,
                         "EmployerID": 1, // Replace with actual EmployerID
-                        "CarrierID": i, // Replace with actual CarrierID
+                        "CarrierID": carrierID,
                         "CarrierName": carrierName,
                         "PlanName": planName,
-                        "FundingAmount": parseFloat(inputs[j].value) || 0,// Assuming funding amount is in the second input field
-                        "GrenzFee": parseFloat(inputs[inputs.length-1].value) || 0,
-                        "TierID": j
+                        "FundingAmount": parseFloat(inputs[j].value) || 0,
+                        "GrenzFee": parseFloat(inputs[inputs.length - 1].value) || 0,
+                        "TierID": j // This maps to the tier position (1 for 0-17, 2 for 18-25, etc.)
                     };
-
                     plans.push(planObject);
                     planID++;
                 }
             }
+
+            // Increment the carrier ID for the next table
+            carrierID++;
         }
 
-        // Display the collected plans for debugging
-        console.log('Final plans:', plans);
-
-        // Add the table data to the company data object
+        // Add the collected data to the company data object
+        companyData['Carriers'] = carriers;
+        companyData['Tiers'] = tiers;
         companyData['Plans'] = plans;
 
-    // Log the complete data to the console
-    console.log('Complete Data:', companyData);
+        // Log the complete data to the console
+        console.log('Complete Data:', companyData);
 
-    // Send the complete data to the server
-    try {
-        await addEmployer(companyData);
-        alert('Data submitted successfully!');
-        // Optionally, clear the localStorage or redirect to another page
-        localStorage.removeItem('companyData'); // Clear the storage after submission
-    } catch (error) {
-        console.error('Error submitting data:', error);
-        alert('Failed to submit data.');
+        // Send the complete data to the server
+        try {
+            await addEmployer(companyData);
+            alert('Data submitted successfully!');
+            // Optionally, clear the localStorage or redirect to another page
+            localStorage.removeItem('companyData'); // Clear the storage after submission
+        } catch (error) {
+            console.error('Error submitting data:', error);
+            alert('Failed to submit data.');
+        }
     }
-    }
-
 
     // Placeholder for the apiFunctions.js methods.
     // In a real scenario, these would be imported from the actual `apiFunctions.js` file.
@@ -224,7 +258,7 @@
     // Function to add an employer
     async function addEmployer(employerJson) {
         return await apiRequest("/employer", "POST", employerJson);
-}
+    }
 </script>
 
 </body>
