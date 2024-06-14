@@ -1,0 +1,50 @@
+version: '3'
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    environment:
+      - NGINX_HOST=frontend
+      - NGINX_PORT=80
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mysql
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - MYSQL_HOST=mysql
+      - MYSQL_DATABASE=modelBillingDBv1
+      - MYSQL_USER=server
+      - MYSQL_PASSWORD=Server
+    volumes:
+      - ./backend:/app
+
+  mysql:
+    image: mysql:latest
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: Root
+      MYSQL_DATABASE: modelBillingDBv1
+      MYSQL_USER: server
+      MYSQL_PASSWORD: Server
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./Backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  db_data:
