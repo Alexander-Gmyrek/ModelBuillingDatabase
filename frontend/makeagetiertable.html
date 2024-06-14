@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>make age Tier table</title>
+</head>
+<body>
+
+<h1>make age table</h1>
+
+<div id="tableContainer">
+    <!-- Initial table with a header and rows -->
+    <div class="tableWrapper" id="tableWrapper_1">
+        <h2>Table 1: <input id="carrierName_1" type="text" value="Carrier 1"></h2>
+        <table id="editableTable_1">
+            <thead>
+                <tr>
+                    <th><input type="text" value="Plan Name"></th>
+                    <th><input type="text" value="Funding EE"></th>
+                    <th><input type="text" value="Funding E+1"></th>
+                    <th><input type="text" value="Funding E+2"></th>
+                    <th><input type="text" value="Admin Fee"></th>
+                    <th></th> <!-- Placeholder for delete button -->
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><input type="text" value="Plan A"></td>
+                    <td><input type="number" value="$"></td>
+                    <td><input type="number" value="$"></td>
+                    <td><input type="number" value="$"></td>
+                    <td><input type="number" value="$"></td>
+                    
+                </tr>
+            </tbody>
+        </table>
+        
+        <button onclick="addColumn(1)">Add Column</button>
+        <button onclick="deleteLastColumn(1)">Delete Last Column</button>
+    </div>
+</div>
+
+<button onclick="addTable()">Add Table</button>
+<button onclick="submitTable()">Submit</button>
+
+<script>
+    let tableCount = 1; // Counter for tracking tables
+    let columnCount=0;
+
+    // Function to add a new row to a specific table
+    
+
+    
+
+    function addColumn(tableId) {
+        const table = document.getElementById(`editableTable_${tableId}`);
+        const headerRow = table.rows[0];
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        const newHeaderCell = document.createElement('th');
+        const newHeaderInput = document.createElement('input');
+        newHeaderInput.type = 'text';
+        newHeaderInput.value = 'New Column ' + (headerRow.cells.length - 5);
+        newHeaderCell.appendChild(newHeaderInput);
+        headerRow.insertBefore(newHeaderCell, headerRow.cells[headerRow.cells.length - 1]);
+
+        for (let row of rows) {
+            const newCell = row.insertCell(row.cells.length - 1);
+            newCell.innerHTML = '<input type="number">';
+        }
+    }
+
+    function deleteLastColumn(tableId) {
+        const table = document.getElementById(`editableTable_${tableId}`);
+        const headerRow = table.rows[0];
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        if (headerRow.cells.length <= 2) {
+            alert("You cannot delete the last column!");
+            return;
+        }
+
+        headerRow.deleteCell(headerRow.cells.length - 2);
+        for (let row of rows) {
+            row.deleteCell(row.cells.length - 2);
+        }
+    }
+
+    function addTable() {
+        tableCount++;
+        const tableContainer = document.getElementById('tableContainer');
+        const newTableWrapper = document.createElement('div');
+        newTableWrapper.className = 'tableWrapper';
+        newTableWrapper.id = `tableWrapper_${tableCount}`;
+        newTableWrapper.innerHTML = `
+            <h2>Table ${tableCount}: <input id="carrierName_${tableCount}" type="text" value="Carrier ${tableCount}"></h2>
+            <table id="editableTable_${tableCount}">
+                <thead>
+                    <tr>
+                        <th><input type="text" value="Plan Name"></th>
+                        <th><input type="text" value="Funding EE"></th>
+                        <th><input type="text" value="Funding E+1"></th>
+                        <th><input type="text" value="Funding E+2"></th>
+                        <th><input type="text" value="Admin Fee"></th>
+                        <th></th> <!-- Placeholder for delete button -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><input type="text" value="Plan A"></td>
+                        <td><input type="number" value="$"></td>
+                        <td><input type="number" value="$"></td>
+                        <td><input type="number" value="$"></td>
+                        <td><input type="number" value="$"></td>
+                        
+                    </tr>
+                </tbody>
+            </table>
+            
+            <button onclick="addColumn(${tableCount})">Add Column</button>
+            <button onclick="deleteLastColumn(${tableCount})">Delete Last Column</button>
+        `;
+        tableContainer.appendChild(newTableWrapper);
+    }
+
+    // Modified submitTable function
+    async function submitTable() {
+        // Initialize arrays to hold the collected data
+        // Retrieve the stored data object from localStorage
+        const companyDataString = localStorage.getItem('companyData');
+        if (!companyDataString) {
+            console.error('No company data found in localStorage');
+            return;
+        }
+
+        // Parse the stored JSON string into an object
+        const companyData = JSON.parse(companyDataString);
+        const plans = [];
+
+        let planID = 1;
+
+        for (let i = 1; i <= tableCount; i++) {
+            const carrierName = document.getElementById(`carrierName_${i}`).value;
+
+            const table = document.getElementById(`editableTable_${i}`);
+            const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+            for (let row of rows) {
+                const inputs = row.getElementsByTagName('input');
+                const planName = inputs[0].value;
+                
+                for(let j=1; j < inputs.length-1; j++){
+                    
+                    // Create a plan object for each row
+                    const planObject = {
+                        "PlanID": planID,
+                        "EmployerID": 1, // Replace with actual EmployerID
+                        "CarrierID": i, // Replace with actual CarrierID
+                        "CarrierName": carrierName,
+                        "PlanName": planName,
+                        "FundingAmount": parseFloat(inputs[j].value) || 0,// Assuming funding amount is in the second input field
+                        "GrenzFee": parseFloat(inputs[inputs.length-1].value) || 0,
+                        "TierID": j
+                    };
+
+                    plans.push(planObject);
+                    planID++;
+                }
+            }
+        }
+
+        // Display the collected plans for debugging
+        console.log('Final plans:', plans);
+
+        // Add the table data to the company data object
+        companyData['Plans'] = plans;
+
+    // Log the complete data to the console
+    console.log('Complete Data:', companyData);
+
+    // Send the complete data to the server
+    try {
+        await addEmployer(companyData);
+        alert('Data submitted successfully!');
+        // Optionally, clear the localStorage or redirect to another page
+        localStorage.removeItem('companyData'); // Clear the storage after submission
+    } catch (error) {
+        console.error('Error submitting data:', error);
+        alert('Failed to submit data.');
+    }
+    }
+
+
+    // Placeholder for the apiFunctions.js methods.
+    // In a real scenario, these would be imported from the actual `apiFunctions.js` file.
+    const BASE_URL = "http://localhost:5000";
+
+    // Helper function to make API requests
+    async function apiRequest(endpoint, method = "GET", body = null) {
+        const options = {
+            method,
+            headers: {
+                "Content-Type": "application/json"
+            }
+        };
+
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
+
+        try {
+            const response = await fetch(`${BASE_URL}${endpoint}`, options);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("API Request Error:", error);
+            throw error;
+        }
+    }
+
+    // Function to add an employer
+    async function addEmployer(employerJson) {
+        return await apiRequest("/employer", "POST", employerJson);
+}
+</script>
+
+</body>
+</html>
