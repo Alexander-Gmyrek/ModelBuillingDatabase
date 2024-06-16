@@ -1,6 +1,6 @@
 // apiFunctions.js
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "http://localhost:3000";
 
 // Helper function to make API requests
 async function apiRequest(endpoint, method = "GET", body = null) {

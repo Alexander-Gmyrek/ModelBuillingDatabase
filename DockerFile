@@ -1,0 +1,53 @@
+# Stage 1: Build the frontend
+FROM node:14 AS build-frontend
+
+# Set working directory for frontend
+WORKDIR /frontend
+
+# Copy frontend files to the container
+COPY ./frontend /frontend
+
+# Install dependencies and build the frontend
+RUN npm install && npm run build
+
+# Stage 2: Build the backend
+FROM python:3.9 AS build-backend
+
+# Set working directory for backend
+WORKDIR /app
+
+# Copy backend files to the container
+COPY ./Backend /app
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Define environment variable
+ENV FLASK_APP=app.py
+
+# Stage 3: Setup the final container
+FROM nginx:alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy built frontend files to Nginx
+COPY --from=build-frontend /frontend/build /usr/share/nginx/html
+
+# Copy backend files
+COPY --from=build-backend /app /app
+
+# Copy Nginx configuration file
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Install supervisord to manage processes
+RUN apk add --no-cache supervisor
+
+# Copy supervisord configuration file
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Expose port 80 for Nginx and 5000 for Flask
+EXPOSE 80 3000
+
+# Start supervisord
+CMD ["/usr/bin/supervisord"]
