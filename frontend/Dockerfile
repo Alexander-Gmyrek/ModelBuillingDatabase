@@ -7,6 +7,8 @@ COPY . /usr/share/nginx/html
 # Copy Nginx configuration file
 COPY nginx.conf /etc/nginx/nginx.conf
 
+ENV SET_BASE_URL="http://localhost:3000"
+
 # Expose port 80
 EXPOSE 80
 
