@@ -35,13 +35,13 @@ services:
   mysql:
     image: mysql:latest
     container_name: mysql
+    ports:
+      - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: Root
       MYSQL_DATABASE: modelBillingDBv1
       MYSQL_USER: server
       MYSQL_PASSWORD: Server
-    ports:
-      - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
       - ./Backend/init.sql:/docker-entrypoint-initdb.d/init.sql
