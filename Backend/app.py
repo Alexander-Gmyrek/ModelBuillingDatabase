@@ -574,23 +574,8 @@ def change_element_by_table_name(cursor, table_name: str, element_id, element_js
     soft_errors, element_id = change_element(cursor, table_name, element_id, element_json, required_fields, optional_fields)
     return soft_errors, element_id
 
-
-
 ### Plan Functions ###
-def add_plan(cursor, plan_json):
-    soft_errors, element_id = add_element_by_table_name(cursor, "Plan", plan_json)
-    return element_id
 
-def change_plan(cursor, plan_id, plan_json):
-    soft_errors, element_id = change_element_by_table_name(cursor, "Plan", plan_id, plan_json)
-    return element_id
-
-def delete_plan(cursor, plan_id):
-    try:
-        delete_element(cursor, "Plan", plan_id)
-        return True
-    except:
-        return False
 
 def modify_plan():
     try:
@@ -598,72 +583,8 @@ def modify_plan():
     except Exception as e:
         raise ValueError("Modify Plan: " + str(e))
 
-
-### Carrier Functions ###
-def add_carrier(cursor, carrier_json):
-    soft_errors, element_id = add_element_by_table_name(cursor, "Carrier", carrier_json)
-    return element_id
-
-def change_carrier(cursor, carrier_id, carrier_json):
-    soft_errors, element_id = change_element_by_table_name(cursor, "Carrier", carrier_id, carrier_json)
-    return element_id
-
-def delete_carrier(cursor, carrier_id):
-    try:
-        delete_element(cursor, "Carrier", carrier_id)
-        return True
-    except:
-        return False
-
-### Tier Functions ###
-def add_tier(cursor, tier_json):
-    soft_errors, element_id = add_element_by_table_name(cursor, "Tier", tier_json)
-    return element_id
-
-def get_current_tier(cursor, tier_id):
-    get_tier_query = "SELECT * FROM Tier WHERE TierID = %s"
-    cursor.execute(get_tier_query, (tier_id,))
-    current_tier = cursor.fetchone()
-    return current_tier
-
-def change_tier(cursor, tier_id, tier_json):
-    soft_errors, element_id = change_element_by_table_name(cursor, "Tier", tier_id, tier_json)
-    return element_id
-
-def delete_tier(cursor, tier_id):
-    try:
-        delete_element(cursor, "Tier", tier_id)
-        return True
-    except Exception as e:
-        return False
-
-### Dependent Functions ###
-
-def add_dependent(cursor, dependent_json):
-    soft_errors, element_id = add_element_by_table_name(cursor, "Dependent", dependent_json)
-    return element_id
-
-def get_current_dependent(cursor, dependent_id):
-    get_dependent_query = "SELECT * FROM Dependent WHERE DependentID = %s"
-    cursor.execute(get_dependent_query, (dependent_id,))
-    current_dependent = cursor.fetchall()
-    return current_dependent
-
-def change_dependent(cursor, dependent_id, dependent_json):
-    soft_errors, element_id = change_element_by_table_name(cursor, "Dependent", dependent_id, dependent_json)
-    return element_id
-
-def delete_dependent(cursor, dependent_id):
-    try:
-        delete_element(cursor, "Dependent", dependent_id)
-        return True
-    except Exception as e:
-        return False
     
 ### Employee Functions ###
-def add_employee(cursor, employee_json):
-    soft_errors, element_id = add_element_by_table_name(cursor, "Employee", employee_json)
-    return element_id
 
 def get_carrier_id(cursor, carrier_name, employer_id):
     get_carrier_query = "SELECT CarrierID FROM Carrier WHERE CarrierName = %s AND EmployerID = %s"
@@ -708,44 +629,8 @@ def calculate_age(employer_id, dob, year, cursor):
     age = renewal_date.year - dob.year - ((renewal_date.month, renewal_date.day) < (dob.month, dob.day))
     return age
 
-def change_employee(cursor, employee_id, employee_json):
-    soft_errors, element_id = change_element_by_table_name(cursor, "Employee", employee_id, employee_json)
-    return element_id
-
-def get_current_employee(cursor, employee_id):
-    get_employee_query = "SELECT * FROM Employee WHERE EmployeeID = %s"
-    cursor.execute(get_employee_query, (employee_id,))
-    current_employee = cursor.fetchone()
-    return current_employee
-
-def delete_employee(cursor, employee_id):
-    try:
-        delete_element(cursor, "Employee", employee_id)
-        return True
-    except Exception as e:
-        return False
-
 ### EmployeePlan Functions ###
-def add_employee_plan(cursor, employee_plan_json):
-    soft_errors, element_id = add_element_by_table_name(cursor, "EmployeePlan", employee_plan_json)
-    return element_id
 
-def get_current_employee_plan(cursor, employee_plan_id):
-    get_employee_plan_query = "SELECT * FROM EmployeePlan WHERE EmployeePlanID = %s"
-    cursor.execute(get_employee_plan_query, (employee_plan_id,))
-    current_employee_plan = cursor.fetchone()
-    return current_employee_plan
-
-def change_employee_plan(cursor, employee_plan_id, employee_plan_json):
-    soft_errors, element_id = change_element_by_table_name(cursor, "EmployeePlan", employee_plan_id, employee_plan_json)
-    return element_id
-
-def delete_employee_plan(cursor, employee_plan_id):
-    try:
-        delete_element(cursor, "EmployeePlan", employee_plan_id)
-        return True
-    except Exception as e:
-        return False
 
 def modify_employee_plan():
     try:
@@ -756,16 +641,6 @@ def modify_employee_plan():
 ### Employer Functions ###
 def add_employer(cursor, employer_json):
     soft_errors, element_id = add_element_by_table_name(cursor, "Employer", employer_json)
-    return element_id
-
-def get_current_employer(cursor, employer_id):
-    get_employer_query = "SELECT * FROM Employer WHERE EmployerID = %s"
-    cursor.execute(get_employer_query, (employer_id,))
-    current_employer = cursor.fetchone()
-    return current_employer
-
-def change_employer(cursor, employer_id, employer_json):
-    soft_errors, element_id = change_element_by_table_name(cursor, "Employer", employer_id, employer_json)
     return element_id
 
 def delete_employer(cursor, employer_id):
