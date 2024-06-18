@@ -37,6 +37,40 @@ def testconection():
         else:
             return jsonify({"message": "Connection to MySQL Server failed"})
 
+# table fields
+get_table_fields = lambda key, subkey: {
+    "Plan":{ 
+        "RequiredFields" : ["EmployerID", "CarrierID", "TierID", "FundingAmount", "GrenzFee",],
+        "OptionalFields": ["PlanID", "GrenzFeeC", "GrenzFeeS"]
+    },
+    "Tier": {
+        "RequiredFields" : ["EmployerID", "TierName"],
+        "OptionalFields": ["TierID", "MaxAge", "MinAge"]
+    },
+    "Carrier": {
+        "RequiredFields" : ["EmployerID", "CarrierName"],
+        "OptionalFields": ["CarrierID"]
+    },
+    "Dependent": {
+        "RequiredFields" : ["EmployeeID", "DependentName", "Relationship", "DOB", "StartDate"],
+        "OptionalFields": ["DependentID", "InformStartDate", "EndDate", "InformEndDate"]
+    },
+    "Employee": {
+        "RequiredFields" : ["EmployerID", "EmployeeFullName", "JoinDate"],
+        "OptionalFields": ["EmployeeID", "TermDate", "JoinInformDate", "TermEndDate", "DOB", "CobraStatus", "Notes", "GlCode", "Division", "Location", "Title", "EmployeeFirstName", "EmployeeLastName", "Carrier", "Tier"],
+        "Subtables": ["Dependents", "EmployeePlans"]
+    },
+    "EmployeePlan": {
+        "RequiredFields" : ["EmployeeID", "PlanID", "StartDate"],
+        "OptionalFields": ["EmployeePlanID", "EndDate", "InformEndDate", "InformStartDate"]
+    },
+    "Employer": {
+        "RequiredFields" : ["EmployerName", "TierStructure", "RenewalDate"],
+        "OptionalFields": ["EmployerID", "UsesGlCode", "UsesDivision", "UsesLocation", "UsesTitle", "PerferedBillingDate"],
+        "OptionalSetToFalse": ["UsesGlCode", "UsesDivision", "UsesLocation", "UsesTitle"],
+        "Subtables": ["Carriers", "Tiers", "Plans", "Employees"]
+    }
+}.get(key, {}).get(subkey, {})
 
 ####################### Basic Methods #######################
 
@@ -46,18 +80,18 @@ def testconection():
 @app.route('/plan', methods=['POST'])
 def add_new_plan():
     data = request.get_json()
-    return add_element(data, "Plan", add_plan)
+    return route_add_element("Plan", data)
 
 # Change
 @app.route('/plan/<int:id>', methods=['PATCH'])
 def change_plan(id):
     data = request.get_json()
-    return change_element(id, data, "Plan", change_plan)
+    return route_change_element("Plan", id, data)
 
 # Delete
 @app.route('/plan/<int:id>', methods=['DELETE'])
 def delete_plan(id):
-    return delete_element(id, "Plan", delete_plan)
+    return route_delete_element(id, "Plan")
 
 ### Tier Methods ###
 
@@ -65,18 +99,18 @@ def delete_plan(id):
 @app.route('/tier', methods=['POST'])
 def add_tier():
     data = request.get_json()
-    return add_element(data, "Tier", add_tier)
+    return route_add_element("Tier", data)
 
 # Change
 @app.route('/tier/<int:id>', methods=['PATCH'])
 def change_tier(id):
     data = request.get_json()
-    return change_element(id, data, "Tier", change_tier)
+    return route_change_element("Tier", id, data)
 
 # Delete
 @app.route('/tier/<int:id>', methods=['DELETE'])
 def delete_tier(id):
-    return delete_element(id, "Tier", delete_tier)
+    return route_delete_element(id, "Tier")
 
 ### Carrier Methods ###
 
@@ -84,18 +118,18 @@ def delete_tier(id):
 @app.route('/carrier', methods=['POST'])
 def add_carrier():
     data = request.get_json()
-    return add_element(data, "Carrier", add_carrier)
+    return route_add_element("Carrier", data)
 
 # Change
 @app.route('/carrier/<int:id>', methods=['PATCH'])
 def change_carrier(id):
     data = request.get_json()
-    return change_element(id, data, "Carrier", change_carrier)
+    return route_change_element("Carrier", id, data)
 
 # Delete
 @app.route('/carrier/<int:id>', methods=['DELETE'])
 def delete_carrier(id):
-    return delete_element(id, "Carrier", delete_carrier)
+    return route_delete_element(id, "Carrier")
 
 ### Dependent Methods ###
 
@@ -103,18 +137,18 @@ def delete_carrier(id):
 @app.route('/dependent', methods=['POST'])
 def add_dependent():
     data = request.get_json()
-    return add_element(data, "Dependent", add_dependent)
+    return route_add_element("Dependent", data)
 
 # Change
 @app.route('/dependent/<int:id>', methods=['PATCH'])
 def change_dependent(id):
     data = request.get_json()
-    return change_element(id, data, "Dependent", change_dependent)
+    return route_change_element("Dependent", id, data)
 
 # Delete
 @app.route('/dependent/<int:id>', methods=['DELETE'])
 def delete_dependent(id):
-    return delete_element(id, "Dependent", delete_dependent)
+    return route_delete_element(id, "Dependent")
 
 ### Employee Methods ###
 
@@ -122,18 +156,18 @@ def delete_dependent(id):
 @app.route('/employee', methods=['POST'])
 def add_employee():
     data = request.get_json()
-    return add_element(data, "Employee", add_employee)
+    return route_add_element("Employee", data)
 
 # Change
 @app.route('/employee/<int:id>', methods=['PATCH'])
 def change_employee(id):
     data = request.get_json()
-    return change_element(id, data, "Employee", change_employee)
+    return route_change_element("Employee", id, data)
 
 # Delete
 @app.route('/employee/<int:id>', methods=['DELETE'])
 def delete_employee(id):
-    return delete_element(id, "Employee", delete_employee)
+    return route_delete_element(id, "Employee")
 
 ### EmployeePlan Methods ###
 
@@ -141,18 +175,18 @@ def delete_employee(id):
 @app.route('/employeeplan', methods=['POST'])
 def add_employee_plan():
     data = request.get_json()
-    return add_element(data, "EmployeePlan", add_employee_plan)
+    return route_add_element("EmployeePlan", data)
 
 # Change
 @app.route('/employeeplan/<int:id>', methods=['PATCH'])
 def change_employee_plan(id):
     data = request.get_json()
-    return change_element(id, data, "EmployeePlan", change_employee_plan)
+    return route_change_element("EmployeePlan", id, data)
 
 # Delete
 @app.route('/employeeplan/<int:id>', methods=['DELETE'])
 def delete_employee_plan(id):
-    return delete_element(id, "EmployeePlan", delete_employee_plan)
+    return route_delete_element(id, "EmployeePlan")
 
 ### Employer Methods ###
 
@@ -160,65 +194,18 @@ def delete_employee_plan(id):
 @app.route('/employer', methods=['POST'])
 def add_employer():
     data = request.get_json()
-    return add_element(data, "Employer", add_employer)
+    return route_add_element("Employer", data)
 
 # Change
 @app.route('/employer/<int:id>', methods=['PATCH'])
 def change_employer(id):
     data = request.get_json()
-    return change_element(id, data, "Employer", change_employer)
+    return route_change_element("Employer", id, data)
 
 # Delete
 @app.route('/employer/<int:id>', methods=['DELETE'])
 def delete_employer(id):
-    return delete_element(id, "Employer", delete_employer)
-
-###### Refactoring ######
-def add_element(data, table_name, add_element_func):
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        try:
-            new_id = add_element_func(cursor, data)
-            connection.commit()
-        except Exception as e:
-            return jsonify({"Error adding " + table_name + ": " + str(e)}), 400
-        cursor.close()
-        connection.close()
-    except Exception as e:
-        return jsonify({"Error": str(e)}), 400
-    return jsonify({table_name + "ID": new_id})
-
-
-def change_element(id, data, table_name, change_element_func):
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        try:
-            change_element_func(cursor, id, data)
-            connection.commit()
-        except Exception as e:
-            return jsonify({"Error changing " + table_name + ": " + str(e)}), 400
-        cursor.close()
-        connection.close()
-    except Exception as e:
-        return jsonify({"Error": str(e)}), 400
-    return jsonify({table_name + "ID": id})
-
-def delete_element(id, table_name, delete_element_func):
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        try:
-            delete_element_func(cursor, id)
-            connection.commit()
-        except Exception as e:
-            return jsonify({"Error deleting " + table_name + ": " + str(e)}), 400
-        cursor.close()
-        connection.close()
-    except Exception as e:
-        return jsonify({"Error": str(e)}), 400
-    return jsonify({table_name + "ID": id})
+    return route_delete_element(id, "Employer")
 
 ####################### Getter Methods ######################
 
@@ -357,14 +344,38 @@ def search_employers():
     
 ###### Refactoring ######
 
-def SearchTable(cursor, table_name, data):
-    data = json.loads(data)
-    query = f"SELECT * FROM {table_name} WHERE "
-    for key, value in data.items():
-        query += f"{key} = '{value}' AND "
-    query = query[:-5]
-    cursor.execute(query)
-    return json.dumps(cursor.fetchall())
+
+### General Search Function ###
+def SearchTable(cursor, table_name, search_criteria_json):
+    """
+    Retrieves all items in table that match the given criteria.
+    Args:
+        cursor: The MySQL database cursor.
+        table_name: The name of the table to search.
+        search_criteria_json: A JSON object containing the search criteria.
+    Returns:
+        A JSON array of items that match the criteria.
+    """
+    search_criteria = json.loads(search_criteria_json)
+    
+    base_query = f"SELECT * FROM {table_name} WHERE "
+    conditions = []
+    values = []
+
+    for key, value in search_criteria.items():
+        conditions.append(f"{key} = %s")
+        values.append(value)
+
+    query = base_query + " AND ".join(conditions)
+    cursor.execute(query, tuple(values))
+    results = cursor.fetchall()
+
+    # Convert results to a list of dictionaries
+    field_names = [i[0] for i in cursor.description]
+    plans = [dict(zip(field_names, row)) for row in results]
+    
+    return json.dumps(plans)
+
 
 def get_all(table_name):
     try:
@@ -432,131 +443,182 @@ def get_active(table_name, EmployerID, end_term):
 
 ######################### Functions #########################
 
+def add_element_by_table_name(cursor, table_name: str, element_json):
+    soft_errors = []
+    # make sure the table name is capitalized
+    table_name = table_name.capitalize()
+    # check if the table name is valid
+    if get_table_fields(table_name, "RequiredFields") == {}:
+        raise ValueError(f"Table {table_name} does not exist.")
+    # get the required and optional fields for the table
+    required_fields = get_table_fields(table_name, "RequiredFields")
+    optional_fields = get_table_fields(table_name, "OptionalFields")
+
+    # auto fill holes
+    if table_name == "Employee":
+        if "EmployeeFullName" not in element_json:
+            element_json["EmployeeFullName"] = element_json["EmployeeFirstName"] + " " + element_json["EmployeeLastName"]
+        element_json["JoinDate"], message = get_date_with_message(element_json, "JoinDate", "JoinInformDate")
+        if message:
+            soft_errors.append(message)
+        element_json["JoinInformDate"], message = get_date_with_message(element_json, "JoinInformDate", "JoinDate")
+        if message:
+            soft_errors.append(message)
+        if "EmployeePlans" not in element_json:
+            # Get CarrierID
+            carrier_id = get_carrier_id(cursor, element_json['Carrier'], element_json['EmployerID'])
+            
+            # Get TierID
+            tier_id = get_tier_id(cursor, element_json['Tier'], element_json['DOB'], element_json['EmployerID'])
+            
+            # Get PlanID
+            plan_id = get_plan_id(cursor, carrier_id, tier_id)
+            
+            # Add EmployeePlan
+            element_json["EmployeePlans"] ={{
+                'PlanID': plan_id,
+                'InformStartDate': element_json['JoinDate'],
+                'StartDate': element_json['JoinDate'],
+                'EndDate': None,
+                'InformEndDate': None
+            }}
+        
+    elif table_name == "Dependent":
+        element_json["StartDate"], message = get_date_with_message(element_json, "StartDate", "InformStartDate")
+        if message:
+            soft_errors.append(message)
+        element_json["InformStartDate"], message = get_date_with_message(element_json, "InformStartDate", "StartDate")
+        if message:
+            soft_errors.append(message)
+
+    elif table_name == "EmployeePlan":
+        element_json["StartDate"], message = get_date_with_message(element_json, "StartDate", "InformStartDate")
+        if message:
+            soft_errors.append(message)
+        element_json["InformStartDate"], message = get_date_with_message(element_json, "InformStartDate", "StartDate")
+        if message:
+            soft_errors.append(message)
+
+    elif table_name == "Employer":
+        element_json["PreferredBillingDate"], message = get_date_with_message(element_json, "PreferredBillingDate", "RenewalDate")
+        if message:
+            soft_errors.append(message)
+        if "RenewalDate" not in element_json:
+            #set the renewal date to the first of the month and notify the user
+            element_json["RenewalDate"] = datetime.strptime(datetime.now, '%Y-%m-%d').replace(day=1).strftime('%Y-%m-%d')
+            soft_errors.append("Renewal Date was not provided, using the first of the month.")
+        #check if renewal date is the first of the month
+        if element_json["RenewalDate"].split('-')[2] != '01':
+            soft_errors.append("Renewal Date is not the first of the month.")
+        for field in get_table_fields(table_name, "OptionalSetToFalse"):
+            if field not in element_json:
+                element_json[field] = False
+
+    elif table_name == "Plan":
+        if "CarrierID" not in element_json:
+            element_json["CarrierID"] = get_carrier_id(cursor, element_json["CarrierName"], element_json["EmployerID"])
+        if "TierID" not in element_json:
+            element_json["TierID"] = get_tier_id(cursor, element_json["TierName"], element_json["EmployerID"])
+
+    elif table_name == "Tier":
+        #if max age contains a +, set it to 999
+        if "MaxAge" in element_json:
+            if element_json["MaxAge"].find("+") != -1:
+                element_json["MaxAge"] = 9999
+        #if min age contains a -, set it to 0
+        if "MinAge" in element_json:
+            if element_json["MinAge"].find("-") != -1:
+                element_json["MinAge"] = 0
+    
+    # add the element to the table
+    try:
+        s_errors, element_id = add_element(cursor, table_name, element_json, required_fields, optional_fields)
+        soft_errors.append(s_errors)
+        for subtable in get_table_fields(table_name, "Subtables"):
+            if subtable in element_json:
+                for sub_element in element_json[subtable]:
+                    sub_element[table_name + "ID"] = element_id
+                    try:
+                        s_errors, sub_element_id = add_element_by_table_name(cursor, subtable, sub_element)
+                    except Exception as e:
+                        raise ValueError(f"Subtable {subtable}: " + str(e))
+                    soft_errors.append(s_errors)
+        return soft_errors, element_id
+    except Exception as e:
+        raise ValueError(f"Add {table_name}: " + str(e))
+    
+
+
+try_set_dates = lambda element_json, preferred_datename, backup_datename: (
+    element_json.get(preferred_datename, "") if element_json.get(preferred_datename, "") != "" else
+    element_json.get(backup_datename, "") if element_json.get(backup_datename, "") != "" else
+    (datetime.now().strftime('%Y-%m-%d'), f"{preferred_datename} Date was not provided, using the current date.")
+)
+
+def get_date_with_message(element_json, preferred_datename, backup_datename):
+    result = try_set_dates(element_json, preferred_datename, backup_datename)
+    if isinstance(result, tuple):
+        return result
+    return result, None
+
+def change_element_by_table_name(cursor, table_name: str, element_id, element_json):
+    soft_errors = []
+    # make sure the table name is capitalized
+    table_name = table_name.capitalize()
+    # check if the table name is valid
+    if get_table_fields(table_name, "RequiredFields") == {}:
+        raise ValueError(f"Table {table_name} does not exist.")
+    # get the required and optional fields for the table
+    required_fields = get_table_fields(table_name, "RequiredFields")
+    optional_fields = get_table_fields(table_name, "OptionalFields")
+    soft_errors, element_id = change_element(cursor, table_name, element_id, element_json, required_fields, optional_fields)
+    return soft_errors, element_id
+
 
 
 ### Plan Functions ###
 def add_plan(cursor, plan_json):
-    add_plan_query = """
-    INSERT INTO Plan (EmployerID, CarrierID, TierID, FundingAmount, GrenzFee, GrenzFeeC, GrenzFeeS)
-    VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """
-    plan_data = (
-        plan_json['EmployerID'], plan_json['CarrierID'], plan_json['TierID'],
-        plan_json['FundingAmount'], plan_json['GrenzFee'], plan_json['GrenzFeeC'], plan_json['GrenzFeeS']
-    )
-    cursor.execute(add_plan_query, plan_data)
-    new_plan_id = cursor.lastrowid
-    return new_plan_id
+    soft_errors, element_id = add_element_by_table_name(cursor, "Plan", plan_json)
+    return element_id
 
 def change_plan(cursor, plan_id, plan_json):
-    current_plan = cursor.execute("SELECT * FROM Plan WHERE PlanID = %s", (plan_id,)).fetchall()[0][0]
-    
-    if not current_plan:
-        raise ValueError(f"Plan with ID {plan_id} does not exist.")
-    
-    update_fields = []
-    update_values = []
-    
-    for key, value in plan_json.items():
-        if key != 'PlanID' and value != current_plan[key]:
-            update_fields.append(f"{key} = %s")
-            update_values.append(value)
-    
-    if update_fields:
-        update_values.append(plan_id)
-        update_plan_query = f"""
-        UPDATE Plan
-        SET {', '.join(update_fields)}
-        WHERE PlanID = %s
-        """
-        cursor.execute(update_plan_query, tuple(update_values))
+    soft_errors, element_id = change_element_by_table_name(cursor, "Plan", plan_id, plan_json)
+    return element_id
 
 def delete_plan(cursor, plan_id):
-    delete_plan_query = "DELETE FROM Plan WHERE PlanID = %s"
-    cursor.execute(delete_plan_query, (plan_id,))
+    try:
+        delete_element(cursor, "Plan", plan_id)
+        return True
+    except:
+        return False
 
 def modify_plan():
     try:
-        raise ValueError("Not Yet Implemented")
+        raise NotImplementedError("Not Yet Implemented")
     except Exception as e:
         raise ValueError("Modify Plan: " + str(e))
 
 
 ### Carrier Functions ###
 def add_carrier(cursor, carrier_json):
-    
-    
-    # Check if the carrier already exists
-    check_carrier_query = "SELECT CarrierID FROM Carrier WHERE CarrierName = %s AND EmployerID = %s"
-    cursor.execute(check_carrier_query, (carrier_json['CarrierName'], carrier_json['EmployerID']))
-    existing_carrier = cursor.fetchall()
-    
-    if existing_carrier:
-        return existing_carrier[0]
-    
-    # Add new carrier
-    add_carrier_query = """
-    INSERT INTO Carrier (EmployerID, CarrierName)
-    VALUES (%s, %s)
-    """
-    carrier_data = (
-        carrier_json['EmployerID'], carrier_json['CarrierName']
-    )
-    cursor.execute(add_carrier_query, carrier_data)
-    new_carrier_id = cursor.lastrowid
-    return new_carrier_id
+    soft_errors, element_id = add_element_by_table_name(cursor, "Carrier", carrier_json)
+    return element_id
 
 def change_carrier(cursor, carrier_id, carrier_json):
-    current_carrier = cursor.execute("SELECT * FROM Carrier WHERE CarrierID = %s", (carrier_id,)).fetchall()[0][0]
-    
-    if not current_carrier:
-        raise ValueError(f"Carrier with ID {carrier_id} does not exist.")
-    
-    update_fields = []
-    update_values = []
-    
-    for key, value in carrier_json.items():
-        if key != 'CarrierID' and value != current_carrier[key]:
-            update_fields.append(f"{key} = %s")
-            update_values.append(value)
-    
-    if update_fields:
-        update_values.append(carrier_id)
-        update_carrier_query = f"""
-        UPDATE Carrier
-        SET {', '.join(update_fields)}
-        WHERE CarrierID = %s
-        """
-        cursor.execute(update_carrier_query, tuple(update_values))
-    
-    return carrier_id
+    soft_errors, element_id = change_element_by_table_name(cursor, "Carrier", carrier_id, carrier_json)
+    return element_id
 
 def delete_carrier(cursor, carrier_id):
-    
-    delete_carrier_query = "DELETE FROM Carrier WHERE CarrierID = %s"
-    cursor.execute(delete_carrier_query, (carrier_id,))
+    try:
+        delete_element(cursor, "Carrier", carrier_id)
+        return True
+    except:
+        return False
 
 ### Tier Functions ###
 def add_tier(cursor, tier_json):
-    # Check if the tier already exists
-    check_tier_query = "SELECT TierID FROM Tier WHERE TierName = %s AND EmployerID = %s"
-    cursor.execute(check_tier_query, (tier_json['TierName'], tier_json['EmployerID']))
-    existing_tier = cursor.fetchall()
-    
-    if existing_tier:
-        return existing_tier[0][0]
-    
-    # Add new tier
-    add_tier_query = """
-    INSERT INTO Tier (EmployerID, TierName, MaxAge, MinAge)
-    VALUES (%s, %s, %s, %s)
-    """
-    tier_data = (
-        tier_json['EmployerID'], tier_json['TierName'], tier_json['MaxAge'], tier_json['MinAge']
-    )
-    cursor.execute(add_tier_query, tier_data)
-    new_tier_id = cursor.lastrowid
-    return new_tier_id
+    soft_errors, element_id = add_element_by_table_name(cursor, "Tier", tier_json)
+    return element_id
 
 def get_current_tier(cursor, tier_id):
     get_tier_query = "SELECT * FROM Tier WHERE TierID = %s"
@@ -565,48 +627,21 @@ def get_current_tier(cursor, tier_id):
     return current_tier
 
 def change_tier(cursor, tier_id, tier_json):
-    current_tier = get_current_tier(cursor, tier_id)
-    
-    if not current_tier:
-        raise ValueError(f"Tier with ID {tier_id} does not exist.")
-    
-    update_fields = []
-    update_values = []
-    
-    for key, value in tier_json.items():
-        if key != 'TierID' and value != current_tier[key]:
-            update_fields.append(f"{key} = %s")
-            update_values.append(value)
-    
-    if update_fields:
-        update_values.append(tier_id)
-        update_tier_query = f"""
-        UPDATE Tier
-        SET {', '.join(update_fields)}
-        WHERE TierID = %s
-        """
-        cursor.execute(update_tier_query, tuple(update_values))
-    
-    return tier_id
+    soft_errors, element_id = change_element_by_table_name(cursor, "Tier", tier_id, tier_json)
+    return element_id
 
 def delete_tier(cursor, tier_id):
-    delete_tier_query = "DELETE FROM Tier WHERE TierID = %s"
-    cursor.execute(delete_tier_query, (tier_id,))
+    try:
+        delete_element(cursor, "Tier", tier_id)
+        return True
+    except Exception as e:
+        return False
 
 ### Dependent Functions ###
 
 def add_dependent(cursor, dependent_json):
-    add_dependent_query = """
-    INSERT INTO Dependent (EmployeeID, DependentName, Relationship, DOB, StartDate, InformStartDate)
-    VALUES (%s, %s, %s, %s, %s, %s)
-    """
-    dependent_data = (
-        dependent_json['EmployeeID'], dependent_json['DependentName'], dependent_json['Relationship'],
-        dependent_json['DOB'], dependent_json['StartDate'], dependent_json['InformStartDate']
-    )
-    cursor.execute(add_dependent_query, dependent_data)
-    new_dependent_id = cursor.lastrowid
-    return new_dependent_id
+    soft_errors, element_id = add_element_by_table_name(cursor, "Dependent", dependent_json)
+    return element_id
 
 def get_current_dependent(cursor, dependent_id):
     get_dependent_query = "SELECT * FROM Dependent WHERE DependentID = %s"
@@ -615,91 +650,20 @@ def get_current_dependent(cursor, dependent_id):
     return current_dependent
 
 def change_dependent(cursor, dependent_id, dependent_json):
-    current_dependent = get_current_dependent(cursor, dependent_id)
-    
-    if not current_dependent:
-        raise ValueError(f"Dependent with ID {dependent_id} does not exist.")
-    
-    update_fields = []
-    update_values = []
-    
-    for key, value in dependent_json.items():
-        if key != 'DependentID' and value != current_dependent[key]:
-            update_fields.append(f"{key} = %s")
-            update_values.append(value)
-    
-    if update_fields:
-        update_values.append(dependent_id)
-        update_dependent_query = f"""
-        UPDATE Dependent
-        SET {', '.join(update_fields)}
-        WHERE DependentID = %s
-        """
-        cursor.execute(update_dependent_query, tuple(update_values))
-    return get_current_dependent(cursor, dependent_id)
+    soft_errors, element_id = change_element_by_table_name(cursor, "Dependent", dependent_id, dependent_json)
+    return element_id
 
 def delete_dependent(cursor, dependent_id):
     try:
-        delete_dependent_query = "DELETE FROM Dependent WHERE DependentID = %s"
-        cursor.execute(delete_dependent_query, (dependent_id,))
+        delete_element(cursor, "Dependent", dependent_id)
         return True
-    except:
+    except Exception as e:
         return False
     
 ### Employee Functions ###
 def add_employee(cursor, employee_json):
-    # Add new employee
-    add_employee_query = """
-    INSERT INTO Employee (EmployerID, EmployeeFullName, EmployeeFirstName, EmployeeLastName, JoinDate, TermDate, 
-                          JoinInformDate, TermEndDate, DOB, CobraStatus, Notes, GlCode, Division, Location, Title)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    employee_data = (
-        employee_json['EmployerID'], employee_json['EmployeeFullName'], employee_json['EmployeeFirstName'], 
-        employee_json['EmployeeLastName'], employee_json['JoinDate'], employee_json['TermDate'], 
-        employee_json['JoinInformDate'], employee_json['TermEndDate'], employee_json['DOB'], 
-        employee_json['CobraStatus'], employee_json['Notes'], employee_json['GlCode'], employee_json['Division'], 
-        employee_json['Location'], employee_json['Title']
-    )
-    cursor.execute(add_employee_query, employee_data)
-    new_employee_id = cursor.lastrowid
-    
-    # Add dependents
-    if 'Dependents' in employee_json:
-        dependents = employee_json['Dependents']
-        for dependent in dependents:
-            dependent['EmployeeID'] = new_employee_id
-            add_dependent(cursor, dependent)
-    
-    # Add employee plans
-    if 'EmployeePlans' in employee_json:
-        employee_plans = employee_json['EmployeePlans']
-        for plan in employee_plans:
-            plan['EmployeeID'] = new_employee_id
-            add_employee_plan(cursor, plan)
-        return new_employee_id
-    
-    # Get CarrierID
-    carrier_id = get_carrier_id(cursor, employee_json['Carrier'], employee_json['EmployerID'])
-    
-    # Get TierID
-    tier_id = get_tier_id(cursor, employee_json['Tier'], employee_json['DOB'], employee_json['EmployerID'])
-    
-    # Get PlanID
-    plan_id = get_plan_id(cursor, carrier_id, tier_id)
-    
-    # Add EmployeePlan
-    add_employee_plan(cursor, {
-        'EmployeeID': new_employee_id,
-        'PlanID': plan_id,
-        'InformStartDate': employee_json['JoinDate'],
-        'StartDate': employee_json['JoinDate'],
-        'EndDate': None,
-        'InformEndDate': None
-    })
-    
-    
-    return new_employee_id
+    soft_errors, element_id = add_element_by_table_name(cursor, "Employee", employee_json)
+    return element_id
 
 def get_carrier_id(cursor, carrier_name, employer_id):
     get_carrier_query = "SELECT CarrierID FROM Carrier WHERE CarrierName = %s AND EmployerID = %s"
@@ -729,7 +693,7 @@ def get_plan_id(cursor, carrier_id, tier_id):
     if plan:
         return plan[0]
     raise ValueError(f"Plan with carrier ID {carrier_id} and tier ID {tier_id} does not exist.")
-from datetime import date
+
 def calculate_age(employer_id, dob, year, cursor):
     #Ages are only updated on the renewal date
     query = f"SELECT RenewalDate FROM Employer WHERE EmployerID = {employer_id}"
@@ -740,34 +704,13 @@ def calculate_age(employer_id, dob, year, cursor):
     # Create a date object from the integers
     dob = date(dob_list[0], dob_list[1], dob_list[2])
     #renewal_date = renewal_date.split('-')
-    #renewal_date = datetime.date(int(year), int(renewal_date[1]), int(renewal_date[2]))
+    renewal_date = datetime.date(int(year), renewal_date.month, 1)
     age = renewal_date.year - dob.year - ((renewal_date.month, renewal_date.day) < (dob.month, dob.day))
     return age
 
 def change_employee(cursor, employee_id, employee_json):
-    current_employee = get_current_employee(cursor, employee_id)
-    
-    if not current_employee:
-        raise ValueError(f"Employee with ID {employee_id} does not exist.")
-    
-    update_fields = []
-    update_values = []
-    
-    for key, value in employee_json.items():
-        if key != 'EmployeeID' and value != current_employee[key]:
-            update_fields.append(f"{key} = %s")
-            update_values.append(value)
-    
-    if update_fields:
-        update_values.append(employee_id)
-        update_employee_query = f"""
-        UPDATE Employee
-        SET {', '.join(update_fields)}
-        WHERE EmployeeID = %s
-        """
-        cursor.execute(update_employee_query, tuple(update_values))
-    
-    return employee_id
+    soft_errors, element_id = change_element_by_table_name(cursor, "Employee", employee_id, employee_json)
+    return element_id
 
 def get_current_employee(cursor, employee_id):
     get_employee_query = "SELECT * FROM Employee WHERE EmployeeID = %s"
@@ -776,23 +719,16 @@ def get_current_employee(cursor, employee_id):
     return current_employee
 
 def delete_employee(cursor, employee_id):
-    delete_employee_query = "DELETE FROM Employee WHERE EmployeeID = %s"
-    cursor.execute(delete_employee_query, (employee_id,))
+    try:
+        delete_element(cursor, "Employee", employee_id)
+        return True
+    except Exception as e:
+        return False
 
 ### EmployeePlan Functions ###
 def add_employee_plan(cursor, employee_plan_json):
-    # Add new employee plan
-    add_employee_plan_query = """
-    INSERT INTO EmployeePlan (EmployeeID, PlanID, StartDate, InformStartDate, EndDate, InformEndDate)
-    VALUES (%s, %s, %s, %s, %s, %s)
-    """
-    employee_plan_data = (
-        employee_plan_json['EmployeeID'], employee_plan_json['PlanID'], employee_plan_json['StartDate'],
-        employee_plan_json['InformStartDate'], employee_plan_json['EndDate'], employee_plan_json['InformEndDate']
-    )
-    cursor.execute(add_employee_plan_query, employee_plan_data)
-    new_employee_plan_id = cursor.lastrowid
-    return new_employee_plan_id
+    soft_errors, element_id = add_element_by_table_name(cursor, "EmployeePlan", employee_plan_json)
+    return element_id
 
 def get_current_employee_plan(cursor, employee_plan_id):
     get_employee_plan_query = "SELECT * FROM EmployeePlan WHERE EmployeePlanID = %s"
@@ -801,33 +737,15 @@ def get_current_employee_plan(cursor, employee_plan_id):
     return current_employee_plan
 
 def change_employee_plan(cursor, employee_plan_id, employee_plan_json):
-    current_employee_plan = get_current_employee_plan(cursor, employee_plan_id)
-    
-    if not current_employee_plan:
-        raise ValueError(f"Employee plan with ID {employee_plan_id} does not exist.")
-    
-    update_fields = []
-    update_values = []
-    
-    for key, value in employee_plan_json.items():
-        if key != 'EmployeePlanID' and value != current_employee_plan[key]:
-            update_fields.append(f"{key} = %s")
-            update_values.append(value)
-    
-    if update_fields:
-        update_values.append(employee_plan_id)
-        update_employee_plan_query = f"""
-        UPDATE EmployeePlan
-        SET {', '.join(update_fields)}
-        WHERE EmployeePlanID = %s
-        """
-        cursor.execute(update_employee_plan_query, tuple(update_values))
-    
-    return employee_plan_id
+    soft_errors, element_id = change_element_by_table_name(cursor, "EmployeePlan", employee_plan_id, employee_plan_json)
+    return element_id
 
 def delete_employee_plan(cursor, employee_plan_id):
-    delete_employee_plan_query = "DELETE FROM EmployeePlan WHERE EmployeePlanID = %s"
-    cursor.execute(delete_employee_plan_query, (employee_plan_id,))
+    try:
+        delete_element(cursor, "EmployeePlan", employee_plan_id)
+        return True
+    except Exception as e:
+        return False
 
 def modify_employee_plan():
     try:
@@ -837,52 +755,8 @@ def modify_employee_plan():
 
 ### Employer Functions ###
 def add_employer(cursor, employer_json):
-    # Add new employer
-    add_employer_query = """
-    INSERT INTO Employer (EmployerName, TierStructure, UsesGlCode, UsesDivision, UsesLocation, UsesTitle, PerferedBillingDate, RenewalDate)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    employer_data = (
-        employer_json['EmployerName'], employer_json['TierStructure'], employer_json['UsesGlCode'],
-        employer_json['UsesDivision'], employer_json['UsesLocation'], employer_json['UsesTitle'],
-        employer_json['PerferedBillingDate'], employer_json['RenewalDate']
-    )
-    cursor.execute(add_employer_query, employer_data)
-    new_employer_id = cursor.lastrowid
-    
-    # Add carriers
-    if 'carriers' in employer_json:
-        carriers = employer_json['carriers']
-        for carrier in carriers:
-            carrier['EmployerID'] = new_employer_id
-            carrier['CarrierID'] = add_carrier(cursor, carrier)
-    
-    # Add tiers
-    if 'tiers' in employer_json:
-        tiers = employer_json['tiers']
-        for tier in tiers:
-            tier['EmployerID'] = new_employer_id
-            tier['TierID'] = add_tier(cursor, tier)
-    
-    # Add plans
-    if 'plans' in employer_json:
-        plans = employer_json['plans']
-        for plan in plans:
-            plan['EmployerID'] = new_employer_id
-            #use the TierName in the plan to get the tier id from the list of tiers.
-            plan['TierID'] = [tier['TierID'] for tier in tiers if tier['TierName'] == plan['TierName']][0]
-            plan['CarrierID'] = [carrier['CarrierID'] for carrier in carriers if carrier['CarrierName'] == plan['CarrierName']][0]
-            add_plan(cursor, plan)
-            
-    
-    # Add employees
-    if 'employees' in employer_json:
-        employees = employer_json['employees']
-        for employee in employees:
-            employee['EmployerID'] = new_employer_id
-            add_employee(cursor, employee)
-    
-    return new_employer_id
+    soft_errors, element_id = add_element_by_table_name(cursor, "Employer", employer_json)
+    return element_id
 
 def get_current_employer(cursor, employer_id):
     get_employer_query = "SELECT * FROM Employer WHERE EmployerID = %s"
@@ -891,65 +765,139 @@ def get_current_employer(cursor, employer_id):
     return current_employer
 
 def change_employer(cursor, employer_id, employer_json):
-    current_employer = get_current_employer(cursor, employer_id)
-    
-    if not current_employer:
-        raise ValueError(f"Employer with ID {employer_id} does not exist.")
-    
-    update_fields = []
-    update_values = []
-    
-    for key, value in employer_json.items():
-        if key != 'EmployerID' and value != current_employer[key]:
-            update_fields.append(f"{key} = %s")
-            update_values.append(value)
-    
-    if update_fields:
-        update_values.append(employer_id)
-        update_employer_query = f"""
-        UPDATE Employer
-        SET {', '.join(update_fields)}
-        WHERE EmployerID = %s
-        """
-        cursor.execute(update_employer_query, tuple(update_values))
-    
-    return employer_id
+    soft_errors, element_id = change_element_by_table_name(cursor, "Employer", employer_id, employer_json)
+    return element_id
 
 def delete_employer(cursor, employer_id):
-    delete_employer_query = "DELETE FROM Employer WHERE EmployerID = %s"
-    cursor.execute(delete_employer_query, (employer_id,))
+    try:
+        delete_element(cursor, "Employer", employer_id)
+        return True
+    except Exception as e:
+        return False
 
 
-### General Search Function ###
-def SearchTable(cursor, table_name, search_criteria_json):
-    """
-    Retrieves all items in table that match the given criteria.
-    Args:
-        cursor: The MySQL database cursor.
-        table_name: The name of the table to search.
-        search_criteria_json: A JSON object containing the search criteria.
-    Returns:
-        A JSON array of items that match the criteria.
-    """
-    search_criteria = json.loads(search_criteria_json)
+##### Refactoring #####
+def add_element(cursor, table_name, element_json, required_fields, optional_fields):
+    data_to_add = json.loads(element_json)
+    soft_errors = []
+
+    # Check for missing required fields
+    missing_required = [field for field in required_fields if field not in data_to_add]
+    if missing_required:
+        raise ValueError(f"{table_name} Missing required fields: {', '.join(missing_required)}")
+
+    # Identify invalid fields
+    valid_fields = required_fields + optional_fields
+    invalid_fields = [field for field in data_to_add if field not in valid_fields]
+
+    # Log soft errors for invalid fields
+    if invalid_fields:
+        soft_errors.append(f"Invalid fields: {', '.join(invalid_fields)}")
     
-    base_query = f"SELECT * FROM {table_name} WHERE "
-    conditions = []
-    values = []
+    # Filter data to include only valid fields
+    filtered_data = {key: value for key, value in data_to_add.items() if key in valid_fields}
 
-    for key, value in search_criteria.items():
-        conditions.append(f"{key} = %s")
-        values.append(value)
+    columns = ", ".join(filtered_data.keys())
+    placeholders = ", ".join(["%s"] * len(filtered_data))
+    values = tuple(filtered_data.values())
 
-    query = base_query + " AND ".join(conditions)
-    cursor.execute(query, tuple(values))
-    results = cursor.fetchall()
-
-    # Convert results to a list of dictionaries
-    field_names = [i[0] for i in cursor.description]
-    plans = [dict(zip(field_names, row)) for row in results]
+    query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+    cursor.execute(query, values)
     
-    return json.dumps(plans)
+    # Retrieve the ID of the newly inserted row
+    cursor.execute("SELECT LAST_INSERT_ID()")
+    new_id = cursor.fetchone()[0]
+    
+    return new_id, soft_errors
+
+def route_add_element(table_name, element_json):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        new_id, soft_errors = add_element_by_table_name(cursor, table_name, element_json)
+        connection.commit()
+        cursor.close()
+        response = {"status": "success", "new_id": new_id}
+        if soft_errors:
+            response["warnings"] = soft_errors
+        return jsonify(response), 201
+    except ValueError as ve:
+        return jsonify({"Error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 500
+    
+def change_element(cursor, table_name, element_id, element_json, required_fields, optional_fields):
+    data_to_change = json.loads(element_json)
+    soft_errors = []
+
+    # check to see if the element exists
+    cursor.execute(f"SELECT * FROM {table_name} WHERE {table_name}ID = %s", (element_id,))
+    if not cursor.fetchall():
+        raise ValueError("Element does not exist")
+
+    # Identify invalid fields
+    valid_fields = required_fields + optional_fields
+    invalid_fields = [field for field in data_to_change if field not in valid_fields]
+
+    # Log soft errors for invalid fields
+    if invalid_fields:
+        soft_errors.append(f"Invalid fields: {', '.join(invalid_fields)}")
+    
+    # Filter data to include only valid fields
+    filtered_data = {key: value for key, value in data_to_change.items() if key in valid_fields}
+
+    update_fields = ", ".join([f"{key} = %s" for key in filtered_data])
+    update_values = tuple(filtered_data.values())
+
+    query = f"UPDATE {table_name} SET {update_fields} WHERE {table_name}ID = %s"
+    cursor.execute(query, update_values + (element_id,))
+    
+    return soft_errors, element_id
+
+def route_change_element(table_name, element_id, element_json):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        soft_errors, element_id = change_element_by_table_name(cursor, table_name, element_id, element_json)
+        connection.commit()
+        cursor.close()
+        response = {"status": "success"}
+        if soft_errors:
+            response["warnings"] = soft_errors
+        return jsonify(response), 200
+    except ValueError as ve:
+        return jsonify({"Error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 500
+    
+def delete_element(cursor, table_name, element_id):
+    soft_errors = []
+    # check to see if the element exists
+    cursor.execute(f"SELECT * FROM {table_name} WHERE {table_name}ID = %s", (element_id,))
+    if not cursor.fetchall():
+        soft_errors.append("Element does not exist")
+        return soft_errors, element_id
+    query = f"DELETE FROM {table_name} WHERE {table_name}ID = %s"
+    cursor.execute(query, (element_id,))
+    return soft_errors, element_id
+    
+def route_delete_element(table_name, element_id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        soft_errors, element_id = delete_element(cursor, table_name, element_id)
+        connection.commit()
+        cursor.close()
+        response = {"status": "success"}
+        if soft_errors:
+            response["warnings"] = soft_errors
+        return jsonify(response), 200
+    except ValueError as ve:
+        return jsonify({"Error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 500
+
+
 
 ######### Generate Report #########
 def execute_query(cursor, query):
