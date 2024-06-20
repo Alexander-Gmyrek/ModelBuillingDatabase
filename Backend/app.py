@@ -808,8 +808,8 @@ def update_dependents(dependents, new_entries):
                 dependent['FundingAmount'] += funding_amount
                 dependent['GrenzFee'] += grenz_fee
                 break
-        else:
-            dependents.append(entry)
+            else:
+                dependents.append(entry)
     return dependents
 
 def calculate_funding_amount_normal(cursor, date, plan_id, employee_id=None):
@@ -817,7 +817,7 @@ def calculate_funding_amount_normal(cursor, date, plan_id, employee_id=None):
     plan_info = execute_query(cursor, query)
     if not plan_info:
         raise ValueError (f"Plan {plan_id} info not found")
-        return 0, "", "", []
+
 
     carrier_id, tier_id, funding_amount, grenz_fee = plan_info[0]
     
@@ -954,25 +954,22 @@ def calculate_funding_amount_age_banded(cursor, current_date, plan_id=None, empl
 
 def calculate_funding_amount_composite(cursor, date, plan_id=None, employee_id=None):
     funding_amount = 0
-    # Get Renewal Date
-    query = f"SELECT RenewalDate FROM Emloyer WHERE EmployerID = SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
-    renewal_date = execute_query(cursor, query)[0][0]
-    # Get the year from the date and combine it with renewal date month
-    date = datetime.strptime(date, '%Y-%m-%d') # Convert date to datetime
-    date = renewal_date.replace(year=date.year) # Replace the year with the current year
-    # Get the age of the employee
-    query = f"SELECT DOB FROM Employee WHERE EmployeeID = {employee_id};"
-    dob = execute_query(cursor, query)[0][0]
-    age = date.year - dob.year - ((date.month, date.day) < (dob.month, dob.day))
+    #calculate age
+    if employee_id is None:
+        raise ValueError("No EmployeeID provided")
+    query = f"SELECT (DOB, EmployerID) FROM Employee WHERE EmployeeID = {employee_id}"
+    dob, employer_id = execute_query(cursor, query)[0][0]
+    age = calculate_age(employer_id, dob, date.year, cursor)
     # Get the age banded tier
     query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
     tier_id = execute_query(cursor, query)[0][0]
     # Get the funding amount for the Plan
+    # REFACTOR: This should be replaced with a function called get_plan_info that returns the funding amount and grenz fee and can take many types of args
     query = f"SELECT FundingAmount, GrenzFee FROM Plan WHERE TierID = {tier_id} AND CarrierID = SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}"
     fund_amount, grenz_fee = execute_query(cursor, query)
     funding_amount += fund_amount 
     tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
-    carrier_id = execute_query(cursor, f"SELECT CarrierID FROM Carrier WHERE CarrierID = SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}")[0][0]
+    carrier_id = execute_query(cursor, f"SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}")[0][0]
     carrier = execute_query(cursor, f"SELECT CarrierName FROM Carrier WHERE CarrierID = {carrier_id}")[0][0]
 
     return funding_amount, grenz_fee, carrier, tier, []
@@ -1782,6 +1779,7 @@ def test_generate_report(EmployerID, Year, Month):
     connection.close()
     return send_file(report, as_attachment=True, download_name="output.xlsx")
     
+
 
 ####### Run on Start #######
 
