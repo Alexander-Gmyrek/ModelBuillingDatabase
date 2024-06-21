@@ -57,7 +57,7 @@ get_table_fields = lambda key, subkey: {
     },
     "Employee": {
         "RequiredFields" : ["EmployerID", "EmployeeFullName", "JoinDate"],
-        "OptionalFields": ["EmployeeID", "TermDate", "JoinInformDate", "TermEndDate", "DOB", "CobraStatus", "Notes", "GlCode", "Division", "Location", "Title", "EmployeeFirstName", "EmployeeLastName", "Carrier", "Tier"],
+        "OptionalFields": ["EmployeeID", "TermDate", "JoinInformDate", "TermEndDate", "DOB", "CobraStatus", "Notes", "GlCode", "Division", "Location", "Title", "EmployeeFirstName", "EmployeeLastName"],
         "Subtables": ["Dependents", "EmployeePlans"]
     },
     "EmployeePlan": {
@@ -68,7 +68,7 @@ get_table_fields = lambda key, subkey: {
         "RequiredFields" : ["EmployerName", "TierStructure", "RenewalDate"],
         "OptionalFields": ["EmployerID", "UsesGlCode", "UsesDivision", "UsesLocation", "UsesTitle", "PerferedBillingDate"],
         "OptionalSetToFalse": ["UsesGlCode", "UsesDivision", "UsesLocation", "UsesTitle"],
-        "Subtables": ["Carriers", "Tiers", "Plans", "Employees"]
+        "Subtables": ["carriers", "tiers", "plans", "employees"]
     }
 }.get(key, {}).get(subkey, {})
 
@@ -443,11 +443,22 @@ def get_active(table_name, EmployerID, end_term):
 
 ######################### Functions #########################
 
-def add_element_by_table_name(cursor, table_name: str, element_json):
+def add_element_by_table_name(cursor, table_name, element_json):
     soft_errors = []
+    # Make sure element_json is a dictionary
+    if isinstance(element_json, str):
+        element_json = json.loads(element_json)
+    # Make sure it's not a list
+    if isinstance(element_json, list):
+        raise ValueError("Element cannot be a list. Please provide a dictionary.")
+
     # make sure the table name is capitalized
-    table_name = table_name.capitalize()
+    if get_table_fields(table_name, "RequiredFields") == {}:
+        table_name = table_name.capitalize()
     # check if the table name is valid
+    if get_table_fields(table_name, "RequiredFields") == {}:
+        #remove the last leter of the table name to get the singular form
+        table_name = table_name[:-1]
     if get_table_fields(table_name, "RequiredFields") == {}:
         raise ValueError(f"Table {table_name} does not exist.")
     # get the required and optional fields for the table
@@ -455,33 +466,60 @@ def add_element_by_table_name(cursor, table_name: str, element_json):
     optional_fields = get_table_fields(table_name, "OptionalFields")
 
     # auto fill holes
+    
     if table_name == "Employee":
-        if "EmployeeFullName" not in element_json:
-            element_json["EmployeeFullName"] = element_json["EmployeeFirstName"] + " " + element_json["EmployeeLastName"]
-        element_json["JoinDate"], message = get_date_with_message(element_json, "JoinDate", "JoinInformDate")
-        if message:
-            soft_errors.append(message)
-        element_json["JoinInformDate"], message = get_date_with_message(element_json, "JoinInformDate", "JoinDate")
-        if message:
-            soft_errors.append(message)
-        if "EmployeePlans" not in element_json:
-            # Get CarrierID
-            carrier_id = get_carrier_id(cursor, element_json['Carrier'], element_json['EmployerID'])
-            
-            # Get TierID
-            tier_id = get_tier_id(cursor, element_json['Tier'], element_json['DOB'], element_json['EmployerID'])
-            
-            # Get PlanID
-            plan_id = get_plan_id(cursor, carrier_id, tier_id)
-            
-            # Add EmployeePlan
-            element_json["EmployeePlans"] ={{
-                'PlanID': plan_id,
-                'InformStartDate': element_json['JoinDate'],
-                'StartDate': element_json['JoinDate'],
-                'EndDate': None,
-                'InformEndDate': None
-            }}
+        try:
+            try:
+                if "EmployeeFullName" not in element_json:
+                    element_json["EmployeeFullName"] = element_json["EmployeeFirstName"] + " " + element_json["EmployeeLastName"]
+            except Exception as e:
+                raise ValueError(f"Auto fill EmployeeFullName: " + str(e))
+            try:
+                element_json["JoinDate"], message = get_date_with_message(element_json, "JoinDate", "JoinInformDate")
+                if message:
+                    soft_errors.append(message)
+                element_json["JoinInformDate"], message = get_date_with_message(element_json, "JoinInformDate", "JoinDate")
+                if message:
+                    soft_errors.append(message)
+            except Exception as e:
+                raise ValueError(f"Auto fill JoinDate: " + str(e))
+            try:
+                if "EmployeePlans" not in element_json:
+                    try:
+                        # Get CarrierID
+                        carrier_id = get_carrier_id(cursor, element_json['Carrier'], element_json['EmployerID'])
+                    except Exception as e:
+                        raise ValueError(f"Get CarrierID: " + str(e) + " " + str(element_json['Carrier']) + " " + str(element_json['EmployerID']))
+                    
+                    try:
+                        if (get_employer_tier_structure(cursor, element_json['EmployerID']).lower().find("age") != -1):
+                            tier_id = get_tier_id(cursor, element_json['Tier'], datetime.strptime(str(element_json['DOB']), "%Y-%m-%d"), element_json['EmployerID'])
+                        else:
+                            tier_id = cursor.execute(f"SELECT TierID FROM Tier WHERE TierName = {element_json['Tier']} AND EmployerID = {element_json['EmployerID']}")
+                    except Exception as e:
+                        raise ValueError(f"Get TierID: " + str(e))
+                    
+                    try:    
+                        # Get PlanID
+                        plan_id = get_plan_id(cursor, carrier_id, tier_id)
+                    except Exception as e:
+                        raise ValueError(f"Get PlanID: " + str(e))
+                    
+                    try:
+                        # Add EmployeePlan
+                        element_json["EmployeePlan"] =[{
+                            'PlanID': plan_id,
+                            'InformStartDate': element_json['JoinDate'],
+                            'StartDate': element_json['JoinDate'],
+                            'EndDate': None,
+                            'InformEndDate': None
+                        }]
+                    except Exception as e:
+                        raise ValueError(f"Add EmployeePlan: " + str(e))
+            except Exception as e:
+                raise ValueError(f"Auto fill EmployeePlans: " + str(e))
+        except Exception as e:
+            raise ValueError(f"Auto fill Employee: " + str(e))
         
     elif table_name == "Dependent":
         element_json["StartDate"], message = get_date_with_message(element_json, "StartDate", "InformStartDate")
@@ -515,34 +553,45 @@ def add_element_by_table_name(cursor, table_name: str, element_json):
                 element_json[field] = False
 
     elif table_name == "Plan":
-        if "CarrierID" not in element_json:
-            element_json["CarrierID"] = get_carrier_id(cursor, element_json["CarrierName"], element_json["EmployerID"])
-        if "TierID" not in element_json:
-            element_json["TierID"] = get_tier_id(cursor, element_json["TierName"], element_json["EmployerID"])
+        
+        element_json["CarrierID"] = get_carrier_id(cursor, element_json["CarrierName"], element_json["EmployerID"])
+        
+        element_json["TierID"] = get_tier_id(cursor, element_json["TierName"], datetime.today(), element_json["EmployerID"])
 
     elif table_name == "Tier":
         #if max age contains a +, set it to 999
         if "MaxAge" in element_json:
-            if element_json["MaxAge"].find("+") != -1:
-                element_json["MaxAge"] = 9999
+            if isinstance(element_json["MaxAge"], str):
+                if element_json["MaxAge"].find("+") != -1:
+                    element_json["MaxAge"] = 9999
         #if min age contains a -, set it to 0
         if "MinAge" in element_json:
-            if element_json["MinAge"].find("-") != -1:
-                element_json["MinAge"] = 0
+            if isinstance(element_json["MinAge"], str):
+                if element_json["MinAge"].find("-") != -1:
+                    element_json["MinAge"] = 0
     
     # add the element to the table
     try:
-        s_errors, element_id = add_element(cursor, table_name, element_json, required_fields, optional_fields)
-        soft_errors.append(s_errors)
-        for subtable in get_table_fields(table_name, "Subtables"):
-            if subtable in element_json:
-                for sub_element in element_json[subtable]:
-                    sub_element[table_name + "ID"] = element_id
-                    try:
-                        s_errors, sub_element_id = add_element_by_table_name(cursor, subtable, sub_element)
-                    except Exception as e:
-                        raise ValueError(f"Subtable {subtable}: " + str(e))
-                    soft_errors.append(s_errors)
+        try:
+            element_id, s_errors = add_element(cursor, table_name, element_json, required_fields, optional_fields)
+            soft_errors.append(s_errors)
+        except Exception as e:
+            raise ValueError(f"Adding {table_name}: " + str(e))
+        try:
+            for subtable in get_table_fields(table_name, "Subtables"):
+                if subtable in element_json:
+                    for sub_element in element_json[subtable]:
+                        try:
+                            sub_element[table_name + "ID"] = str(element_id)
+                        except Exception as e:
+                            raise ValueError(f"Adding ID: " + str(e) + " " + str(sub_element))
+                        try:
+                            s_errors, sub_element_id = add_element_by_table_name(cursor, subtable, sub_element)
+                        except Exception as e:
+                            raise ValueError(f"Subtable {subtable}: " + str(e))
+                        soft_errors.append(s_errors)
+        except Exception as e:
+            raise ValueError(f"Adding Subtables: " + str(e))
         return soft_errors, element_id
     except Exception as e:
         raise ValueError(f"Add {table_name}: " + str(e))
@@ -558,8 +607,8 @@ try_set_dates = lambda element_json, preferred_datename, backup_datename: (
 def get_date_with_message(element_json, preferred_datename, backup_datename):
     result = try_set_dates(element_json, preferred_datename, backup_datename)
     if isinstance(result, tuple):
-        return result
-    return result, None
+        return result, None
+    return None, result
 
 def change_element_by_table_name(cursor, table_name: str, element_id, element_json):
     soft_errors = []
@@ -594,14 +643,19 @@ def get_carrier_id(cursor, carrier_name, employer_id):
         return carrier[0][0]
     raise ValueError(f"Carrier with name {carrier_name} and employer ID {employer_id} does not exist.")
 
-def get_tier_id(cursor, tier_name, dob, employer_id):
-    if tier_name:
+def get_tier_id(cursor, tier_name, dob, employer_id, year=None):
+    if not (tier_name == None or tier_name == ""):
         get_tier_query = "SELECT TierID FROM Tier WHERE TierName = %s AND EmployerID = %s"
         cursor.execute(get_tier_query, (tier_name, employer_id))
     else:
-        from datetime import date
-        get_tier_query = "SELECT TierID FROM Tier WHERE %s BETWEEN MinAge AND MaxAge AND EmployerID = %s"
-        cursor.execute(get_tier_query, (calculate_age(employer_id, dob, date.today().year, cursor), employer_id))
+        try:
+            get_tier_query = "SELECT TierID FROM Tier WHERE %s BETWEEN MinAge AND MaxAge AND EmployerID = %s"
+            if not year:
+                year = datetime.today().year
+            cursor.execute(get_tier_query, (calculate_age(employer_id, dob, year, cursor), employer_id))
+        except Exception as e:
+            raise ValueError(f"Get TierID by date: " + str(e))
+    
     tier = cursor.fetchall()
     if tier:
         return tier[0][0]
@@ -653,35 +707,59 @@ def delete_employer(cursor, employer_id):
 
 ##### Refactoring #####
 def add_element(cursor, table_name, element_json, required_fields, optional_fields):
-    data_to_add = json.loads(element_json)
+    # if json is a string, convert it to a dictionary
+    if isinstance(element_json, str):
+        data_to_add = json.loads(element_json)
+    else:
+        data_to_add = element_json
     soft_errors = []
 
-    # Check for missing required fields
-    missing_required = [field for field in required_fields if field not in data_to_add]
-    if missing_required:
-        raise ValueError(f"{table_name} Missing required fields: {', '.join(missing_required)}")
+    if isinstance(data_to_add, list):
+        raise ValueError("Element cannot be a list. Please provide a dictionary!")
 
-    # Identify invalid fields
-    valid_fields = required_fields + optional_fields
-    invalid_fields = [field for field in data_to_add if field not in valid_fields]
-
-    # Log soft errors for invalid fields
-    if invalid_fields:
-        soft_errors.append(f"Invalid fields: {', '.join(invalid_fields)}")
+    try:
+        # Check for missing required fields
+        missing_required = [field for field in required_fields if field not in data_to_add]
+        if missing_required:
+            raise ValueError(f"{table_name} Missing required fields: {', '.join(missing_required)}")
+    except ValueError as e:
+        raise ValueError(e)
+    except Exception as e:
+        raise ValueError(f"Check missing required fields: {str(e)}")
     
-    # Filter data to include only valid fields
-    filtered_data = {key: value for key, value in data_to_add.items() if key in valid_fields}
+    try:
+        # Identify invalid fields
+        valid_fields = required_fields + optional_fields
+        invalid_fields = [field for field in data_to_add if field not in valid_fields]
 
-    columns = ", ".join(filtered_data.keys())
-    placeholders = ", ".join(["%s"] * len(filtered_data))
-    values = tuple(filtered_data.values())
+        # Log soft errors for invalid fields
+        if invalid_fields:
+            soft_errors.append(f"Invalid fields: {', '.join(invalid_fields)}")
+    except Exception as e:
+        raise ValueError(f"Identify invalid fields: {str(e)}")
+    try:
+        # Filter data to include only valid fields
+        filtered_data = {key: value for key, value in data_to_add.items() if key in valid_fields}
 
-    query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-    cursor.execute(query, values)
-    
-    # Retrieve the ID of the newly inserted row
-    cursor.execute("SELECT LAST_INSERT_ID()")
-    new_id = cursor.fetchone()[0]
+        columns = ", ".join(filtered_data.keys())
+        placeholders = ", ".join(["%s"] * len(filtered_data))
+        values = tuple(filtered_data.values())
+    except Exception as e:
+        raise ValueError(f"Filter data: {str(e)}")
+    try:
+        query = f"INSERT INTO {str(table_name)} ({str(columns)}) VALUES ({str(placeholders)})"
+        cursor.execute(query, values)
+    except Exception as e:
+        raise ValueError(f"Insert into {table_name}: {str(e)}")
+    try:
+        # Retrieve the ID of the newly inserted row
+        new_id = cursor.lastrowid
+    except Exception as e:
+        raise ValueError(f"Select last insert ID: {str(e)}")
+    if(new_id == 0 or new_id == None):
+        raise ValueError("Error inserting new element no value")
+    if not isinstance(new_id, int):
+        raise ValueError("Error inserting new element not int")
     
     return new_id, soft_errors
 
@@ -781,6 +859,115 @@ def execute_query(cursor, query):
         return cursor.fetchall()
     except Exception as e:
         raise Exception(f"Error Executing Queary: {query} Error: " + str(e))
+    
+def get_plan_for_employee(cursor, employee_id, date=None):
+    if date is None:
+        date = datetime.now().strftime('%Y-%m-%d')
+    query = f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = {employee_id} AND StartDate <= '{date}' AND (EndDate IS NULL OR EndDate >= '{date}')"
+    plan_id = execute_query(cursor, query)
+    if not plan_id:
+        raise ValueError(f"Employee {employee_id} does not have a plan on {date}")
+    employer_id = get_employer_id(cursor, employee_id)
+    if(get_employer_tier_structure(cursor, employer_id).lower().find("age") != -1):
+        query = f"SELECT DOB FROM Employee WHERE EmployeeID = {employee_id}"
+        dob = execute_query(cursor, query)[0][0]
+        query = f"SELECT RenewalDate FROM Employer WHERE EmployerID = {employer_id}"
+        renewal_date = execute_query(cursor, query)[0][0]
+        age = calculate_age(employer_id, dob, renewal_date.year, cursor)
+        query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = {employer_id}"
+        tier_id = execute_query(cursor, query)[0][0]
+        query = f"SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}"
+        carrier_id = execute_query(cursor, query)[0][0]
+        query = f"SELECT PlanID FROM Plan WHERE CarrierID = {carrier_id} AND TierID = {tier_id}"
+        plan_id = execute_query(cursor, query)[0][0]
+    return plan_id
+        
+def get_plan_for_dependent(cursor, dependent_id, date=None):
+    if date is None:
+        date = datetime.now().strftime('%Y-%m-%d')
+    query = f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = (SELECT EmployeeID FROM Dependent WHERE DependentID = {dependent_id}) AND StartDate <= '{date}' AND (EndDate IS NULL OR EndDate >= '{date}')"
+    plan_id = execute_query(cursor, query)
+    if not plan_id:
+        raise ValueError(f"Dependent {dependent_id} does not have a plan on {date}")
+    query = f"SELECT EmployeeID FROM Dependent WHERE DependentID = {dependent_id}"
+    employee_id = execute_query(cursor, query)[0][0]
+    employer_id = get_employer_id(cursor, employee_id)
+    query = f"SELECT DOB FROM Dependent WHERE DependentID = {dependent_id}"
+    dob = execute_query(cursor, query)[0][0]
+    query = f"SELECT RenewalDate FROM Employer WHERE EmployerID = {employer_id}"
+    renewal_date = execute_query(cursor, query)[0][0]
+    age = calculate_age(employer_id, dob, renewal_date.year, cursor)
+    query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = {employer_id}"
+    tier_id = execute_query(cursor, query)[0][0]
+    query = f"SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}"
+    carrier_id = execute_query(cursor, query)[0][0]
+    query = f"SELECT PlanID FROM Plan WHERE CarrierID = {carrier_id} AND TierID = {tier_id}"
+    plan_id = execute_query(cursor, query)[0][0]
+
+
+def get_dependent_fund_info(cursor, dependent_id, current_date, plan_id):      
+    plan_id = get_plan_for_dependent(cursor, dependent_id[0], current_date)
+    relationship = execute_query(cursor, f"SELECT Relationship FROM Dependent WHERE DependentID = {dependent_id[0]}")[0][0]
+    #if Spouse to GrenzFeeS, if Child to GrenzFeeC else raise an error
+    fee_type = "GrenzFeeS" if relationship == "Spouse" else "GrenzFeeC" if relationship == "Child" else None
+    if fee_type is None:
+        raise ValueError("Invalid Relationship")
+    query = f"SELECT TierID, FundingAmount, {fee_type} FROM Plan WHERE PlanID = {plan_id}"
+    tier_id, fund_amount, g_fee = execute_query(cursor, query)[0]
+    dep_funding_amount = fund_amount 
+    dep_grenz_fee = g_fee
+    dep_tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
+    return dep_funding_amount, dep_grenz_fee, dep_tier
+
+def process_dependent(cursor, dependent_id, current_date, plan_id, employee_id):
+    def fetch_and_process_dependent_info(start_date, inform_start_date, dependent_id, process_range=True):
+        query = f"SELECT DependentName, Relationship FROM Dependent WHERE DependentID = {dependent_id[0]}"
+        dep_name, relationship = execute_query(cursor, query)[0]
+        dep_funding_amount, dep_grenz_fee = 0, 0
+        if process_range:
+            for back_date in generate_month_range(start_date, inform_start_date):
+                dep_f_amount, dep_g_fee, dep_tier = get_dependent_fund_info(cursor, dependent_id, back_date, plan_id, employee_id)
+                dep_funding_amount += dep_f_amount
+                dep_grenz_fee += dep_g_fee
+        else:
+            dep_f_amount, dep_g_fee, dep_tier = get_dependent_fund_info(cursor, dependent_id, current_date, plan_id, employee_id)
+            dep_funding_amount += dep_f_amount
+            dep_grenz_fee += dep_g_fee
+        return {"DependentID": dependent_id[0], "DependentName": dep_name, "Relationship": relationship, "FundingAmount": dep_funding_amount, "GrenzFee": dep_grenz_fee, "Tier": dep_tier}
+    query = f"SELECT StartDate, InformStartDate, EndDate, InformStartDate FROM Dependent WHERE DependentID = {dependent_id[0]}"
+    start_date, inform_start_date, end_date, inform_end_date = execute_query(cursor, query)[0]
+    
+    current_month_start = datetime(current_date.year, current_date.month, 1).date()
+    dep_fund_amount, dep_grenz_fee = 0, 0
+    dep_info = None
+    
+    if inform_start_date == current_month_start:
+        dep_info = fetch_and_process_dependent_info(start_date, inform_start_date, dependent_id)
+        dep_fund_amount += dep_info['FundingAmount']
+        dep_grenz_fee += dep_info['GrenzFee']
+    
+    if inform_end_date == current_month_start:
+        dep_info = fetch_and_process_dependent_info(inform_end_date, end_date, dependent_id)
+        dep_fund_amount += dep_info['FundingAmount']
+        dep_grenz_fee += dep_info['GrenzFee']
+    if inform_start_date >= current_month_start or inform_end_date <= current_month_start:
+        if dep_info is not None:
+            dep_info['FundingAmount'] = dep_fund_amount
+            dep_info['GrenzFee'] = dep_grenz_fee
+            return dep_info
+        return None
+    dep_info = fetch_and_process_dependent_info(current_month_start, current_month_start, dependent_id, False)
+    return dep_info
+    
+
+    
+
+
+def get_employer_id (cursor, employer_name): 
+    return execute_query(cursor, f"SELECT EmployerID FROM Employer WHERE EmployerName = '{employer_name}'")[0][0]
+
+def get_employer_tier_structure (cursor, employer_id) -> str: 
+    return execute_query(cursor, f"SELECT TierStructure FROM Employer WHERE EmployerID = {employer_id}")[0][0]
 
 def add_data_test(df, notes, employee_name, plan, tier, funding_amount):
     new_row = {"Notes": notes, "Employee Name": employee_name, "Plan": plan, "Tier": tier, "Funding Amount": funding_amount}
@@ -830,146 +1017,34 @@ def calculate_funding_amount_age_banded(cursor, current_date, plan_id=None, empl
     funding_amount = 0
     grenz_fee = 0
     dependents = []
-    # Get Renewal Date
-    query = f"SELECT RenewalDate FROM Employer WHERE EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
-
-    # Execute the query with the variable
-    renewal_date = execute_query(cursor, (query))[0][0]
-    # Get the year from the date and combine it with renewal date month
-    current_date = datetime.strptime(str(current_date), '%Y-%m-%d') # Convert date to datetime
-    renewal_date = renewal_date.replace(year=current_date.year) # Replace the year with the current year
-    # Get the age of the employee
-    query = f"SELECT DOB FROM Employee WHERE EmployeeID = {employee_id}"
-    dob = execute_query(cursor, query)[0][0]
-    age = renewal_date.year - dob.year - ((renewal_date.month, renewal_date.day) < (dob.month, dob.day))
-    # Get the age banded tier
-    query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
-    tier_id = execute_query(cursor, query)[0][0]
-    # Get the funding amount for the Plan
-    query = f"SELECT FundingAmount, GrenzFee FROM Plan WHERE TierID = {tier_id} AND CarrierID = (SELECT CarrierID FROM Plan WHERE PlanID = {plan_id})"
-    fund_amount, g_fee = execute_query(cursor, query)[0]
-    funding_amount += fund_amount 
-    grenz_fee += g_fee
+    plan_id = get_plan_for_employee(cursor, employee_id, current_date)
+    query = f"SELECT CarrierID, TierID, FundingAmount, GrenzFee FROM Plan WHERE PlanID = {plan_id}"
+    carrier_id, tier_id, funding_amount, grenz_fee = execute_query(cursor, query)[0]
     tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
-    carrier_id = execute_query(cursor, f"SELECT CarrierID FROM Carrier WHERE CarrierID = (SELECT CarrierID FROM Plan WHERE PlanID = {plan_id})")[0][0]
     carrier = execute_query(cursor, f"SELECT CarrierName FROM Carrier WHERE CarrierID = {carrier_id}")[0][0]
     # Get the dependents
     query = f"SELECT DependentID FROM Dependent WHERE EmployeeID = {employee_id}"
     dependent_ids = execute_query(cursor, query)
     try:
-        log = []
         for dependent_id in dependent_ids:
-            dep_grenz_fee = 0
-            dep_funding_amount = 0
-            # check if dependent is active
-            dep_name, dep_tier, relationship = str(""), " ", " "
-            query = f"SELECT StartDate, InformStartDate, EndDate, InformStartDate FROM Dependent WHERE DependentID = {dependent_id[0]}"
-            start_date, inform_start_date, end_date, inform_end_date = execute_query(cursor, query)[0]
-            log.append(f"Dependent starts Id: {dependent_id} Inform Start Date: {inform_start_date} Start Date: {start_date} End Date: {end_date} Inform End Date: {inform_end_date} current date: {datetime(current_date.year, current_date.month, 1).date()}")
-            if inform_start_date == datetime(current_date.year, current_date.month, 1).date():
-                query = f"SELECT DependentName, DOB, Relationship FROM Dependent WHERE DependentID = {dependent_id[0]}"
-                log.append("Dependent started works")
-                dep_name, dob, relationship = execute_query(cursor, query)[0]
-                for back_date in generate_month_range(start_date, inform_start_date):
-                    log.append("Spot 1")
-                    age = back_date.year - dob.year - ((back_date.month, back_date.day) < (dob.month, dob.day))
-                    #query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
-                    query = f"SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
-                    employerID = execute_query(cursor, query)[0][0]
-                    tier_id = get_tier_id(cursor, None, dob, employerID)
-                    log.append("Spot 2")
-                    if relationship == "Spouse":
-                        query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
-                    elif relationship == "Child":
-                        query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
-                    else:
-                        raise ValueError("Invalid Relationship")
-                    log.append("Spot 3")
-                    fund_amount, g_fee = execute_query(cursor, query)[0]
-                    dep_funding_amount += fund_amount 
-                    dep_grenz_fee += g_fee
-                    #grenz_fee += g_fee
-                    #funding_amount += fund_amount
-                    dep_tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
-                    log.append("Spot 4")
-                log.append("Spot 5")
-                #add the dependent (name, tier, relationship) to the list
-                dependents.append({"DependentID" : dependent_id[0], "DependentName": dep_name, "Tier" : dep_tier, "Relationship": relationship, "FundingAmount": dep_funding_amount, "GrenzFee": dep_grenz_fee})
-                log.append("Spot 6")
-                #continue
-            if inform_end_date == datetime(current_date.year, current_date.month, 1).date():
-                query = f"SELECT DependentName, DOB, Relationship FROM Dependent WHERE DependentID = {dependent_id[0]}"
-                dep_name, dob, relationship = execute_query(cursor, query)[0]
-                for back_date in generate_month_range(start_date, inform_start_date):
-                    age = back_date.year - dob.year - ((back_date.month, back_date.day) < (dob.month, dob.day))
-                    query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
-                    tier_id = execute_query(cursor, query)[0][0]
-                    if relationship == "Spouse":
-                        query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
-                    elif relationship == "Child":
-                        query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
-                    else:
-                        raise ValueError("Invalid Relationship")
-                    fund_amount, g_fee = execute_query(cursor, query)[0]
-                    dep_funding_amount -= fund_amount 
-                    dep_grenz_fee -= g_fee
-                    #grenz_fee -= g_fee
-                    #funding_amount -= fund_amount
-                    dep_tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
-                    #add the dependent (name, tier, relationship) to the list
-                dependents.append({"DependentID" : dependent_id[0], "DependentName": dep_name, "Tier" : dep_tier, "Relationship": relationship, "FundingAmount": dep_funding_amount, "GrenzFee": dep_grenz_fee})
-                #continue
-            #if the dependent is not active
-            if ((inform_end_date is not None) and (inform_end_date <= datetime(current_date.year, current_date.month, 1).date())) or (inform_start_date >= datetime(current_date.year, current_date.month, 1).date()):
-                log.append("Dependent not active Id: " + str(dependent_id))
-                continue
-            log.append("Spot 7")
-            query = f"SELECT DependentName, DOB, Relationship FROM Dependent WHERE DependentID = {dependent_id[0]}"
-            dep_name, dob, relationship = execute_query(cursor, query)[0]
-            age = current_date.year - dob.year - ((current_date.month, current_date.day) < (dob.month, dob.day))
-            query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = (SELECT EmployerID FROM Plan WHERE PlanID = {plan_id})"
-            tier_id = execute_query(cursor, query)[0][0]
-            if relationship == "Spouse":
-                query = f"SELECT FundingAmount, GrenzFeeS FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
-            elif relationship == "Child":
-                query = f"SELECT FundingAmount, GrenzFeeC FROM Plan WHERE TierID = {tier_id} AND CarrierID = {carrier_id}"
-            else:
-                raise ValueError("Invalid Relationship")
-            fund_amount, g_fee = execute_query(cursor, query)[0]
-            
-            dep_funding_amount += fund_amount 
-            dep_grenz_fee += g_fee
-            #grenz_fee += g_fee
-            #funding_amount += fund_amount
-            dep_tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
-            log.append("Active Dependent Works. Funding Amount: " + str(funding_amount) + " Dependent Name: " + dep_name + " Dependent Tier: " + dep_tier + " Dependent Relationship: " + relationship) + " Fund Amount: " + str(fund_amount) + " Grenz Fee: " + str(grenz_fee)
-            #add the dependent (name, tier, relationship) to the list
-            dependents.append({"DependentID" : dependent_id[0], "DependentName": dep_name, "Tier" : dep_tier, "Relationship": relationship, "FundingAmount": dep_funding_amount, "GrenzFee": dep_grenz_fee})
-        log.append("Spot 8")
+            try:
+                dependents.append(process_dependent(cursor, dependent_id, current_date, plan_id, employee_id))
+            except Exception as e:
+                log = f"Error processing dependent {dependent_id}: {e}"
         #raise ValueError(log)
     except Exception as e:
-        raise Exception(f"Error getting dependents: {e} Log:"  + str(log))
+        raise Exception(f"Error getting dependents: {e}")
     
     return funding_amount, grenz_fee, carrier, tier, dependents
 
 def calculate_funding_amount_composite(cursor, date, plan_id=None, employee_id=None):
-    funding_amount = 0
-    #calculate age
     if employee_id is None:
         raise ValueError("No EmployeeID provided")
-    query = f"SELECT (DOB, EmployerID) FROM Employee WHERE EmployeeID = {employee_id}"
-    dob, employer_id = execute_query(cursor, query)[0][0]
-    age = calculate_age(employer_id, dob, date.year, cursor)
-    # Get the age banded tier
-    query = f"SELECT TierID FROM Tier WHERE MinAge <= {age} AND MaxAge >= {age} AND EmployerID = SELECT EmployerID FROM Plan WHERE PlanID = {plan_id}"
-    tier_id = execute_query(cursor, query)[0][0]
-    # Get the funding amount for the Plan
-    # REFACTOR: This should be replaced with a function called get_plan_info that returns the funding amount and grenz fee and can take many types of args
-    query = f"SELECT FundingAmount, GrenzFee FROM Plan WHERE TierID = {tier_id} AND CarrierID = SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}"
-    fund_amount, grenz_fee = execute_query(cursor, query)
-    funding_amount += fund_amount 
+    plan_id = get_plan_for_employee(cursor, employee_id, date)
+    query = f"SELECT CarrierID, TierID, FundingAmount, GrenzFee FROM Plan WHERE PlanID = {plan_id}"
+    carrier_id, tier_id, funding_amount, grenz_fee = execute_query(cursor, query)[0]
+
     tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {tier_id}")[0][0]
-    carrier_id = execute_query(cursor, f"SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}")[0][0]
     carrier = execute_query(cursor, f"SELECT CarrierName FROM Carrier WHERE CarrierID = {carrier_id}")[0][0]
 
     return funding_amount, grenz_fee, carrier, tier, []
@@ -1194,9 +1269,9 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
     total_admin = df["Admin Fee"].sum()
     total_funding_amount = df["Funding Amount"].sum()
     df = df._append({"Notes": "Total:", "Funding Amount": total_funding_amount, "Admin Fee": total_admin, "Total Amount": total_funding}, ignore_index=True)
-    #filePath = f"{employer_name}_report_{current_year}_{current_month}.xlsx"
+    filePath = f"{employer_name}_report_{current_year}_{current_month}.xlsx"
     try:
-        filePath = "output.xlsx"
+        #filePath = "output.xlsx"
         df.to_excel(filePath, index=False, engine='openpyxl')
     except Exception as e:
         raise ValueError(f"Error generating report: {e}")
@@ -1209,7 +1284,6 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
 test_json_1 = """{
     "employers": [
         {
-            "EmployerID": 1,
             "EmployerName": "Test Employer 1",
             "TierStructure": "4Tiered",
             "UsesGlCode": false,
@@ -1220,7 +1294,6 @@ test_json_1 = """{
             "RenewalDate": "2026-01-01",
             "employees": [
                 {
-                    "EmployeeID": 1,
                     "EmployerID": 1,
                     "EmployeeFullName": "John Jones",
                     "EmployeeFirstName": "John",
@@ -1241,7 +1314,6 @@ test_json_1 = """{
                     "Tier": "Tier3"
                 },
                 {
-                    "EmployeeID": 2,
                     "EmployerID": 1,
                     "EmployeeFullName": "Michelle Johnson",
                     "EmployeeFirstName": "Michelle",
@@ -1262,7 +1334,6 @@ test_json_1 = """{
                     "Tier": "Tier1"
                 },
                 {
-                    "EmployeeID": 3,
                     "EmployerID": 1,
                     "EmployeeFullName": "Jane Doe",
                     "EmployeeFirstName": "Jane",
@@ -1285,40 +1356,34 @@ test_json_1 = """{
             ],
             "carriers": [
                 {
-                    "CarrierID": 1,
                     "EmployerID": 1,
                     "CarrierName": "Carrier1"
                 },
                 {
-                    "CarrierID": 2,
                     "EmployerID": 1,
                     "CarrierName": "Carrier2"
                 }
             ],
             "tiers": [
                 {
-                    "TierID": 1,
                     "EmployerID": 1,
                     "TierName": "Tier1",
                     "MaxAge": 100,
                     "MinAge": 0
                 },
                 {
-                    "TierID": 2,
                     "EmployerID": 1,
                     "TierName": "Tier2",
                     "MaxAge": 100,
                     "MinAge": 0
                 },
                 {
-                    "TierID": 3,
                     "EmployerID": 1,
                     "TierName": "Tier3",
                     "MaxAge": 100,
                     "MinAge": 0
                 },
                 {
-                    "TierID": 4,
                     "EmployerID": 1,
                     "TierName": "Tier4",
                     "MaxAge": 100,
@@ -1327,7 +1392,6 @@ test_json_1 = """{
             ],
             "plans": [
                 {
-                    "PlanID": 1,
                     "EmployerID": 1,
                     "CarrierID": 1,
                     "TierID": 1,
@@ -1339,7 +1403,6 @@ test_json_1 = """{
                     "TierName": "Tier1"
                 },
                 {
-                    "PlanID": 2,
                     "EmployerID": 1,
                     "CarrierID": 1,
                     "TierID": 2,
@@ -1352,7 +1415,6 @@ test_json_1 = """{
 
                 },
                 {
-                    "PlanID": 3,
                     "EmployerID": 1,
                     "CarrierID": 1,
                     "TierID": 3,
@@ -1364,7 +1426,6 @@ test_json_1 = """{
                     "TierName": "Tier3"
                 },
                 {
-                    "PlanID": 4,
                     "EmployerID": 1,
                     "CarrierID": 1,
                     "TierID": 4,
@@ -1376,7 +1437,6 @@ test_json_1 = """{
                     "TierName": "Tier4"
                 },
                 {
-                    "PlanID": 5,
                     "EmployerID": 1,
                     "CarrierID": 2,
                     "TierID": 1,
@@ -1388,7 +1448,6 @@ test_json_1 = """{
                     "TierName": "Tier1"
                 },
                 {
-                    "PlanID": 6,
                     "EmployerID": 1,
                     "CarrierID": 2,
                     "TierID": 2,
@@ -1400,7 +1459,6 @@ test_json_1 = """{
                     "TierName": "Tier2"
                 },
                 {
-                    "PlanID": 7,
                     "EmployerID": 1,
                     "CarrierID": 2,
                     "TierID": 3,
@@ -1412,7 +1470,6 @@ test_json_1 = """{
                     "TierName": "Tier3"
                 },
                 {
-                    "PlanID": 8,
                     "EmployerID": 1,
                     "CarrierID": 2,
                     "TierID": 4,
@@ -1784,5 +1841,5 @@ def test_generate_report(EmployerID, Year, Month):
 ####### Run on Start #######
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=3000)
 
