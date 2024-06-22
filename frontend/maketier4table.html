@@ -187,7 +187,7 @@
         localStorage.removeItem('companyData'); // Clear the storage after submission
     } catch (error) {
         console.error('Error submitting data:', error);
-        alert('Failed to submit data.');
+        alert('Failed to submit data.' + error.message);
     }
     }
 
