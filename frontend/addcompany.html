@@ -31,6 +31,8 @@
         <label for="supercomposite"> Supercomposite</label><br>
         <input type="radio" id="ageBanded" name="Tier" value="Age Banded">
         <label for="ageBanded"> Age Banded</label><br>
+        <input type="radio" id="ageBandedTiered" name="Tier" value="Age Banded Tiered">
+        <label for="ageBandedTiered"> Age Banded Tiered</label><br>
         <p></p>
 
         <button type="submit">Next</button>
@@ -56,7 +58,11 @@
                 data['BillingDate'] = formData.get('BillingDate');
 
                 // Extract tier
-                data['Tier'] = formData.get('Tier');
+                let tier = formData.get('Tier');
+                if (tier === 'Age Banded Tiered') {
+                    tier = 'Age Banded Composite'; // Change Age Banded Tiered to Age Banded Composite
+                }
+                data['Tier'] = tier;
 
                 // Extract and parse the Excel file
                 const file = formData.get('file');
@@ -84,6 +90,9 @@
                     case 'Age Banded':
                         nextPage = 'makeagetable.html';
                         break;
+                    case 'Age Banded Composite': // Redirect Age Banded Composite to the appropriate page
+                        nextPage = 'makeagetiertable.html';
+                        break;
                     default:
                         nextPage = 'default_page.html'; // Default page if tier is not specified
                 }
@@ -104,10 +113,10 @@
                         const worksheet = workbook.Sheets[sheetName];
                         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-                        // Define the structure of the employee object with default values
+                        // Define the structure of the employee and dependent objects with default values
                         const employeeTemplate = {
                             "EmployeeID": null,
-                            "EmployerID": null,
+                            "EmployerID": 1, // Assuming a fixed EmployerID for demo
                             "EmployeeFullName": null,
                             "EmployeeFirstName": null,
                             "EmployeeLastName": null,
@@ -128,11 +137,27 @@
                             "Plan": null
                         };
 
+                        const dependentTemplate = {
+                            "DependentID": null,
+                            "EmployeeID": null,
+                            "DependentName": null,
+                            "Relationship": null,
+                            "DOB": null,
+                            "StartDate": null,
+                            "InformStartDate": null,
+                            "EndDate": null,
+                            "InformEndDate": null
+                        };
+
+                        // Arrays to hold employees and dependents
+                        const employees = [];
+                        const dependents = [];
+                        let dependentIDCounter = 1;
+
                         // Convert the Excel data to the employee objects
-                        const employees = jsonData.map((row, index) => {
+                        jsonData.forEach((row, index) => {
                             const employee = { ...employeeTemplate };
                             employee.EmployeeID = index + 1;
-                            employee.EmployerID = 1; // Assuming a fixed EmployerID for demo
 
                             // Split Employee Name into first and last names
                             if (row['Employee Name']) {
@@ -142,7 +167,7 @@
                                 employee.EmployeeFullName = row['Employee Name'];
                             }
 
-                            // Map fields from the row if available
+                            // Map other fields from the row if available
                             employee.Notes = row['Notes'] || null;
                             employee.DOB = row['DOB'] || null;
                             employee.Tier = row['Tier'] || null;
@@ -151,11 +176,31 @@
                             employee.GL = row['GL'] || null;
                             employee.Division = row['Division'] || null;
                             employee.Location = row['Location'] || null;
+                            employee.Cobra= row['cobra'] || null
+                            employee.Title= row['Title'] || null
 
-                            return employee;
+                            // Parse dependents if present in the row
+                            if (row['Dependent Name'] && row['Relationship'] && row['Dependent DOB']) {
+                                const dependent = { ...dependentTemplate };
+                                dependent.DependentID = dependentIDCounter++;
+                                dependent.EmployeeID = employee.EmployeeID;
+                                dependent.DependentName = row['Dependent Name'];
+                                dependent.Relationship = row['Relationship'];
+                                dependent.DOB = row['Dependent DOB'];
+
+                                // Add dependent to the array
+                                dependents.push(dependent);
+
+                                // Also link this dependent to the employee
+                                employee.Dependents.push(dependent);
+                            }
+
+                            // Add the employee to the array
+                            employees.push(employee);
                         });
 
-                        resolve(employees);
+                        // Resolve with both employees and dependents
+                        resolve({ employees, dependents });
                     };
                     reader.onerror = reject;
                     reader.readAsArrayBuffer(file);
@@ -165,3 +210,4 @@
     </script>
 </body>
 </html>
+// make all dating to look like yyyy-mm-dd

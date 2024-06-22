@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>make 4 tier table</title>
+    <title>make age Tiered table</title>
 </head>
 <body>
 
-<h1>make 4 tier table</h1>
+<h1>Make Age Table</h1>
 
 <div id="tableContainer">
     <!-- Initial table with a header and rows -->
@@ -17,9 +17,10 @@
             <thead>
                 <tr>
                     <th><input type="text" value="Plan Name"></th>
-                    <th><input type="text" value="Funding EE"></th>
-                    <th><input type="text" value="Funding E+1"></th>
-                    <th><input type="text" value="Funding E+2"></th>
+                    <th><input type="text" value="0-17"></th>
+                    <th><input type="text" value="18-25"></th>
+                    <th><input type="text" value="26-35"></th>
+                    <th><input type="text" value="36-45"></th>
                     <th><input type="text" value="Admin Fee"></th>
                     <th></th> <!-- Placeholder for delete button -->
                 </tr>
@@ -34,6 +35,7 @@
                 </tr>
             </tbody>
         </table>
+        
         <button onclick="addColumn(1)">Add Column</button>
         <button onclick="deleteLastColumn(1)">Delete Last Column</button>
     </div>
@@ -45,7 +47,6 @@
 <script>
     let tableCount = 1; // Counter for tracking tables
 
-    // Function to add a new column to a specific table
     function addColumn(tableId) {
         const table = document.getElementById(`editableTable_${tableId}`);
         const headerRow = table.rows[0];
@@ -92,9 +93,10 @@
                 <thead>
                     <tr>
                         <th><input type="text" value="Plan Name"></th>
-                        <th><input type="text" value="Funding EE"></th>
-                        <th><input type="text" value="Funding E+1"></th>
-                        <th><input type="text" value="Funding E+2"></th>
+                        <th><input type="text" value="0-17"></th>
+                        <th><input type="text" value="18-25"></th>
+                        <th><input type="text" value="26-35"></th>
+                        <th><input type="text" value="36-45"></th>
                         <th><input type="text" value="Admin Fee"></th>
                         <th></th> <!-- Placeholder for delete button -->
                     </tr>
@@ -109,6 +111,7 @@
                     </tr>
                 </tbody>
             </table>
+            
             <button onclick="addColumn(${tableCount})">Add Column</button>
             <button onclick="deleteLastColumn(${tableCount})">Delete Last Column</button>
         `;
@@ -147,22 +150,34 @@
             };
             carriers.push(carrierObject);
 
-            // Collect tier data based on the fixed tiers
-            const fixedTiers = ["Funding EE", "Funding E+1", "Funding E+2"];
-            for (let j = 0; j < fixedTiers.length; j++) {
+            // Collect tier data based on the header row of the table
+            const table = document.getElementById(`editableTable_${i}`);
+            const headerCells = table.rows[0].cells;
+            
+            for (let j = 1; j < headerCells.length - 1; j++) { // Ignore the first cell (Plan Name) and the last cell (Admin Fee)
+                const tierNameInput = headerCells[j].getElementsByTagName('input')[0].value;
+                let minAge = 0;
+                let maxAge = 100;
+
+                // Parse min and max age from the tier name
+                const ageRangeMatch = tierNameInput.match(/(\d+)-(\d+)/);
+                if (ageRangeMatch) {
+                    minAge = parseInt(ageRangeMatch[1]);
+                    maxAge = parseInt(ageRangeMatch[2]);
+                }
+
                 const tierObject = {
                     "TierID": tierID,
                     "EmployerID": 1, // Replace with actual EmployerID
-                    "TierName": fixedTiers[j],
-                    "MaxAge": null, // Not applicable for fixed tiers
-                    "MinAge": null  // Not applicable for fixed tiers
+                    "TierName": null, // Set to null as per the requirements
+                    "MaxAge": maxAge,
+                    "MinAge": minAge
                 };
                 tiers.push(tierObject);
                 tierID++;
             }
 
             // Collect plan data for each row in the table
-            const table = document.getElementById(`editableTable_${i}`);
             const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
 
             for (let row of rows) {
@@ -180,7 +195,7 @@
                         "PlanName": planName,
                         "FundingAmount": parseFloat(inputs[j].value) || 0,
                         "GrenzFee": parseFloat(inputs[inputs.length - 1].value) || 0,
-                        "TierID": tierID - 3 + j // Offset to map to the correct tier
+                        "TierID": j // This maps to the tier position (1 for 0-17, 2 for 18-25, etc.)
                     };
                     plans.push(planObject);
                     planID++;
@@ -196,8 +211,7 @@
         companyData['Tiers'] = tiers;
         companyData['Plans'] = plans;
 
-
-        // Log the complete data to the console for debugging
+        // Log the complete data to the console
         console.log('Complete Data:', companyData);
 
         // Send the complete data to the server
@@ -249,3 +263,4 @@
 
 </body>
 </html>
+// find out what makes this special
