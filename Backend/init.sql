@@ -53,6 +53,8 @@ CREATE TABLE Plan (
     GrenzFeeS DECIMAL(10, 2),
     CarrierID INT,
     TierID INT,
+    StartDate DATE,
+    EndDate DATE,
     PRIMARY KEY (PlanID),
     FOREIGN KEY (EmployerID) REFERENCES Employer(EmployerID) ON DELETE CASCADE,
     FOREIGN KEY (TierID) REFERENCES Tier(TierID) ON DELETE CASCADE,
