@@ -41,8 +41,8 @@ def testconection():
 # table fields
 get_table_fields = lambda key, subkey: {
     "Plan":{ 
-        "RequiredFields" : ["EmployerID", "CarrierID", "TierID", "FundingAmount", "GrenzFee",],
-        "OptionalFields": ["PlanID", "GrenzFeeC", "GrenzFeeS"]
+        "RequiredFields" : ["EmployerID", "CarrierID", "TierID", "FundingAmount", "GrenzFee", "StartDate"],
+        "OptionalFields": ["PlanID", "GrenzFeeC", "GrenzFeeS", "EndDate"]
     },
     "Tier": {
         "RequiredFields" : ["EmployerID", "TierName"],
@@ -316,7 +316,7 @@ def get_employee_plan(id):
     
 @app.route('/employeeplan/<EmployeeID>/active', methods=['GET'])
 def get_active_employee_plans(EmployeeID):
-    return get_active("EmployeePlan", EmployeeID, "EndDate")
+    return get_active("EmployeePlan", EmployeeID, "EndDate", "EmployeeID")
 
 ### Search EmployeePlan Method ###
 @app.route('/employeeplan/search', methods=['GET'])
@@ -428,17 +428,24 @@ def search_table(table_name, data):
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
     
-def get_active(table_name, EmployerID, end_term):
+def get_active(table_name, EmployerID, end_term, Identifyer="EmployerID"):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute(f"SELECT * FROM {table_name} WHERE EmployerID={EmployerID} AND {end_term} IS NULL")
-        employees = cursor.fetchall()
+        employees = get_active_depfree(cursor, table_name, EmployerID, end_term, Identifyer)
         cursor.close()
         connection.close()
         return jsonify(employees)
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
+    
+def get_active_depfree(cursor, table_name, EmployerID, end_term, Identifyer="EmployerID"):
+    try:
+        cursor.execute(f"SELECT * FROM {table_name} WHERE {Identifyer}={EmployerID} AND {end_term} IS NULL")
+        employees = cursor.fetchall()
+        return employees
+    except Exception as e:
+        raise ValueError(f"Get Active: " + str(e))
       
 
 
@@ -565,6 +572,9 @@ def add_element_by_table_name(cursor: MySQLCursor, table_name, element_json):
         
         element_json["TierID"] = get_tier_id(cursor, element_json["TierName"], datetime.today(), element_json["EmployerID"])
 
+        if "StartDate" not in element_json:
+            element_json["StartDate"] = execute_query(cursor, f"SELECT RenewalDate FROM Employer WHERE EmployerID = {element_json['EmployerID']}")[0][0]
+
     elif table_name == "Tier":
         #if max age contains a +, set it to 999
         if "MaxAge" in element_json:
@@ -633,11 +643,86 @@ def change_element_by_table_name(cursor, table_name: str, element_id, element_js
 ### Plan Functions ###
 
 
-def modify_plan():
+def modify_plan(cursor, plan_id, plan_json):
+    # this function will end the old plan and create a new one then move all the employees on the old plan to the new one. Use the old plan to fill in any missing fields
     try:
-        raise NotImplementedError("Not Yet Implemented")
+        # Get the old plan
+        old_plan = get_element_by_id(cursor, "Plan", plan_id)
+        # End the old plan
+        renew_date = get_element_by_id(cursor, "Employer", old_plan["EmployerID"])["RenewalDate"]
+        #set the end date to the last day of the month before the renewal date
+        renew_date = datetime.strptime(renew_date, '%Y-%m-%d')
+        renew_date.year = datetime.today().year
+        end_date = datetime.strptime(renew_date, '%Y-%m-%d') - timedelta(days=1)
+        old_plan["EndDate"] = end_date
+        old_plan["InformEndDate"] = end_date
+        
+        # Create the new plan
+        new_plan = old_plan
+        new_plan["StartDate"] = renew_date
+        new_plan["InformStartDate"] = renew_date
+        new_plan["EndDate"] = None
+
+        #add the new info
+        for key in plan_json:
+            new_plan[key] = plan_json[key]
+
+        new_plan_id = add_element_by_table_name(cursor, "Plan", new_plan)
+        # Move all employees on the old plan to the new plan
+        move_employees_to_new_plan(cursor, plan_id, new_plan_id)
+        return new_plan_id
     except Exception as e:
-        raise ValueError("Modify Plan: " + str(e))
+        raise ValueError(f"Modify Plan: " + str(e))
+    
+def move_employees_to_new_plan(cursor, old_plan_id, new_plan_id):
+    try:
+        # Get all employees on the old plan
+        employees = get_employees_on_plan(cursor, old_plan_id)
+
+        old_plan = get_element_by_id(cursor, "Plan", old_plan_id)
+
+        new_plan = get_element_by_id(cursor, "Plan", new_plan_id)
+        # Move each employee to the new plan
+        for employee in employees:
+            # End the old plan
+
+            employee_plan_id = employee["EmployeePlanID"]
+            employee_plan = get_element_by_id(cursor, "EmployeePlan", employee_plan_id)
+            employee_plan["EndDate"] = old_plan["EndDate"] if old_plan["EndDate"] else datetime.today()
+            change_element_by_table_name(cursor, "EmployeePlan", employee_plan_id, employee_plan)
+            # Create a new plan for the employee
+            new_employee_plan = {
+                "EmployeeID": employee["EmployeeID"],
+                "PlanID": new_plan_id,
+                "StartDate": new_plan["StartDate"],
+                "InformStartDate": new_plan["StartDate"],
+                "EndDate": None
+            }
+            add_element_by_table_name(cursor, "EmployeePlan", new_employee_plan)
+    except Exception as e:
+        raise ValueError(f"Move Employees to New Plan: " + str(e))
+    
+def get_employees_on_plan(cursor, plan_id):
+    try:
+        return get_active_depfree(cursor, "EmployeePlan", plan_id, "EndDate", "PlanID")
+    except Exception as e:
+        raise ValueError(f"Get Employees on Plan: " + str(e))
+    
+def end_plan(cursor, plan_id):
+    employer_id = (get_element_by_id(cursor, "Plan", plan_id)["EmployerID"])
+    renew_date = get_element_by_id(cursor, "Employer", employer_id)["RenewalDate"]
+    #set the end date to the last day of the month before the renewal date
+    renew_date = datetime.strptime(renew_date, '%Y-%m-%d')
+    renew_date.year = datetime.today().year
+    end_date = datetime.strptime(renew_date, '%Y-%m-%d') - timedelta(days=1)
+    try:
+        change_element_by_table_name(cursor, "Plan", plan_id, {"EndDate": end_date, "InformEndDate": end_date})
+        #end all the employee plans
+        employee_plans = get_active_depfree(cursor, "EmployeePlan", plan_id, "EndDate", "PlanID")
+        for employee_plan in employee_plans:
+            change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], {"EndDate": end_date, "InformEndDate": end_date})
+    except Exception as e:
+        raise ValueError(f"End Plan: " + str(e))
 
     
 ### Employee Functions ###
@@ -709,11 +794,30 @@ def calculate_age(employer_id, dob, year, cursor):
 ### EmployeePlan Functions ###
 
 
-def modify_employee_plan():
+def swap_employee_plan(cursor, employeeplan_id, new_plan_id, start_date, inform_start_date, end_date=None, inform_end_date=None):
+    # this function will end the old plan and create a new one then move the employee on the old plan to the new one
     try:
-        raise ValueError("Not Yet Implemented")
+        # Get the old plan
+        old_employee_plan = get_element_by_id(cursor, "EmployeePlan", employeeplan_id)
+        # End the old plan
+        if not end_date:
+            end_date = datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=1)
+        old_employee_plan["EndDate"] = end_date
+        old_employee_plan["InformEndDate"] = inform_end_date if inform_end_date else end_date
+        change_element_by_table_name(cursor, "EmployeePlan", employeeplan_id, old_employee_plan)
+        # Create the new plan for the employee
+        new_employee_plan = {
+            "EmployeeID": old_employee_plan["EmployeeID"],
+            "PlanID": new_plan_id,
+            "StartDate": start_date,
+            "InformStartDate": inform_start_date,
+            "EndDate": None
+        }
+        new_employee_plan_id = add_element_by_table_name(cursor, "EmployeePlan", new_employee_plan)
+        return new_employee_plan_id
     except Exception as e:
-        raise ValueError("Modify Employee Plan: " + str(e))
+        raise ValueError(f"Swap Employee Plan: " + str(e))
+
 
 ### Employer Functions ###
 def add_employer(cursor, employer_json):
@@ -769,11 +873,22 @@ def add_element(cursor, table_name, element_json, required_fields, optional_fiel
         values = tuple(filtered_data.values())
     except Exception as e:
         raise ValueError(f"Filter data: {str(e)}")
+    
     try:
         query = f"INSERT INTO {str(table_name)} ({str(columns)}) VALUES ({str(placeholders)})"
         cursor.execute(query, values)
     except Exception as e:
-        raise ValueError(f"Insert into {table_name}: {str(e)}")
+        try:
+            #try removing the id and trying again
+            del filtered_data[table_name + "ID"]
+            columns = ", ".join(filtered_data.keys())
+            placeholders = ", ".join(["%s"] * len(filtered_data))
+            values = tuple(filtered_data.values())
+            query = f"INSERT INTO {str(table_name)} ({str(columns)}) VALUES ({str(placeholders)})"
+            cursor.execute(query, values)
+        except Exception as e:
+            raise ValueError(f"Insert into {table_name}: {str(e)}")
+        
     try:
         # Retrieve the ID of the newly inserted row
         new_id = cursor.lastrowid
@@ -868,6 +983,30 @@ def route_delete_element(table_name, element_id):
         if soft_errors:
             response["warnings"] = soft_errors
         return jsonify(response), 200
+    except ValueError as ve:
+        return jsonify({"Error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 500
+    
+
+def get_element_by_id(cursor, table_name, element_id):
+    try:
+        cursor.execute(f"SELECT * FROM {table_name} WHERE {table_name}ID = %s", (element_id,))
+        element = cursor.fetchall()[0]
+        if not element:
+            raise ValueError(f"{table_name} with ID {element_id} does not exist.")
+        return element
+    except Exception as e:
+        raise ValueError(f"Get Element by ID: " + str(e))
+    
+def route_get_element_by_id(table_name, element_id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        element = get_element_by_id(cursor, table_name, element_id)
+        cursor.close()
+        connection.close()
+        return jsonify(element)
     except ValueError as ve:
         return jsonify({"Error": str(ve)}), 400
     except Exception as e:
