@@ -57,8 +57,8 @@ get_table_fields = lambda key, subkey: {
         "OptionalFields": ["InformStartDate", "EndDate", "InformEndDate"]
     },
     "Employee": {
-        "RequiredFields" : ["EmployerID", "EmployeeFullName", "JoinDate"],
-        "OptionalFields": ["EmployeeID", "TermDate", "JoinInformDate", "TermEndDate", "DOB", "CobraStatus", "Notes", "GlCode", "Division", "Location", "Title", "EmployeeFirstName", "EmployeeLastName"],
+        "RequiredFields" : ["EmployerID", "EmployeeFullName", "StartDate"],
+        "OptionalFields": ["EmployeeID", "EndDate", "InformStartDate", "InformEndDate", "DOB", "CobraStatus", "Notes", "GlCode", "Division", "Location", "Title", "EmployeeFirstName", "EmployeeLastName"],
         "Subtables": ["Dependents", "EmployeePlan"]
     },
     "EmployeePlan": {
@@ -297,7 +297,7 @@ def search_employee_by_part_name(EmployerID, EmployeeFullName):
 
 @app.route('/employee/<EmployerID>/active', methods=['GET'])   
 def get_active_employees(EmployerID):
-    return get_active("Employee", EmployerID, "TermDate")
+    return get_active("Employee", EmployerID, "EndDate")
 
 ### Search Employee Method ###
 @app.route('/employee/search', methods=['GET'])
@@ -382,25 +382,19 @@ def get_all(table_name):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute(f"SELECT * FROM {table_name}")
+        cursor.execute(f"SELECT {table_name}ID FROM {table_name}")
         employers = cursor.fetchall()
+        new_employers = []
+        for employer in employers:
+            new_employers.append(get_element_by_id(cursor, table_name, employer[0]))
         cursor.close()
         connection.close()
-        return jsonify(employers)
+        return jsonify(new_employers)
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
     
 def get_by_id(table_name, id):
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        cursor.execute(f"SELECT * FROM {table_name} WHERE {table_name}ID={id}")
-        employer = cursor.fetchone()
-        cursor.close()
-        connection.close()
-        return jsonify(employer)
-    except Exception as e:
-        return jsonify({"Error": str(e)}), 400
+    return route_get_element_by_id(table_name, id)
     
 def search_by_part_name(table_name, Name, EmployerID=None):
     try:
@@ -409,11 +403,13 @@ def search_by_part_name(table_name, Name, EmployerID=None):
         if EmployerID is None:
             cursor.execute(f"SELECT * FROM {table_name} WHERE {table_name}Name LIKE '%{Name}%'")
         else:
-            cursor.execute(f"SELECT * FROM {table_name} WHERE EmployerID={EmployerID} AND {table_name}Name LIKE '%{Name}%'")
-        employer = cursor.fetchall()
+            cursor.execute(f"SELECT {table_name}ID FROM {table_name} WHERE EmployerID={EmployerID} AND {table_name}Name LIKE '%{Name}%'")
+        employers = cursor.fetchall()
+        for employer in employers:
+            employer = get_element_by_id(cursor, table_name, employer[0])
         cursor.close()
         connection.close()
-        return jsonify(employer)
+        return jsonify(employers)
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
     
@@ -433,13 +429,15 @@ def get_active(table_name, EmployerID, end_term, Identifyer="EmployerID"):
         connection = get_db_connection()
         cursor = connection.cursor()
         employees = get_active_depfree(cursor, table_name, EmployerID, end_term, Identifyer)
+        for employee in employees:
+            employee = get_element_by_id(cursor, table_name, employee[0])
         cursor.close()
         connection.close()
         return jsonify(employees)
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
     
-def get_active_depfree(cursor, table_name, EmployerID, end_term, Identifyer="EmployerID"):
+def get_active_depfree(cursor, table_name, EmployerID, end_term="InformEndDate", Identifyer="EmployerID"):
     try:
         cursor.execute(f"SELECT * FROM {table_name} WHERE {Identifyer}={EmployerID} AND {end_term} IS NULL")
         employees = cursor.fetchall()
@@ -447,6 +445,12 @@ def get_active_depfree(cursor, table_name, EmployerID, end_term, Identifyer="Emp
     except Exception as e:
         raise ValueError(f"Get Active: " + str(e))
       
+def get_active_on_date(cursor, table_name, EmployerID, Date, Identifyer="EmployerID"):
+    try:
+        employees = execute_query(cursor, f"SELECT * FROM {table_name} WHERE {Identifyer}={EmployerID} AND InformStartDate <= '{Date}' AND (InformEndDate >= '{Date}' OR InformEndDate IS NULL)")
+        return employees
+    except Exception as e:
+        raise ValueError(f"Get Active on Date: " + str(e))
 
 
 ######################### Functions #########################
@@ -483,14 +487,14 @@ def add_element_by_table_name(cursor: MySQLCursor, table_name, element_json):
             except Exception as e:
                 raise ValueError(f"Auto fill EmployeeFullName: " + str(e))
             try:
-                element_json["JoinDate"], message = get_date_with_message(element_json, "JoinDate", "JoinInformDate")
+                element_json["StartDate"], message = get_date_with_message(element_json, "StartDate", "InformStartDate")
                 if message:
                     soft_errors.append(message)
-                element_json["JoinInformDate"], message = get_date_with_message(element_json, "JoinInformDate", "JoinDate")
+                element_json["InformStartDate"], message = get_date_with_message(element_json, "InformStartDate", "StartDate")
                 if message:
                     soft_errors.append(message)
             except Exception as e:
-                raise ValueError(f"Auto fill JoinDate: " + str(e))
+                raise ValueError(f"Auto fill StartDate: " + str(e))
             try:
                 if "EmployeePlans" not in element_json:
                     try:
@@ -517,8 +521,8 @@ def add_element_by_table_name(cursor: MySQLCursor, table_name, element_json):
                         # Add EmployeePlan
                         element_json["EmployeePlan"] =[{
                             'PlanID': plan_id,
-                            'InformStartDate': element_json['JoinInformDate'],
-                            'StartDate': element_json['JoinDate'],
+                            'InformStartDate': element_json['InformStartDate'],
+                            'StartDate': element_json['StartDate'],
                             'EndDate': None,
                             'InformEndDate': None
                         }]
@@ -992,10 +996,13 @@ def route_delete_element(table_name, element_id):
 def get_element_by_id(cursor, table_name, element_id):
     try:
         cursor.execute(f"SELECT * FROM {table_name} WHERE {table_name}ID = %s", (element_id,))
-        element = cursor.fetchall()[0]
+        column_names = [desc[0] for desc in cursor.description]
+        element = cursor.fetchone()
         if not element:
             raise ValueError(f"{table_name} with ID {element_id} does not exist.")
-        return element
+        
+        element_dict = dict(zip(column_names, element))
+        return element_dict
     except Exception as e:
         raise ValueError(f"Get Element by ID: " + str(e))
     
@@ -1022,13 +1029,54 @@ def execute_query(cursor, query):
     except Exception as e:
         raise Exception(f"Error Executing Queary: {query} Error: " + str(e))
     
+def get_only_active_on_date(cursor, table_name, employer_id, date, Identifyer="EmployerID"):
+    try:
+        employees = execute_query(cursor, f"SELECT {table_name}ID FROM {table_name} WHERE {Identifyer}={employer_id} AND InformStartDate <= '{date}' AND (InformEndDate >= '{date}' OR InformEndDate IS NULL)")
+        if len(employees) > 1:
+            employees = execute_query(cursor, f"SELECT {table_name}ID FROM {table_name} WHERE {Identifyer}={employer_id} AND InformStartDate <= '{date}' AND (InformEndDate > '{date}' OR InformEndDate IS NULL)")
+        if len(employees) > 1:
+            raise ValueError(f"Multiple active {table_name} on {date}")
+        return employees[0][0]
+    except Exception as e:
+        raise ValueError(f"Get Only Active on Date: " + str(e))
+    
+def get_employeeplan_on_date(cursor, employee_id, date):
+    try:
+        employeeplan_id = get_only_active_on_date(cursor, "EmployeePlan", employee_id, date, "EmployeeID")
+        return employeeplan_id
+    except Exception as e:
+        raise ValueError(f"Get EmployeePlan on Date: " + str(e))
+    
+def select_planid_from_employeeplan(cursor, employeeplan_id):
+    try:
+        query = f"SELECT PlanID FROM EmployeePlan WHERE EmployeePlanID = {employeeplan_id}"
+        plan_id = execute_query(cursor, query)[0][0]
+        return plan_id
+    except Exception as e:
+        raise ValueError(f"Select PlanID from EmployeePlan: " + str(e))
+    
+def get_only_active_plan_on_date(cursor, carrierid, tierid, date):
+    try:
+        query = f"SELECT PlanID FROM Plan WHERE CarrierID = {carrierid} AND TierID = {tierid} AND StartDate <= '{date}' AND (EndDate >= '{date}' OR EndDate IS NULL)"
+        plans = execute_query(cursor, query)
+        if len(plans) > 1:
+            plans = execute_query(cursor, f"SELECT PlanID FROM Plan WHERE CarrierID = {carrierid} AND TierID = {tierid} AND StartDate <= '{date}' AND (EndDate > '{date}' OR EndDate IS NULL)")
+        if len(plans) > 1:
+            raise ValueError(f"Multiple active plans on {date}")
+        plan_id = plans[0][0]
+        return plan_id
+    except Exception as e:
+        raise ValueError(f"Get Only Active Plan on Date: " + str(e))
+    
+
+    
 def get_plan_for_employee(cursor, employee_id, current_date=None):
     try:
         if current_date is None:
             current_date = datetime.now().strftime('%Y-%m-%d')
         try:
-            query = f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = {employee_id} AND InformStartDate <= '{current_date}' AND (InformEndDate IS NULL OR InformEndDate >= '{current_date}')"
-            plan_id = execute_query(cursor, query)[0][0]
+            employeeplan_id = get_employeeplan_on_date(cursor, employee_id, current_date)
+            plan_id = select_planid_from_employeeplan(cursor, employeeplan_id)
         except Exception as e:
             raise ValueError(f"Find EmployePlan for Employee: " + str(e))
         if not plan_id:
@@ -1046,8 +1094,7 @@ def get_plan_for_employee(cursor, employee_id, current_date=None):
                 tier_id = get_tier_id(cursor, None, dob, employer_id, current_date.year)
                 query = f"SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}"
                 carrier_id = execute_query(cursor, query)[0][0]
-                query = f"SELECT PlanID FROM Plan WHERE CarrierID = {carrier_id} AND TierID = {tier_id}"
-                plan_id = execute_query(cursor, query)[0][0]
+                plan_id = get_only_active_plan_on_date(cursor, carrier_id, tier_id, current_date)
         except Exception as e:
             raise ValueError(f"Geting AgeBanded: " + str(e))
         return plan_id
@@ -1074,8 +1121,7 @@ def get_plan_for_dependent(cursor, dependent_id, date=None):
         tier_id = execute_query(cursor, query)[0][0]
         query = f"SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}"
         carrier_id = execute_query(cursor, query)[0][0]
-        query = f"SELECT PlanID FROM Plan WHERE CarrierID = {carrier_id} AND TierID = {tier_id}"
-        plan_id = execute_query(cursor, query)[0][0]
+        plan_id = get_only_active_plan_on_date(cursor, carrier_id, tier_id, date)
         return plan_id
     except Exception as e:
         raise ValueError(f"Get Plan for Dependent: " + str(e))
@@ -1367,7 +1413,7 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
     
     
     
-    employees = execute_query(cursor, f"SELECT EmployeeID, EmployeeFullName, JoinDate, JoinInformDate, TermDate, TermEndDate FROM Employee WHERE EmployerID = {employer_id}")
+    employees = execute_query(cursor, f"SELECT EmployeeID, EmployeeFullName, StartDate, InformStartDate, EndDate, InformEndDate FROM Employee WHERE EmployerID = {employer_id}")
 
     if not employees:
         raise ValueError(f"No employees found for {employer_name} on {Date}")
@@ -1393,9 +1439,9 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                 if term_date and term_inform_date.date() == datetime(current_year, current_month, 1).date():
                     notes.append("Terminated " + term_date.month() + "/" +  term_date.year())
                     for back_date in generate_month_range(term_date, term_inform_date):
-                        plan_id = execute_query(cursor, f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = {employee_id} AND StartDate <= '{back_date}' AND (EndDate >= '{back_date}' OR EndDate IS NULL)")[0][0]
+                        plan_id = get_plan_for_employee(cursor, employee_id, back_date)
                         if not plan_id:
-                            raise ValueError(f"No plan found for {employee_name} on {back_date}")
+                            raise ValueError(f"Backedate, No plan found for {employee_name} on {back_date}")
                         f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
                         funding_amount -= f_amount
                         grenz_fee -= g_fee
@@ -1414,7 +1460,7 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                     #raise ValueError("Join Worked")
                     print(f"{employee_name} joined")
                     for back_date in generate_month_range(join_date, join_inform_date):
-                        plan_id = execute_query(cursor, f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = {employee_id} AND StartDate <= '{back_date}' AND (EndDate >= '{back_date}' OR EndDate IS NULL)")[0][0]
+                        plan_id = get_plan_for_employee(cursor, employee_id, back_date)
                         f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
                         funding_amount += f_amount
                         grenz_fee += g_fee
@@ -1441,6 +1487,8 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                     if inform_end_date == date(current_year, current_month, 1):
                         notes.append("Ended Plan " + end_date.month() + "/" +  end_date.year())
                         for back_date in generate_month_range(end_date, inform_end_date):
+                            #Update the plan_id incase the end date is less then the start date 
+                            plan_id = get_plan_for_employee(cursor, employee_id, back_date)
                             f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
                             funding_amount -= f_amount
                             grenz_fee -= g_fee
@@ -1453,15 +1501,11 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
             try:
                 if not carrier_names or not tier_names:
                     try:
-                        plan_id = execute_query(cursor, f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = {employee_id} AND InformStartDate <= '{Date}' AND (InformEndDate >= '{Date}' OR EndDate IS NULL)")[0][0]
+                        plan_id = get_plan_for_employee(cursor, employee_id, datetime(current_year, current_month, 1).date())
                     except Exception as e:
                         raise ValueError(f"Error getting plan for {employee_name}: {e}")
                     if not plan_id:
                             raise ValueError(f"No plan found for {employee_name} on {back_date}")
-                    try:
-                        execute_query(cursor, f"SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}")
-                    except Exception as e:
-                        raise ValueError(f"Error with getting connection before plan: {e}")
                     try:
                         f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, datetime(current_year, current_month, 1).date(), plan_id, employee_id)
                     except Exception as e:
@@ -1533,17 +1577,17 @@ test_json_1 = """{
             "UsesLocation": false,
             "UsesTitle": false,
             "PerferedBillingDate": "2025-02-01",
-            "RenewalDate": "2026-01-01",
+            "RenewalDate": "2019-01-01",
             "employees": [
                 {
                     "EmployerID": 1,
                     "EmployeeFullName": "John Jones",
                     "EmployeeFirstName": "John",
                     "EmployeeLastName": "Jones",
-                    "JoinDate": "2000-01-01",
-                    "TermDate": null,
-                    "JoinInformDate": "2020-01-01",
-                    "TermEndDate": null,
+                    "StartDate": "2000-01-01",
+                    "EndDate": null,
+                    "InformStartDate": "2020-01-01",
+                    "InformEndDate": null,
                     "DOB": "1990-06-25",
                     "CobraStatus": true,
                     "Notes": "This is a sample note.",
@@ -1560,10 +1604,10 @@ test_json_1 = """{
                     "EmployeeFullName": "Michelle Johnson",
                     "EmployeeFirstName": "Michelle",
                     "EmployeeLastName": "Johnson",
-                    "JoinDate": "2000-01-01",
-                    "TermDate": null,
-                    "JoinInformDate": "2000-01-01",
-                    "TermEndDate": null,
+                    "StartDate": "2000-01-01",
+                    "EndDate": null,
+                    "InformStartDate": "2000-01-01",
+                    "InformEndDate": null,
                     "DOB": "1990-06-25",
                     "CobraStatus": true,
                     "Notes": "This is a sample note.",
@@ -1580,10 +1624,10 @@ test_json_1 = """{
                     "EmployeeFullName": "Jane Doe",
                     "EmployeeFirstName": "Jane",
                     "EmployeeLastName": "Doe",
-                    "JoinDate": "2019-01-01",
-                    "TermDate": null,
-                    "JoinInformDate": "2020-01-01",
-                    "TermEndDate": null,
+                    "StartDate": "2019-01-01",
+                    "EndDate": null,
+                    "InformStartDate": "2020-01-01",
+                    "InformEndDate": null,
                     "DOB": "1990-06-25",
                     "CobraStatus": false,
                     "Notes": "This is a sample note.",
@@ -1733,7 +1777,7 @@ test_json_1 = """{
             "UsesLocation": true,
             "UsesTitle": true,
             "PerferedBillingDate": "2025-05-01",
-            "RenewalDate": "2025-07-01",
+            "RenewalDate": "2022-07-01",
             "employees": [
                 {
                     "EmployeeID": 1,
@@ -1741,10 +1785,10 @@ test_json_1 = """{
                     "EmployeeFullName": "Jane Johnson",
                     "EmployeeFirstName": "Jane",
                     "EmployeeLastName": "Johnson",
-                    "JoinDate": "2000-01-01",
-                    "TermDate": null,
-                    "JoinInformDate": "2000-01-01",
-                    "TermEndDate": null,
+                    "StartDate": "2000-01-01",
+                    "EndDate": null,
+                    "InformStartDate": "2000-01-01",
+                    "InformEndDate": null,
                     "DOB": "1990-06-25",
                     "CobraStatus": true,
                     "Notes": "This is a sample note.",
@@ -1785,10 +1829,10 @@ test_json_1 = """{
                     "EmployeeFullName": "Alice Smith",
                     "EmployeeFirstName": "Alice",
                     "EmployeeLastName": "Smith",
-                    "JoinDate": "2019-01-01",
-                    "TermDate": null,
-                    "JoinInformDate": "2020-02-01",
-                    "TermEndDate": null,
+                    "StartDate": "2019-01-01",
+                    "EndDate": null,
+                    "InformStartDate": "2020-02-01",
+                    "InformEndDate": null,
                     "DOB": "1990-06-25",
                     "CobraStatus": false,
                     "Notes": "This is a sample note.",
@@ -1829,10 +1873,10 @@ test_json_1 = """{
                     "EmployeeFullName": "Alice Brown",
                     "EmployeeFirstName": "Alice",
                     "EmployeeLastName": "Brown",
-                    "JoinDate": "2000-01-01",
-                    "TermDate": null,
-                    "JoinInformDate": "2000-01-01",
-                    "TermEndDate": null,
+                    "StartDate": "2000-01-01",
+                    "EndDate": null,
+                    "InformStartDate": "2000-01-01",
+                    "InformEndDate": null,
                     "DOB": "1990-06-25",
                     "CobraStatus": false,
                     "Notes": "This is a sample note.",
@@ -1873,10 +1917,10 @@ test_json_1 = """{
                     "EmployeeFullName": "Mike Doe",
                     "EmployeeFirstName": "Mike",
                     "EmployeeLastName": "Doe",
-                    "JoinDate": "2000-01-01",
-                    "TermDate": null,
-                    "JoinInformDate": "2000-01-01",
-                    "TermEndDate": null,
+                    "StartDate": "2000-01-01",
+                    "EndDate": null,
+                    "InformStartDate": "2000-01-01",
+                    "InformEndDate": null,
                     "DOB": "1990-06-25",
                     "CobraStatus": false,
                     "Notes": "This is a sample note.",
@@ -1917,10 +1961,10 @@ test_json_1 = """{
                     "EmployeeFullName": "Alex Williams",
                     "EmployeeFirstName": "Alex",
                     "EmployeeLastName": "Williams",
-                    "JoinDate": "2000-01-01",
-                    "TermDate": null,
-                    "JoinInformDate": "2000-01-01",
-                    "TermEndDate": null,
+                    "StartDate": "2000-01-01",
+                    "EndDate": null,
+                    "InformStartDate": "2000-01-01",
+                    "InformEndDate": null,
                     "DOB": "1990-06-25",
                     "CobraStatus": true,
                     "Notes": "This is a sample note.",
@@ -2079,7 +2123,14 @@ def test_generate_report(EmployerID, Year, Month):
     connection.close()
     return send_file(report, as_attachment=True, download_name=(report + ".xlsx"))
     
-
+@app.route('/test/getelementbyid', methods=['GET'])
+def test_get_element_by_id():
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    element = get_element_by_id(cursor, "Employer", 2)
+    cursor.close()
+    connection.close()
+    return jsonify(element)
 
 ####### Run on Start #######
 
