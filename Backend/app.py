@@ -513,7 +513,7 @@ def add_element_by_table_name(cursor: MySQLCursor, table_name, element_json):
                     
                     try:    
                         # Get PlanID
-                        plan_id = get_plan_id(cursor, carrier_id, tier_id)
+                        plan_id = get_only_active_plan_on_date(cursor, carrier_id, tier_id, element_json['StartDate'])
                     except Exception as e:
                         raise ValueError(f"Get PlanID: " + str(e))
                     
@@ -521,7 +521,7 @@ def add_element_by_table_name(cursor: MySQLCursor, table_name, element_json):
                         # Add EmployeePlan
                         element_json["EmployeePlan"] =[{
                             'PlanID': plan_id,
-                            'InformStartDate': element_json['InformStartDate'],
+                            'InformStartDate': element_json['StartDate'],
                             'StartDate': element_json['StartDate'],
                             'EndDate': None,
                             'InformEndDate': None
@@ -657,14 +657,12 @@ def modify_plan(cursor, plan_id, plan_json):
         #set the end date to the last day of the month before the renewal date
         renew_date = datetime.strptime(renew_date, '%Y-%m-%d')
         renew_date.year = datetime.today().year
-        end_date = datetime.strptime(renew_date, '%Y-%m-%d') - timedelta(days=1)
+        end_date = datetime.strptime(renew_date, '%Y-%m-%d')
         old_plan["EndDate"] = end_date
-        old_plan["InformEndDate"] = end_date
         
         # Create the new plan
         new_plan = old_plan
         new_plan["StartDate"] = renew_date
-        new_plan["InformStartDate"] = renew_date
         new_plan["EndDate"] = None
 
         #add the new info
@@ -692,7 +690,8 @@ def move_employees_to_new_plan(cursor, old_plan_id, new_plan_id):
 
             employee_plan_id = employee["EmployeePlanID"]
             employee_plan = get_element_by_id(cursor, "EmployeePlan", employee_plan_id)
-            employee_plan["EndDate"] = old_plan["EndDate"] if old_plan["EndDate"] else datetime.today()
+            employee_plan["EndDate"] = old_plan["EndDate"] if old_plan["EndDate"] else new_plan["StartDate"]
+            employee_plan["InformEndDate"] = old_plan["EndDate"] if old_plan["EndDate"] else new_plan["StartDate"]
             change_element_by_table_name(cursor, "EmployeePlan", employee_plan_id, employee_plan)
             # Create a new plan for the employee
             new_employee_plan = {
@@ -718,7 +717,7 @@ def end_plan(cursor, plan_id):
     #set the end date to the last day of the month before the renewal date
     renew_date = datetime.strptime(renew_date, '%Y-%m-%d')
     renew_date.year = datetime.today().year
-    end_date = datetime.strptime(renew_date, '%Y-%m-%d') - timedelta(days=1)
+    end_date = renew_date
     try:
         change_element_by_table_name(cursor, "Plan", plan_id, {"EndDate": end_date, "InformEndDate": end_date})
         #end all the employee plans
@@ -757,13 +756,7 @@ def get_tier_id(cursor: MySQLCursor, tier_name, dob, employer_id, year=None):
         return tier[0][0]
     raise ValueError(f"Tier with name {tier_name} and employer ID {employer_id} does not exist.")
 
-def get_plan_id(cursor, carrier_id, tier_id):
-    get_plan_query = "SELECT PlanID FROM Plan WHERE CarrierID = %s AND TierID = %s"
-    cursor.execute(get_plan_query, (carrier_id, tier_id))
-    plan = cursor.fetchone()
-    if plan:
-        return plan[0]
-    raise ValueError(f"Plan with carrier ID {carrier_id} and tier ID {tier_id} does not exist.")
+
 
 def calculate_age(employer_id, dob, year, cursor):
     try:
@@ -1059,6 +1052,8 @@ def get_only_active_plan_on_date(cursor, carrierid, tierid, date):
     try:
         query = f"SELECT PlanID FROM Plan WHERE CarrierID = {carrierid} AND TierID = {tierid} AND StartDate <= '{date}' AND (EndDate >= '{date}' OR EndDate IS NULL)"
         plans = execute_query(cursor, query)
+        if len(plans) < 1:
+            raise ValueError(f"No active plans on {date}")
         if len(plans) > 1:
             plans = execute_query(cursor, f"SELECT PlanID FROM Plan WHERE CarrierID = {carrierid} AND TierID = {tierid} AND StartDate <= '{date}' AND (EndDate > '{date}' OR EndDate IS NULL)")
         if len(plans) > 1:
@@ -1101,14 +1096,14 @@ def get_plan_for_employee(cursor, employee_id, current_date=None):
     except Exception as e:
         raise ValueError(f"Get Plan for Employee: " + str(e))
         
-def get_plan_for_dependent(cursor, dependent_id, date=None):
+def get_plan_for_dependent(cursor, dependent_id, Date=None):
     try:
-        if date is None:
-            date = datetime.now().strftime('%Y-%m-%d')
-        query = f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = (SELECT EmployeeID FROM Dependent WHERE DependentID = {dependent_id}) AND InformStartDate <= '{date}' AND (InformEndDate IS NULL OR InformEndDate >= '{date}')"
+        if Date is None:
+            Date = datetime.now().strftime('%Y-%m-%d')
+        query = f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = (SELECT EmployeeID FROM Dependent WHERE DependentID = {dependent_id}) AND InformStartDate <= '{Date}' AND (InformEndDate IS NULL OR InformEndDate >= '{Date}')"
         plan_id = execute_query(cursor, query)[0][0]
         if not plan_id:
-            raise ValueError(f"Dependent {dependent_id} does not have a plan on {date}")
+            raise ValueError(f"Dependent {dependent_id} does not have a plan on {Date}")
         query = f"SELECT EmployeeID FROM Dependent WHERE DependentID = {dependent_id}"
         employee_id = execute_query(cursor, query)[0][0]
         employer_id = get_employer_id_from_employee(cursor, employee_id)
@@ -1121,7 +1116,7 @@ def get_plan_for_dependent(cursor, dependent_id, date=None):
         tier_id = execute_query(cursor, query)[0][0]
         query = f"SELECT CarrierID FROM Plan WHERE PlanID = {plan_id}"
         carrier_id = execute_query(cursor, query)[0][0]
-        plan_id = get_only_active_plan_on_date(cursor, carrier_id, tier_id, date)
+        plan_id = get_only_active_plan_on_date(cursor, carrier_id, tier_id, Date)
         return plan_id
     except Exception as e:
         raise ValueError(f"Get Plan for Dependent: " + str(e))
@@ -1177,6 +1172,9 @@ def process_dependent(cursor, dependent_id, current_date, plan_id, employee_id):
     
     if inform_end_date == current_month_start:
         dep_info = fetch_and_process_dependent_info(inform_end_date, end_date, dependent_id)
+        dep_fund_amount -= dep_info['FundingAmount']
+        dep_grenz_fee -= dep_info['GrenzFee']
+        dep_info = fetch_and_process_dependent_info(current_month_start, current_month_start, dependent_id, False)
         dep_fund_amount += dep_info['FundingAmount']
         dep_grenz_fee += dep_info['GrenzFee']
     if inform_start_date >= current_month_start or inform_end_date <= current_month_start:
@@ -1228,8 +1226,12 @@ def generate_month_range(start, end):
 
 def update_dependents(dependents, new_entries):
     try:
+        if (new_entries == None):
+            return dependents
         for entry in new_entries:
             # make sure it is the correct type
+            if entry == None:
+                continue
             if not isinstance(entry, dict):
                 raise ValueError("Entry must be a dictionary")
             
@@ -1254,6 +1256,17 @@ def update_dependents(dependents, new_entries):
         return dependents
     except Exception as e:
         raise ValueError(f"Update Dependents: " + str(e))
+
+def flip_funding_amounts(dependents):
+    try:
+        for dependent in dependents:
+            if dependent == None:
+                continue
+            dependent['FundingAmount'] = -dependent['FundingAmount']
+            dependent['GrenzFee'] = -dependent['GrenzFee']
+        return dependents
+    except Exception as e:
+        raise ValueError(f"Flip Funding Amounts: " + str(e))
 
 def calculate_funding_amount_normal(cursor, date, plan_id, employee_id=None):
     query = f"SELECT CarrierID, TierID, FundingAmount, GrenzFee FROM Plan WHERE PlanID = {plan_id}"
@@ -1333,13 +1346,13 @@ def get_format_normal(employer_info=None):
             columns.append("Location")
         if uses_title:
             columns.append("Title")
-    columns += ["Plan", "Tier", "Funding Amount", "Admin Fee", "Total Amount"]
+    columns += ["Carrier", "Tier", "Funding Amount", "Admin Fee", "Total Amount"]
     return add_data_normal, columns
 
 
 
 def add_data_normal(df, notes, employee_name, plan, tier, funding_amount, grenz_fee, total, gl_code = None, division=None, location=None, title=None, dependents=[], DOB = None):
-    new_row = {"Notes": notes, "Employee Name": employee_name, "Plan": plan, "Tier": tier, "Funding Amount": funding_amount, "Admin Fee": grenz_fee, "Total Amount": total}
+    new_row = {"Notes": notes, "Employee Name": employee_name, "Carrier": plan, "Tier": tier, "Funding Amount": funding_amount, "Admin Fee": grenz_fee, "Total Amount": total}
     if gl_code:
         new_row["GL Code"] = gl_code
     if division:
@@ -1355,7 +1368,7 @@ def add_data_normal(df, notes, employee_name, plan, tier, funding_amount, grenz_
 
 def add_data_age_banded(df, notes, employee_name, plan, tier, funding_amount, grenz_fee, total, gl_code = None, division=None, location=None, title=None, dependents=[], DOB = None) -> pd.DataFrame:
     new_df = df
-    new_row = {"Notes": notes, "Employee Name": employee_name, "Plan": plan, "Tier": tier, "Funding Amount": funding_amount, "Admin Fee": grenz_fee, "Total Amount": total}
+    new_row = {"Notes": notes, "Employee Name": employee_name, "Carrier": plan, "Tier": tier, "Funding Amount": funding_amount, "Admin Fee": grenz_fee, "Total Amount": total}
     if gl_code:
         new_row["GL Code"] = gl_code
     if division:
@@ -1413,7 +1426,7 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
     
     
     
-    employees = execute_query(cursor, f"SELECT EmployeeID, EmployeeFullName, StartDate, InformStartDate, EndDate, InformEndDate FROM Employee WHERE EmployerID = {employer_id}")
+    employees = execute_query(cursor, f"SELECT EmployeeID, EmployeeFullName, StartDate, InformStartDate, EndDate, InformEndDate FROM Employee WHERE EmployerID = {employer_id} AND InformStartDate <= '{Date}' AND (InformEndDate >= '{Date}' OR InformEndDate IS NULL)")
 
     if not employees:
         raise ValueError(f"No employees found for {employer_name} on {Date}")
@@ -1436,18 +1449,36 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                 raise ValueError(f"No plans found for {employee_name} on {Date}")
                 continue
             try:
-                if term_date and term_inform_date.date() == datetime(current_year, current_month, 1).date():
-                    notes.append("Terminated " + term_date.month() + "/" +  term_date.year())
-                    for back_date in generate_month_range(term_date, term_inform_date):
-                        plan_id = get_plan_for_employee(cursor, employee_id, back_date)
-                        if not plan_id:
-                            raise ValueError(f"Backedate, No plan found for {employee_name} on {back_date}")
-                        f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
-                        funding_amount -= f_amount
-                        grenz_fee -= g_fee
-                        carrier_names.append(carrier_name)
-                        tier_names.append(tier_name)
-                        dependents = update_dependents(dependents, new_dependents)
+                try:
+                    if not isinstance(term_inform_date, date):
+                        if term_inform_date != None:
+                            term_inform_date = datetime.strptime(str(term_inform_date), "%Y-%m-%d").date()
+                except Exception as e:
+                    raise ValueError(f"Error getting term inform date for {employee_name}: {e}")
+                try:
+                    if term_date and term_inform_date == datetime(current_year, current_month, 1).date():
+                        notes.append("Terminated " + str(current_month) + "/" +  str(current_year))
+                        for back_date in generate_month_range(term_date, term_inform_date):
+                            if(back_date == datetime(current_year, current_month, 1).date()):
+                                continue
+                            try:
+                                plan_id = get_plan_for_employee(cursor, employee_id, back_date)
+                            except Exception as e:
+                                raise ValueError(f"Error getting plan for {employee_name}: {e}")
+                            if not plan_id:
+                                raise ValueError(f"Backedate, No plan found for {employee_name} on {back_date}")
+                            try:
+                                f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
+                            except Exception as e:
+                                raise ValueError(f"Error calculating funding amount for {employee_name}: {e}")
+                            funding_amount -= f_amount
+                            grenz_fee -= g_fee
+                            carrier_names.append(carrier_name)
+                            tier_names.append(tier_name)
+                            new_dependents = flip_funding_amounts(new_dependents)
+                            dependents = update_dependents(dependents, new_dependents)
+                except Exception as e:
+                    raise ValueError(f"Error handling if statement term date for {employee_name}: {e}")
             except Exception as e:
                 raise ValueError(f"Error handleing term date for {employee_name}: {e}")
             #raise Exception("Join Test Join date:" + str(join_date) + " Join inform Date: " + str(join_inform_date) + " CurrentDate: " + str(current_date))
@@ -1456,7 +1487,7 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
             join_date = datetime.strptime(str(join_date), date_format)
             try:
                 if join_date and join_inform_date.date() == datetime(current_year, current_month, 1).date():
-                    notes.append("Joined " + join_date.month() + "/" +  join_date.year())
+                    notes.append("Joined " + str(current_month) + "/" +  str(current_year))
                     #raise ValueError("Join Worked")
                     print(f"{employee_name} joined")
                     for back_date in generate_month_range(join_date, join_inform_date):
@@ -1487,6 +1518,8 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                     if inform_end_date == date(current_year, current_month, 1):
                         notes.append("Ended Plan " + end_date.month() + "/" +  end_date.year())
                         for back_date in generate_month_range(end_date, inform_end_date):
+                            if(back_date == datetime(current_year, current_month, 1).date()):
+                                continue
                             #Update the plan_id incase the end date is less then the start date 
                             plan_id = get_plan_for_employee(cursor, employee_id, back_date)
                             f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
@@ -1577,7 +1610,7 @@ test_json_1 = """{
             "UsesLocation": false,
             "UsesTitle": false,
             "PerferedBillingDate": "2025-02-01",
-            "RenewalDate": "2019-01-01",
+            "RenewalDate": "2000-01-01",
             "employees": [
                 {
                     "EmployerID": 1,
@@ -1777,7 +1810,7 @@ test_json_1 = """{
             "UsesLocation": true,
             "UsesTitle": true,
             "PerferedBillingDate": "2025-05-01",
-            "RenewalDate": "2022-07-01",
+            "RenewalDate": "2000-01-01",
             "employees": [
                 {
                     "EmployeeID": 1,
@@ -1785,9 +1818,9 @@ test_json_1 = """{
                     "EmployeeFullName": "Jane Johnson",
                     "EmployeeFirstName": "Jane",
                     "EmployeeLastName": "Johnson",
-                    "StartDate": "2000-01-01",
+                    "StartDate": "2023-12-01",
                     "EndDate": null,
-                    "InformStartDate": "2000-01-01",
+                    "InformStartDate": "2024-01-01",
                     "InformEndDate": null,
                     "DOB": "1990-06-25",
                     "CobraStatus": true,
@@ -1803,10 +1836,10 @@ test_json_1 = """{
                             "DependentName": "Chris Smith",
                             "Relationship": "Child",
                             "DOB": "1990-06-25",
-                            "StartDate": "2023-01-01",
-                            "InformStartDate": "2023-01-01",
-                            "EndDate": "2024-01-01",
-                            "InformEndDate": "2024-01-01"
+                            "StartDate": "2023-12-01",
+                            "InformStartDate": "2024-01-01",
+                            "EndDate": "2024-02-01",
+                            "InformEndDate": "2024-02-01"
                         },
                         {
                             "DependentID": 2,
@@ -1814,10 +1847,10 @@ test_json_1 = """{
                             "DependentName": "Casey Smith",
                             "Relationship": "Spouse",
                             "DOB": "1990-06-25",
-                            "StartDate": "2020-01-01",
-                            "InformStartDate": "2021-01-01",
-                            "EndDate": "2024-01-01",
-                            "InformEndDate": "2024-01-01"
+                            "StartDate": "2023-12-01",
+                            "InformStartDate": "2024-01-01",
+                            "EndDate": "2024-02-01",
+                            "InformEndDate": "2024-02-01"
                         }
                     ],
                     "Carrier": "Carrier1",
@@ -1962,9 +1995,9 @@ test_json_1 = """{
                     "EmployeeFirstName": "Alex",
                     "EmployeeLastName": "Williams",
                     "StartDate": "2000-01-01",
-                    "EndDate": null,
+                    "EndDate": "2023-12-01",
                     "InformStartDate": "2000-01-01",
-                    "InformEndDate": null,
+                    "InformEndDate": "2024-01-01",
                     "DOB": "1990-06-25",
                     "CobraStatus": true,
                     "Notes": "This is a sample note.",
@@ -2110,10 +2143,10 @@ def test_generate_report(EmployerID, Year, Month):
         EmployerName = cursor.fetchall()[0][0]
     except Exception as e:
         return jsonify({"Error Getting Employer Name": str(e)}), 400
-    date = datetime(int(Year), int(Month), 1)
+    Date = datetime(int(Year), int(Month), 1)
     cursor.close()
     try:
-        report = generate_report(connection, EmployerName, date, get_format=get_format_normal)
+        report = generate_report(connection, EmployerName, Date, get_format=get_format_normal)
     except Exception as e:
         return jsonify({"Error Gennerating Report": str(e)}), 400
     
