@@ -6,6 +6,7 @@ import json
 import datetime
 from datetime import datetime, timedelta, date
 from mysql.connector.cursor import MySQLCursor
+import os
 
 ####################### Helper Functions #######################
 app = Flask(__name__)
@@ -13,12 +14,42 @@ app = Flask(__name__)
 
 def get_db_connection():
     connection = mysql.connector.connect(
-        host='mysql',  # This matches the service name defined in docker-compose.yml
-        user='server',
-        password='Server',
+        host='host.docker.internal',  # This matches the service name defined in docker-compose.yml
+        user='root',
+        password='Root',
         database='modelBillingDBv1'
     )
     return connection
+
+def setup_db():
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    # Get the path to init.sql dynamically
+    script_dir = os.path.dirname(__file__)  # Directory of the script
+    sql_file_path = os.path.join(script_dir, 'init.sql')
+    
+    with open(sql_file_path, 'r') as f:
+        sql_commands = f.read()
+    
+    # Split the commands by semicolon to execute them individually
+    for command in sql_commands.split(';'):
+        if command.strip():
+            cursor.execute(command)
+    
+    connection.commit()
+    cursor.close()
+    connection.close()
+    return "Database setup complete"
+
+@app.route('/setup_db', methods=['GET'])
+def setup_db_route():
+    try:
+        message = setup_db()
+        return jsonify({'message': message})
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
 
 @app.route('/')
 def home():
@@ -169,6 +200,11 @@ def change_employee(id):
 @app.route('/employee/<int:id>', methods=['DELETE'])
 def delete_employee(id):
     return route_delete_element(id, "Employee")
+
+@app.route('/employee/<int:id>/terminate', methods=['PATCH'])
+def terminate_employee_route(id):
+    data = request.get_json()
+    return terminate_employee(id, data["EndDate"], data["InformEndDate"])
 
 ### EmployeePlan Methods ###
 
@@ -787,6 +823,27 @@ def calculate_age(employer_id, dob, year, cursor):
         return age
     except Exception as e:
         raise ValueError(f"Calculate Age: " + str(e))
+    
+def terminate_employee(cursor, employee_id, end_date=None, inform_end_date=None):
+    try:
+        # Get the employee
+        employee = get_element_by_id(cursor, "Employee", employee_id)
+        # End the employee
+        if not end_date:
+            raise ValueError("End Date is required to terminate an employee.")
+        employee["EndDate"] = end_date
+        employee["InformEndDate"] = inform_end_date if inform_end_date else end_date
+        change_element_by_table_name(cursor, "Employee", employee_id, employee)
+        #end plan and dependents
+        employee_plans = get_active_depfree(cursor, "EmployeePlan", employee_id, "EndDate", "EmployeeID")
+        for employee_plan in employee_plans:
+            change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], {"EndDate": end_date, "InformEndDate": end_date})
+        dependents = get_active_depfree(cursor, "Dependent", employee_id, "EndDate", "EmployeeID")
+        for dependent in dependents:
+            change_element_by_table_name(cursor, "Dependent", dependent["DependentID"], {"EndDate": end_date, "InformEndDate": end_date})
+        return True
+    except Exception as e:
+        raise ValueError(f"Terminate Employee: " + str(e))
 
 ### EmployeePlan Functions ###
 
@@ -2082,6 +2139,17 @@ test_json_1 = """{
                     "TierName": "Tier2"
                 }
             ]
+        },
+        {
+        "EmployerID": 2,
+            "EmployerName": "Template",
+            "TierStructure": "AgeBanded",
+            "UsesGlCode": true,
+            "UsesDivision": true,
+            "UsesLocation": true,
+            "UsesTitle": true,
+            "PerferedBillingDate": "2025-05-01",
+            "RenewalDate": "2000-01-01"
         }
     ]
 }"""
