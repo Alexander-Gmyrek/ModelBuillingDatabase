@@ -7,10 +7,11 @@ import datetime
 from datetime import datetime, timedelta, date
 from mysql.connector.cursor import MySQLCursor
 import os
+from flask_cors import CORS
 
 ####################### Helper Functions #######################
 app = Flask(__name__)
-
+CORS(app)
 
 def get_db_connection():
     connection = mysql.connector.connect(
@@ -68,6 +69,16 @@ def testconection():
             return jsonify({"message": "Connected to MySQL Server version", "version": db_info})
         else:
             return jsonify({"message": "Connection to MySQL Server failed"})
+        
+@app.route('/apiFunctions.js', methods=['GET'])
+def get_api_functions():
+    return send_file('./apiFunctions.js')
+
+@app.route('/config.js', methods=['GET'])
+def get_config():
+    return send_file('./config.js')
+    
+
 
 # table fields
 get_table_fields = lambda key, subkey: {
