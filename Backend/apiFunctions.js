@@ -23,7 +23,7 @@ async function apiRequest(endpoint, method = "GET", body = null) {
     try {
         const response = await fetch(`${BASE_URL}${endpoint}`, options);
         if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
+            throw new Error(`HTTP error! Status: ${response.status}` + " " + response.text());
         }
         return await response.json();
     } catch (error) {
@@ -70,8 +70,8 @@ async function searchCarrierById(carrierId) {
     return await apiRequest(`/carrier/${carrierId}`);
 }
 
-async function searchCarrierByName(employerName, carrierName) {
-    return await apiRequest(`/carrier/${encodeURIComponent(employerName)}/${encodeURIComponent(carrierName)}`);
+async function searchCarrierByName(employerID, carrierName) {
+    return await apiRequest(`/carrier/${encodeURIComponent(employerID)}/${encodeURIComponent(carrierName)}`);
 }
 
 async function searchCarrierByJson(partialJson) {
@@ -99,8 +99,8 @@ async function searchTierById(tierId) {
     return await apiRequest(`/tier/${tierId}`);
 }
 
-async function searchTierByName(employerName, tierName) {
-    return await apiRequest(`/tier/${encodeURIComponent(employerName)}/${encodeURIComponent(tierName)}`);
+async function searchTierByName(employerID, tierName) {
+    return await apiRequest(`/tier/${encodeURIComponent(employerID)}/${encodeURIComponent(tierName)}`);
 }
 
 async function searchTierByJson(partialJson) {
@@ -128,12 +128,12 @@ async function searchEmployeeById(employeeId) {
     return await apiRequest(`/employee/${employeeId}`);
 }
 
-async function searchEmployeeByName(employerName, employeeFullName) {
-    return await apiRequest(`/employee/${encodeURIComponent(employerName)}/${encodeURIComponent(employeeFullName)}`);
+async function searchEmployeeByName(employerID, employeeFullName) {
+    return await apiRequest(`/employee/${encodeURIComponent(employerID)}/${encodeURIComponent(employeeFullName)}`);
 }
 
-async function searchActiveEmployees(employerName) {
-    return await apiRequest(`/employee/${encodeURIComponent(employerName)}/active`);
+async function searchActiveEmployees(employerID) {
+    return await apiRequest(`/employee/${encodeURIComponent(employerID)}/active`);
 }
 
 async function searchEmployeeByJson(partialJson) {
@@ -161,12 +161,8 @@ async function searchEmployeePlanById(employeePlanId) {
     return await apiRequest(`/employeeplan/${employeePlanId}`);
 }
 
-async function searchEmployeePlanByName(employeeFullName, planName) {
-    return await apiRequest(`/employeeplan/${encodeURIComponent(employeeFullName)}/${encodeURIComponent(planName)}`);
-}
-
-async function searchActiveEmployeePlans(employeeFullName) {
-    return await apiRequest(`/employeeplan/${encodeURIComponent(employeeFullName)}/active`);
+async function searchActiveEmployeePlans(employeeID) {
+    return await apiRequest(`/employeeplan/employeeID/active`);
 }
 
 async function searchEmployeePlanByJson(partialJson) {
@@ -243,6 +239,24 @@ async function deletePlan(planId) {
     return await apiRequest(`/plan/${planId}`, "DELETE");
 }
 
+async function searchActivePlans(EmployeerId) {
+    return await apiRequest(`/plan/${EmployeerId}/active`);
+}
+
+////// General API Functions //////
+async function getAllTable(tableName) {
+    return await apiRequest(`/${tableName}`);
+}
+
+async function searchTableById(tableName, tableId) {
+    return await apiRequest(`/${tableName}/${tableId}`);
+}
+
+async function searchTableByName(tableName, tableFullName) {
+    return await apiRequest(`/${tableName}/${encodeURIComponent(tableFullName)}`);
+}
+
+
 // Exporting all functions for use in other files
 export {
     getAllEmployers,
@@ -293,6 +307,7 @@ export {
     searchPlanById,
     searchPlanByName,
     searchPlanByJson,
+    searchActivePlans,
     addPlan,
     changePlan,
     deletePlan

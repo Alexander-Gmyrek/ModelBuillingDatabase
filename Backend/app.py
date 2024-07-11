@@ -84,7 +84,9 @@ def get_config():
 get_table_fields = lambda key, subkey: {
     "Plan":{ 
         "RequiredFields" : ["EmployerID", "CarrierID", "TierID", "FundingAmount", "GrenzFee", "StartDate"],
-        "OptionalFields": ["PlanID", "GrenzFeeC", "GrenzFeeS", "EndDate"]
+        "OptionalFields": ["PlanID", "GrenzFeeC", "GrenzFeeS", "EndDate"],
+        "DenormalizedData" : ["CarrierName", "TierName", "EmployerID"],
+        "DenormalizeDataFunctions" : {"CarrierName": getCarrierNameForPlan(), "TierName": getTierNameForPlan(), "EmployerID": getEmployerIDForPlan()}
     },
     "Tier": {
         "RequiredFields" : ["EmployerID", "TierName"],
@@ -96,25 +98,66 @@ get_table_fields = lambda key, subkey: {
     },
     "Dependent": {
         "RequiredFields" : ["EmployeeID", "DependentName", "Relationship", "DOB", "StartDate"],
-        "OptionalFields": ["InformStartDate", "EndDate", "InformEndDate"]
+        "OptionalFields": ["InformStartDate", "EndDate", "InformEndDate"],
     },
     "Employee": {
         "RequiredFields" : ["EmployerID", "EmployeeFullName", "StartDate"],
         "OptionalFields": ["EmployeeID", "EndDate", "InformStartDate", "InformEndDate", "DOB", "CobraStatus", "Notes", "GlCode", "Division", "Location", "Title", "EmployeeFirstName", "EmployeeLastName"],
-        "Subtables": ["Dependents", "EmployeePlan"]
+        "Subtables": ["Dependents", "EmployeePlans"],
+        "DenormalizedData" : ['Carrier', 'Tier'],
+        "DenormalizedDataFunctions" : {'Carrier': getCarrierForEmployee(), 'Tier': getTierForEmployee()}
     },
     "EmployeePlan": {
         "RequiredFields" : ["EmployeeID", "PlanID", "StartDate"],
-        "OptionalFields": ["EmployeePlanID", "EndDate", "InformEndDate", "InformStartDate"]
+        "OptionalFields": ["EmployeePlanID", "EndDate", "InformEndDate", "InformStartDate"],
     },
     "Employer": {
         "RequiredFields" : ["EmployerName", "TierStructure", "RenewalDate"],
         "OptionalFields": ["EmployerID", "UsesGlCode", "UsesDivision", "UsesLocation", "UsesTitle", "PerferedBillingDate"],
         "OptionalSetToFalse": ["UsesGlCode", "UsesDivision", "UsesLocation", "UsesTitle"],
-        "Subtables": ["carriers", "tiers", "plans", "employees"]
+        "Subtables": ["Carriers", "Tiers", "Plans", "Employees"]
     }
 }.get(key, {}).get(subkey, {})
 
+
+#### Denormalize Data Functions ####
+
+def getCarrierNameForPlan(cursor, plan):
+    try:
+        return execute_query(cursor, f"SELECT CarrierName FROM Carrier WHERE CarrierID = {plan['CarrierID']}")[0][0]
+    except Exception as e:
+        raise ValueError(f"Get Carrier Name for Plan: " + str(e))
+    
+def getTierNameForPlan(cursor, plan):
+    try:
+        return execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = {plan['TierID']}")[0][0]
+    except Exception as e:
+        raise ValueError(f"Get Tier Name for Plan: " + str(e))
+    
+def getEmployerIDForPlan(cursor, plan):
+    try:
+        try:
+            EmployerID = execute_query(cursor, f"SELECT EmployerID FROM Tier WHERE TierID (SELECT PlanID = {plan['PlanID']}")[0][0]
+        except Exception as e:
+            EmployerID = execute_query(cursor, f"SELECT EmployerID FROM Carrier WHERE CarrierID (SELECT PlanID = {plan['PlanID']}")[0][0]
+            return EmployerID
+        return EmployerID
+    except Exception as e:
+        raise ValueError(f"Get EmployerID for Plan: " + str(e))
+    
+def getCarrierForEmployee(cursor, employee):
+    try:
+        return execute_query(cursor, f"SELECT CarrierName FROM Carrier WHERE CarrierID = (SELECT CarrierID FROM Plan WHERE PlanID = (SELECT PlanID FROM EmployeePlan WHERE EmployeeID = {employee['EmployeeID']}))")[0][0]
+    except Exception as e:
+        raise ValueError(f"Get Carrier for Employee: " + str(e))
+    
+def getTierForEmployee(cursor, employee):
+    try:
+        planid = get_plan_for_employee(cursor, employee['EmployeeID'])
+        tier = execute_query(cursor, f"SELECT TierName FROM Tier WHERE TierID = (SELECT TierID FROM Plan WHERE PlanID = {planid})")[0][0]
+        return tier
+    except Exception as e:
+        raise ValueError(f"Get Tier for Employee: " + str(e))
 ####################### Basic Methods #######################
 
 ### Plan Methods ###
@@ -267,10 +310,14 @@ def get_plan(id):
     return get_by_id("Plan", id)
 
 ### Search Plan Method ### 
-@app.route('/plan/search', methods=['GET'])
+@app.route('/plan/search', methods=['POST'])
 def search_plans():
     data = request.get_json()
     return search_table("Plan", data)
+
+@app.route('/plan/<EmployerID>/active', methods=['GET'])
+def get_active_plans(EmployerID):
+    return get_active("Plan", EmployerID, "EndDate")
     
 ### GET Tier Methods ###
 @app.route('/tier', methods=['GET'])
@@ -286,7 +333,7 @@ def search_tier_by_part_name(EmployerID, TierName):
     return search_by_part_name("Tier", TierName, EmployerID)
     
 ### Search Tier Method ###
-@app.route('/tier/search', methods=['GET'])
+@app.route('/tier/search', methods=['POST'])
 def search_tiers():
     data = request.get_json()
     return search_table("Tier", data)
@@ -305,7 +352,7 @@ def search_carrier_by_part_name(EmployerID, CarrierName):
     return search_by_part_name("Carrier", CarrierName, EmployerID)
     
 ### Search Carrier Method ###
-@app.route('/carrier/search', methods=['GET'])
+@app.route('/carrier/search', methods=['POST'])
 def search_carriers():
     data = request.get_json()
     return search_table("Carrier", data)
@@ -324,7 +371,7 @@ def search_dependent_by_part_name(EmployerID, DependentName):
     return search_by_part_name("Dependent", DependentName, EmployerID)
     
 ### Search Dependent Method ###
-@app.route('/dependent/search', methods=['GET'])
+@app.route('/dependent/search', methods=['POST'])
 def search_dependents():
     data = request.get_json()
     return search_table("Dependent", data)
@@ -347,7 +394,7 @@ def get_active_employees(EmployerID):
     return get_active("Employee", EmployerID, "EndDate")
 
 ### Search Employee Method ###
-@app.route('/employee/search', methods=['GET'])
+@app.route('/employee/search', methods=['POST'])
 def search_employees():
     data = request.get_json()
     return search_table("Employee", data)
@@ -366,7 +413,7 @@ def get_active_employee_plans(EmployeeID):
     return get_active("EmployeePlan", EmployeeID, "EndDate", "EmployeeID")
 
 ### Search EmployeePlan Method ###
-@app.route('/employeeplan/search', methods=['GET'])
+@app.route('/employeeplan/search', methods=['POST'])
 def search_employee_plans():
     data = request.get_json()
     return search_table("EmployeePlan", data)
@@ -385,16 +432,67 @@ def search_employer_by_part_name(EmployerName):
     return search_by_part_name("Employer", EmployerName)
     
 ### Search Employer Method ###
-@app.route('/employer/search', methods=['GET'])
+@app.route('/employer/search', methods=['POST'])
 def search_employers():
     data = request.get_json()
     return search_table("Employer", data)
     
 ###### Refactoring ######
 
+### Get full element ###
+def get_full_element_by_id(cursor: MySQLCursor, table_name: str, id: int):
+    soft_errors = []
+    try:
+        # make sure the table name is capitalized
+        if get_table_fields(table_name, "RequiredFields") == {}:
+            table_name = table_name.capitalize()
+        # check if the table name is valid
+        if get_table_fields(table_name, "RequiredFields") == {}:
+            #remove the last leter of the table name to get the singular form
+            table_name = table_name[:-1]
+        if get_table_fields(table_name, "RequiredFields") == {}:
+            raise ValueError(f"Table {table_name} does not exist.")
+        
+        element = json.loads(get_element_by_id(cursor, table_name, id))
+
+        # denormalize the data
+        for field in get_table_fields(table_name, "DenormalizedData"):
+            try:
+                if not (field in element):
+                    element[field] = get_table_fields(table_name, "DenormalizedDataFunctions")[field](cursor, element)
+            except Exception as e:
+                soft_errors.append(f"Error denormalizing {field}: {str(e)}")
+
+        # get subtables
+        for subtable in get_table_fields(table_name, "Subtables"):
+            try:
+                element[subtable] = get_full_element_by_id(cursor, subtable, table_name + "ID", id)
+            except Exception as e:
+                soft_errors.append(f"Error getting subtable {subtable}: {str(e)}")
+        return element
+    except Exception as e:
+        raise ValueError(f"Get Full Element by ID: " + str(e))
+
+@app.route('full/<table_name>/<int:id>', methods=['GET'])
+def route_get_full_element_by_id(table_name, id):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        element, soft_errors = get_full_element_by_id(cursor, table_name, id)
+        cursor.close()
+        connection.close()
+        response = {"status": "success", "Element": element}
+        if soft_errors:
+            response["warnings"] = soft_errors
+        return jsonify(response), 201
+    except ValueError as ve:
+        # raise ValueError(ve)
+        return jsonify({"Error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 500
 
 ### General Search Function ###
-def SearchTable(cursor, table_name, search_criteria_json):
+def SearchTable(cursor: MySQLCursor, table_name: str, search_criteria_json: json):
     """
     Retrieves all items in table that match the given criteria.
     Args:
@@ -404,25 +502,36 @@ def SearchTable(cursor, table_name, search_criteria_json):
     Returns:
         A JSON array of items that match the criteria.
     """
-    search_criteria = json.loads(search_criteria_json)
-    
-    base_query = f"SELECT * FROM {table_name} WHERE "
-    conditions = []
-    values = []
+    try:
+        search_criteria = json.loads(search_criteria_json)
+        
+        base_query = f"SELECT * FROM {table_name} WHERE "
+        conditions = []
+        values = []
 
-    for key, value in search_criteria.items():
-        conditions.append(f"{key} = %s")
-        values.append(value)
+        for key, value in search_criteria.items():
+            conditions.append(f"{key} = %s")
+            values.append(value)
 
-    query = base_query + " AND ".join(conditions)
-    cursor.execute(query, tuple(values))
-    results = cursor.fetchall()
-
-    # Convert results to a list of dictionaries
-    field_names = [i[0] for i in cursor.description]
-    plans = [dict(zip(field_names, row)) for row in results]
-    
-    return json.dumps(plans)
+        query = base_query + " AND ".join(conditions)
+        cursor.execute(query, tuple(values))
+        results = cursor.fetchall()
+        try:
+            # Convert results to a list of dictionaries
+            field_names = [i[0] for i in cursor.description]
+            plans = [dict(zip(field_names, row)) for row in results]
+        except Exception as e:
+            raise ValueError(f"Error converting results: " + str(e))
+        
+        try:
+            return json.dumps(plans)
+        except Exception as e:
+            try:
+                return json.dumps(plans, default=str)
+            except Exception as e:
+                raise ValueError("Error converting results: " + str(e) + " Data being converted: " + str(plans))
+    except Exception as e:
+        raise ValueError(f"SearchTable: " + str(e))
 
 
 def get_all(table_name):
@@ -460,7 +569,7 @@ def search_by_part_name(table_name, Name, EmployerID=None):
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
     
-def search_table(table_name, data):
+def search_table(table_name, data: json):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
@@ -469,6 +578,7 @@ def search_table(table_name, data):
         connection.close()
         return jsonify(json.loads(employers))
     except Exception as e:
+        # raise ValueError(f"search_table: data json:" + str(data) + " Error: " + str(e) )
         return jsonify({"Error": str(e)}), 400
     
 def get_active(table_name, EmployerID, end_term, Identifyer="EmployerID"):
@@ -520,12 +630,12 @@ def add_element_by_table_name(cursor: MySQLCursor, table_name, element_json):
         table_name = table_name[:-1]
     if get_table_fields(table_name, "RequiredFields") == {}:
         raise ValueError(f"Table {table_name} does not exist.")
+    
     # get the required and optional fields for the table
     required_fields = get_table_fields(table_name, "RequiredFields")
     optional_fields = get_table_fields(table_name, "OptionalFields")
 
     # auto fill holes
-    
     if table_name == "Employee":
         try:
             try:
@@ -922,7 +1032,10 @@ def add_element(cursor, table_name, element_json, required_fields, optional_fiel
     try:
         # Identify invalid fields
         valid_fields = required_fields + optional_fields
-        invalid_fields = [field for field in data_to_add if field not in valid_fields]
+        subfields = get_table_fields(table_name, "Subtables")
+        denormalized_fields = get_table_fields(table_name, "DenormalizedData")
+        possible_fields = valid_fields + subfields + denormalized_fields
+        invalid_fields = [field for field in data_to_add if field not in possible_fields]
 
         # Log soft errors for invalid fields
         if invalid_fields:
@@ -978,6 +1091,7 @@ def route_add_element(table_name, element_json):
             response["warnings"] = soft_errors
         return jsonify(response), 201
     except ValueError as ve:
+        # raise ValueError(ve)
         return jsonify({"Error": str(ve)}), 400
     except Exception as e:
         return jsonify({"Error": str(e)}), 500
@@ -1083,7 +1197,7 @@ def route_get_element_by_id(table_name, element_id):
 
 
 ######### Generate Report #########
-def execute_query(cursor, query):
+def execute_query(cursor: MySQLCursor, query):
     try:
         cursor.execute(query)
         return cursor.fetchall()

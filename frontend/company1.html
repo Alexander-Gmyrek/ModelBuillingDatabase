@@ -20,32 +20,21 @@
     <!-- Employee list -->
     <ul id="employeeList"></ul>
 
-    <!-- Button to edit plan -->
-    <a href="editplan.html" class="button">
-        <span>Edit Plan</span>
-    </a>
 
-    <!-- Table for plans -->
-    <table id="planTable">
-        <thead>
-            <tr>
-                <th>Plan Name</th>
-                <th>Funding EE</th>
-                <th>Funding E+1</th>
-                <th>Funding E+2</th>
-                <th>Admin Fee</th>
-            </tr>
-        </thead>
-        <tbody id="planTableBody">
-            <!-- Plan rows will be added dynamically -->
-        </tbody>
-    </table>
+    <div id="tableContainer"></div>
+    
 
     <script type="module">
         import {
             searchEmployerById,
             searchEmployeeByJson,
-            searchEmployeePlanByJson
+            searchEmployeePlanByJson,
+            searchActiveEmployees,
+            searchActivePlans,
+            searchCarrierByJson,
+            searchTierByJson,
+            searchPlanByJson,
+            searchEmployeeByName
         } from './apiFunctions.js';
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -60,18 +49,101 @@
             try {
                 // Fetch company details by ID
                 const company = await searchEmployerById(companyId);
-                document.getElementById('companyName').textContent = company.Name;
+                document.getElementById('companyName').textContent = (company.EmployerName != null) ? company.EmployerName : company.Name;
 
                 // Fetch and display employees
                 const employees = await searchEmployeeByJson({ EmployerID: companyId });
-                displayEmployees(employees);
+                const carriers = await searchCarrierByJson({ EmployerID: companyId });
+                const tiers = await searchTierByJson({ EmployerID: companyId });
+
+                // Fetch active employee IDs
+                let activeEmployeeIds = await searchActiveEmployees(companyId);
+                activeEmployeeIds.sort((a, b) => a.EmployeeID - b.EmployeeID);
+                activeEmployeeIds = activeEmployeeIds.map(emp => emp.EmployeeID);
+                const updatedEmployees = employees.map(emp => updateEmployeeStatus(emp, activeEmployeeIds));
+                console.log('Employees:', updatedEmployees);
+                displayEmployees(updatedEmployees.sort((a, b) => a.EmployeeFullName.localeCompare(b.EmployeeFullName)));
 
                 // Display plans associated with the company
-                displayPlans(company.Plans);
+                // Fetch all plans associated with the company (plans dont have employer id so we need to fetch all by carrier id)
+                const plans = await searchPlanByJson({ EmployerID: companyId });
+                plans.sort((a, b) => a.PlanID - b.PlanID);
+                const activePlans = await searchActivePlans(companyId);
+                // get the active plan ids then filter the plans by the active plan ids
+                const updatedPlans = plans.filter(plan => binarySearch(activePlans, plan.PlanID));
+                const fullPlans = updatedPlans.map(plan => {
+                    const tier = tiers.find(tier => tier.TierID === plan.TierID);
+                    return {
+                        ...plan,
+                        TierName: tier?.TierName || 'null',
+                        MaxAge: tier?.MaxAge || '+100',
+                        MinAge: tier?.MinAge || '0'
+                    };
+                });
+                console.log('Plans:', plans);
+                addTable(plans, tiers, carriers);
             } catch (error) {
                 console.error('Error fetching company details:', error);
             }
         });
+
+
+        function addTable(plans, tiers, carriers) {
+            const tableContainer = document.getElementById('tableContainer');
+            
+            carriers.forEach(carrier => {
+                const carrierPlans = plans.filter(plan => plan.CarrierID === carrier.CarrierID);
+                console.log('Carrier plans:', carrierPlans);
+
+                const newTableWrapper = document.createElement('div');
+                newTableWrapper.className = 'tableWrapper';
+                newTableWrapper.innerHTML = `
+                    <h2>${carrier.CarrierName}</h2>
+                    <a href="editCarrier.html?id=${carrier.CarrierID}" class="button">
+                        <span>Edit Plan</span>
+                    </a>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tier</th>
+                                <th>Funding Amount</th>
+                                <th>Grenz Fee</th>
+                                <th>Grenz Fee C</th>
+                                <th>Grenz Fee S</th>
+                                <th>Max age</th>
+                                <th>Min age</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${carrierPlans.map(plan => {
+                                const tierName = tiers.find(tier => tier.TierID === plan.TierID)?.TierName || 'null';
+                                const fundingAmount = plan.FundingAmount || '0';
+                                const grenzFee = plan.GrenzFee || '0';
+                                const grenzFeeC = plan.GrenzFeeC || '0';
+                                const grenzFeeS = plan.GrenzFeeS || '0';
+                                const maxAge = tiers.find(tier => tier.TierID === plan.TierID)?.MaxAge || '+100' ;
+                                const minAge = tiers.find(tier => tier.TierID === plan.TierID)?.MinAge || '0' ;
+                                
+                                return `
+                                    <tr>
+                                        <td>${tierName}</td>
+                                        <td>${fundingAmount}</td>
+                                        <td>${grenzFee}</td>
+                                        <td>${grenzFeeC}</td>
+                                        <td>${grenzFeeS}</td>
+                                        <td>${maxAge}</td>
+                                        <td>${minAge}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+                tableContainer.appendChild(newTableWrapper);
+            });
+        }
+
+        
 
         // Function to filter employees by name
         async function filterEmployees() {
@@ -91,12 +163,67 @@
         function displayEmployees(employees) {
             const employeeList = document.getElementById('employeeList');
             employeeList.innerHTML = '';
+
             employees.forEach(employee => {
                 const listItem = document.createElement('li');
-                listItem.textContent = employee.EmployeeFullName;
+
+                // Active status emoji
+                const statusEmoji = employee.isActive ? '🟢' : '🔴';
+                listItem.textContent = `${statusEmoji} ${employee.EmployeeFullName}`;
+
+                // Warning symbol
+                if (employee.hasWarning) {
+                    const warningSymbol = document.createElement('span');
+                    warningSymbol.textContent = ' ⚠️';  // Unicode for warning symbol
+                    listItem.appendChild(warningSymbol);
+                }
+
+                // Dependents
+                if (employee.dependents && employee.dependents.length > 0) {
+                    const dependentList = document.createElement('ul');
+                    dependentList.style.marginLeft = '20px';
+                    employee.dependents.forEach(dependent => {
+                        const dependentItem = document.createElement('li');
+                        dependentItem.textContent = dependent;
+                        dependentList.appendChild(dependentItem);
+                    });
+                    listItem.appendChild(dependentList);
+                }
+                listItem.addEventListener('click', () => {
+                        navigateToEmployee(employee.EmployeeID);
+                });
                 employeeList.appendChild(listItem);
             });
         }
+
+        async function navigateToEmployee(companyId) {
+            window.location.href = `employee1.html?id=${companyId}`;
+        }
+
+        const updateEmployeeStatus = (employee, activeIds) => {
+            return {
+                ...employee,
+                isActive: activeIds.includes(employee.id)
+            };
+        };
+
+        const binarySearch = (arr, target) => {
+            let left = 0;
+            let right = arr.length - 1;
+            
+            while (left <= right) {
+                const mid = Math.floor((left + right) / 2);
+                if (arr[mid] === target) {
+                    return true;
+                } else if (arr[mid] < target) {
+                    left = mid + 1;
+                } else {
+                    right = mid - 1;
+                }
+            }
+            
+            return false;
+        };
 
         // Function to display plans in the table
         function displayPlans(plans) {
@@ -110,6 +237,7 @@
                 });
             });
         }
+    
     </script>
 </body>
 </html>

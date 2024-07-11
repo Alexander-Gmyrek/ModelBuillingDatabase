@@ -9,41 +9,17 @@
 
 <h1>Make 3 Tier Table</h1>
 
-<div id="tableContainer">
-    <!-- Initial table with a header and rows -->
-    <div class="tableWrapper" id="tableWrapper_1">
-        <h2>Table 1: <input id="carrierName_1" type="text" value="Carrier 1"></h2>
-        <table id="editableTable_1">
-            <thead>
-                <tr>
-                    <th><input type="text" value="Plan Name"></th>
-                    <th><input type="text" value="Funding EE"></th>
-                    <th><input type="text" value="Funding E+1"></th>
-                    <th><input type="text" value="Funding E+2"></th>
-                    <th><input type="text" value="Admin Fee"></th>
-                    <th></th> <!-- Placeholder for delete button -->
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><input type="text" value="Plan A"></td>
-                    <td><input type="number" value="$"></td>
-                    <td><input type="number" value="$"></td>
-                    <td><input type="number" value="$"></td>
-                    <td><input type="number" value="$"></td>
-                </tr>
-            </tbody>
-        </table>
-        <button onclick="addColumn(1)">Add Column</button>
-        <button onclick="deleteLastColumn(1)">Delete Last Column</button>
-    </div>
-</div>
+<div id="tableContainer"></div>
 
-<button onclick="addTable()">Add Table</button>
-<button onclick="submitTable()">Submit</button>
+<button id="addTable">Add Table</button>
+<button id="submit">Submit</button>
 
-<script>
-    let tableCount = 1; // Counter for tracking tables
+<script type="module">
+    import {
+        addEmployer
+    } from './apiFunctions.js';
+
+    let tableCount = 0; // Counter for tracking tables
 
     // Function to add a new column to a specific table
     function addColumn(tableId) {
@@ -142,7 +118,7 @@
             const carrierName = document.getElementById(`carrierName_${i}`).value;
             const carrierObject = {
                 "CarrierID": carrierID,
-                "EmployerID": 1, // Replace with actual EmployerID
+                // "EmployerID": 1, // Replace with actual EmployerID
                 "CarrierName": carrierName,
             };
             carriers.push(carrierObject);
@@ -150,10 +126,11 @@
             // Collect tier data based on the fixed tiers
             const fixedTiers = ["Funding EE", "Funding E+1", "Funding E+2"];
             for (let j = 0; j < fixedTiers.length; j++) {
+                const tierName = document.getElementById(`editableTable_${i}`).rows[0].cells[j + 1].getElementsByTagName('input')[0].value;
                 const tierObject = {
                     "TierID": tierID,
-                    "EmployerID": 1, // Replace with actual EmployerID
-                    "TierName": fixedTiers[j],
+                    //"EmployerID": 1, // Replace with actual EmployerID
+                    "TierName": tierName,
                     "MaxAge": null, // Not applicable for fixed tiers
                     "MinAge": null  // Not applicable for fixed tiers
                 };
@@ -172,15 +149,16 @@
                 // Iterate over each input for funding details, except the last which is the admin fee
                 for (let j = 1; j < inputs.length - 1; j++) {
                     // Create a plan object for each column
+                    const tierName = tiers[j - 1].TierName;
                     const planObject = {
                         "PlanID": planID,
-                        "EmployerID": 1, // Replace with actual EmployerID
-                        "CarrierID": carrierID,
+                        // "EmployerID": 1, // Replace with actual EmployerID
+                        // "CarrierID": carrierID,
                         "CarrierName": carrierName,
                         "PlanName": planName,
                         "FundingAmount": parseFloat(inputs[j].value) || 0,
                         "GrenzFee": parseFloat(inputs[inputs.length - 1].value) || 0,
-                        "TierID": tierID - 3 + j // Offset to map to the correct tier
+                        "TierName": tierName
                     };
                     plans.push(planObject);
                     planID++;
@@ -201,50 +179,49 @@
 
         // Send the complete data to the server
         try {
-            await addEmployer(companyData);
-            alert('Data submitted successfully!');
+            const response = await addEmployer(companyData);
+            // update the company id with the new_id from response
+            companyData.EmployerID = response.new_id;
+            let userAlert = 'Data submitted successfully!'
+            // Notify of warnings
+            if (response.warnings) {
+                console.warn('Submission warnings:', response.warnings);
+                // add the number of warnings to the user alert
+                userAlert += '\nWarnings: ' + response.warnings.length;
+                //add warnings to local storage
+                localStorage.setItem('warnings', JSON.stringify(response.warnings));
+            }
+
+            // check if there is missing data and alert the user
+            //get the data
+
+            alert(userAlert);
+
             // Optionally, clear the localStorage or redirect to another page
-            localStorage.removeItem('companyData'); // Clear the storage after submission
+            //localStorage.removeItem('companyData'); // Clear the storage after submission
+            window.location.href = 'reviewcompany.html';
+
         } catch (error) {
             console.error('Error submitting data:', error);
             alert('Failed to submit data.');
         }
     }
 
-    // Placeholder for the apiFunctions.js methods.
-    // In a real scenario, these would be imported from the actual `apiFunctions.js` file.
-    const BASE_URL = "http://localhost:5000";
-
-    // Helper function to make API requests
-    async function apiRequest(endpoint, method = "GET", body = null) {
-        const options = {
-            method,
-            headers: {
-                "Content-Type": "application/json"
-            }
-        };
-
-        if (body) {
-            options.body = JSON.stringify(body);
-        }
-
-        try {
-            const response = await fetch(`${BASE_URL}${endpoint}`, options);
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return await response.json();
-        } catch (error) {
-            console.error("API Request Error:", error);
-            throw error;
-        }
+    function checkForMissingData(tableName, employerID = 1,  companyData){
+        
     }
 
-    // Function to add an employer
-    async function addEmployer(employerJson) {
-        return await apiRequest("/employer", "POST", employerJson);
-    }
+    document.addEventListener('DOMContentLoaded', async () => {
+        addTable();
+        // make the add tabel button add a new table
+        document.getElementById('addTable').addEventListener('click', addTable);
+        // make the submit button submit the data
+        document.getElementById('submit').addEventListener('click', submitTable);
+    });
+
+    
 </script>
 
 </body>
 </html>
+// do imports

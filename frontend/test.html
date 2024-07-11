@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+    <div id="tableContainer"></div>
+
+    <script>
+        const jsonData = {
+            "carriers": [
+                {
+                    "CarrierID": 1,
+                    "EmployerID": 1,
+                    "CarrierName": "Carrier1"
+                },
+                {
+                    "CarrierID": 2,
+                    "EmployerID": 1,
+                    "CarrierName": "Carrier2"
+                }
+            ],
+            "tiers": [
+                {
+                    "TierID": 1,
+                    "EmployerID": 1,
+                    "TierName": "Tier1",
+                    "MaxAge": 50,
+                    "MinAge": 0
+                },
+                {
+                    "TierID": 2,
+                    "EmployerID": 1,
+                    "TierName": "Tier2",
+                    "MaxAge": 10000,
+                    "MinAge": 51
+                },
+                {
+                    "TierID": 3,
+                    "EmployerID": 1,
+                    "TierName": "Tier3",
+                    "MaxAge": 10000,
+                    "MinAge": 101
+                }
+            ],
+            "plans": [
+                {
+                    "PlanID": 1,
+                    "EmployerID": 1,
+                    "CarrierID": 1,
+                    "TierID": 1,
+                    "FundingAmount": 3,
+                    "GrenzFee": 0.2,
+                    "GrenzFeeC": 0.3,
+                    "GrenzFeeS": 0.7,
+                    "CarrierName": "Carrier1",
+                    "TierName": "Tier1"
+                },
+                {
+                    "PlanID": 2,
+                    "EmployerID": 1,
+                    "CarrierID": 1,
+                    "TierID": 2,
+                    "FundingAmount": 5,
+                    "GrenzFee": 0.2,
+                    "GrenzFeeC": 0.3,
+                    "GrenzFeeS": 0.7,
+                    "CarrierName": "Carrier1",
+                    "TierName": "Tier2"
+                },
+                {
+                    "PlanID": 3,
+                    "EmployerID": 1,
+                    "CarrierID": 2,
+                    "TierID": 3,
+                    "FundingAmount": 4,
+                    "GrenzFee": 0.1,
+                    "GrenzFeeC": 0.2,
+                    "GrenzFeeS": 0.6,
+                    "CarrierName": "Carrier2",
+                    "TierName": "Tier1"
+                }
+            ]
+        };
+
+        function addTable() {
+            const tableContainer = document.getElementById('tableContainer');
+            
+            jsonData.carriers.forEach(carrier => {
+                const carrierPlans = jsonData.plans.filter(plan => plan.CarrierID === carrier.CarrierID);
+
+                const newTableWrapper = document.createElement('div');
+                newTableWrapper.className = 'tableWrapper';
+                newTableWrapper.innerHTML = `
+                    <h2>${carrier.CarrierName}</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tier</th>
+                                <th>Funding Amount</th>
+                                <th>Grenz Fee</th>
+                                <th>Grenz Fee C</th>
+                                <th>Grenz Fee S</th>
+                                <th>Max age</th>
+                                <th>Min age</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${carrierPlans.map(plan => {
+                                const tierName = jsonData.tiers.find(tier => tier.TierID === plan.TierID)?.TierName || 'null';
+                                const fundingAmount = plan.FundingAmount || '0';
+                                const grenzFee = plan.GrenzFee || '0';
+                                const grenzFeeC = plan.GrenzFeeC || '0';
+                                const grenzFeeS = plan.GrenzFeeS || '0';
+                                const maxAge = jsonData.tiers.find(tier => tier.TierID === plan.TierID)?.MaxAge || '0' ;
+                                const minAge = jsonData.tiers.find(tier => tier.TierID === plan.TierID)?.MinAge || '0' ;
+                                
+                                return `
+                                    <tr>
+                                        <td>${tierName}</td>
+                                        <td>${fundingAmount}</td>
+                                        <td>${grenzFee}</td>
+                                        <td>${grenzFeeC}</td>
+                                        <td>${grenzFeeS}</td>
+                                        <td>${maxAge}</td>
+                                        <td>${minAge}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+                tableContainer.appendChild(newTableWrapper);
+            });
+        }
+
+        // Add tables on page load
+        window.onload = addTable;
+    </script>
+</body>
+</html>
