@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Carrier Details</title>
+</head>
+<body>
+    <div id="tableContainer"></div>
+    
+</body>
+<script type="module">
+    import {
+        searchEmployerById,
+        searchEmployeeByJson,
+        searchEmployeePlanByJson,
+        searchActiveEmployees,
+        searchActivePlans,
+        searchCarrierByJson,
+        searchTierByJson,
+        searchPlanByJson
+    } from './apiFunctions.js';
+    document.addEventListener('DOMContentLoaded', async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const carrierId = urlParams.get('id');
+        console.log(carrierId);
+        const carrier = await searchCarrierByJson({CarrierID: carrierId});
+        const plans = await searchPlanByJson({CarrierID: carrierId});
+        const tiers = await searchTierByJson({EmployerID: carrier[0].EmployerID});
+        addTable(plans, tiers, carrier);
+    });
+    function addTable(plans, tiers, carriers) {
+        const tableContainer = document.getElementById('tableContainer');
+        
+        carriers.forEach(carrier => {
+            const carrierPlans = plans.filter(plan => plan.CarrierID === carrier.CarrierID);
+            console.log('Carrier plans:', carrierPlans);
+
+            const newTableWrapper = document.createElement('div');
+            newTableWrapper.className = 'tableWrapper';
+            newTableWrapper.innerHTML = `
+                <h2>${carrier.CarrierName}</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tier</th>
+                            <th>Funding Amount</th>
+                            <th>Grenz Fee</th>
+                            <th>Grenz Fee C</th>
+                            <th>Grenz Fee S</th>
+                            <th>Max age</th>
+                            <th>Min age</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${carrierPlans.map(plan => {
+                            const tierName = tiers.find(tier => tier.TierID === plan.TierID)?.TierName || 'null';
+                            const fundingAmount = plan.FundingAmount || '0';
+                            const grenzFee = plan.GrenzFee || '0';
+                            const grenzFeeC = plan.GrenzFeeC || '0';
+                            const grenzFeeS = plan.GrenzFeeS || '0';
+                            const maxAge = tiers.find(tier => tier.TierID === plan.TierID)?.MaxAge || '+100' ;
+                            const minAge = tiers.find(tier => tier.TierID === plan.TierID)?.MinAge || '0' ;
+                            
+                            return `
+                                <tr>
+                                    <td><input type="text" value="${tierName}" disabled></td>
+                                    <td><input type="text" value="${fundingAmount}"></td>
+                                    <td><input type="text" value="${grenzFee}"></td>
+                                    <td><input type="text" value="${grenzFeeC}"></td>
+                                    <td><input type="text" value="${grenzFeeS}"></td>
+                                    <td><input type="text" value="${maxAge}"></td>
+                                    <td><input type="text" value="${minAge}"></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            tableContainer.appendChild(newTableWrapper);
+        });
+    }
+
+</script>
+</html>
