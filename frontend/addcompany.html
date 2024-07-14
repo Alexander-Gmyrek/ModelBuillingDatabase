@@ -55,7 +55,7 @@
                 data['RenewalDate'] = formData.get('RenewalDate');
 
                 // Extract preferred billing date
-                data['BillingDate'] = formData.get('BillingDate');
+                data['PerferedBillingDate'] = formData.get('BillingDate');
 
                 // Extract tier
                 let tier = formData.get('TierStructure');
@@ -67,7 +67,8 @@
                 // Extract and parse the Excel file
                 const file = formData.get('file');
                 if (file) {
-                    data['Employees'] = await parseExcelFile(file);
+                    data['Employees'] = (await parseExcelFile(file)).filter(e => typeof(e) === 'object'); ;
+                    //Did it work?!?
                 } else {
                     data['Employees'] = [];
                 }
@@ -115,31 +116,30 @@
 
                         // Define the structure of the employee and dependent objects with default values
                         const employeeTemplate = {
-                            "EmployeeID": null,
-                            "EmployerID": 1, // Assuming a fixed EmployerID for demo
+                            //"EmployeeID": null,
+                            //"EmployerID": 1, // Assuming a fixed EmployerID for demo
                             "EmployeeFullName": null,
                             "EmployeeFirstName": null,
                             "EmployeeLastName": null,
-                            "JoinDate": null,
-                            "TermDate": null,
-                            "JoinInformDate": null,
-                            "TermEndDate": null,
+                            "StartDate": null,
+                            "EndDate": null,
+                            "InformStartDate": null,
+                            "InformEndDate": null,
                             "DOB": null,
                             "CobraStatus": null,
                             "Notes": null,
-                            "GL": null,
+                            "GlCode": null,
                             "Division": null,
                             "Location": null,
                             "Title": null,
                             "Dependents": [],
                             "Carrier": null,
                             "Tier": null,
-                            "Plan": null
                         };
 
                         const dependentTemplate = {
-                            "DependentID": null,
-                            "EmployeeID": null,
+                            //"DependentID": null,
+                            //"EmployeeID": null,
                             "DependentName": null,
                             "Relationship": null,
                             "DOB": null,
@@ -151,62 +151,111 @@
 
                         // Arrays to hold employees and dependents
                         const employees = [];
-                        const dependents = [];
-                        let dependentIDCounter = 1;
+                        
 
                         // Convert the Excel data to the employee objects
                         jsonData.forEach((row, index) => {
-                            const employee = { ...employeeTemplate };
-                            employee.EmployeeID = index + 1;
+                            const employee = {
+                                ...employeeTemplate,
+                                Dependents: [], // Ensure each employee has a unique Dependents array
+                            };
 
                             // Split Employee Name into first and last names
+                            employee.EmployeeLastName = row['Last Name'] || null;
+                            employee.EmployeeFirstName = row['First Name'] || null;
                             if (row['Employee Name']) {
-                                const nameParts = row['Employee Name'].split(' ');
-                                employee.EmployeeFirstName = nameParts[0];
-                                employee.EmployeeLastName = nameParts.slice(1).join(' ');
                                 employee.EmployeeFullName = row['Employee Name'];
+                            }else if (employee.EmployeeFirstName === null || employee.EmployeeLastName === null){
+                                throw new Error('Employee must have a Name');
+                            }else{
+                                employee.EmployeeFullName = employee.EmployeeFirstName + " " + employee.EmployeeLastName;
                             }
+                            
 
                             // Map other fields from the row if available
                             employee.Notes = row['Notes'] || null;
-                            employee.DOB = row['DOB'] || null;
+                            employee.DOB = formatDate(row['DOB']) || null;
                             employee.Tier = row['Tier'] || null;
-                            employee.Plan = row['Plan'] || null;
+                            //employee.Plan = row['Plan'] || null;
                             employee.Carrier = row['Carrier'] || null;
-                            employee.GL = row['GL'] || null;
+                            employee.GlCode = row['GL'] || null;
                             employee.Division = row['Division'] || null;
                             employee.Location = row['Location'] || null;
-                            employee.Cobra= row['cobra'] || null
+                            employee.CobraStatus= row['cobra'] || null
                             employee.Title= row['Title'] || null
 
-                            // Parse dependents if present in the row
-                            if (row['Dependent Name'] && row['Relationship'] && row['Dependent DOB']) {
+                            employee.StartDate = formatDate(row['Start Date']) || null;
+                            employee.InformStartDate = formatDate(row['Inform Start Date']) || null;
+
+                            // check if is dependent
+                            if ((row['Dependent Name'] && row['Relationship'] && row['Dependent DOB']) || row['Dependent']) {
                                 const dependent = { ...dependentTemplate };
-                                dependent.DependentID = dependentIDCounter++;
-                                dependent.EmployeeID = employee.EmployeeID;
+                                //console.log("Dependent on row: " + index);
+                                //dependent.DependentID = dependentIDCounter++;
+                                //dependent.EmployeeID = employee.EmployeeID;
                                 dependent.DependentName = row['Dependent Name'];
                                 dependent.Relationship = row['Relationship'];
-                                dependent.DOB = row['Dependent DOB'];
+                                dependent.DOB = formatDate(row['Dependent DOB']);
+                                dependent.StartDate = formatDate(row['Dependent Start Date']) || null;
+                                dependent.InformStartDate = formatDate(row['Dependent Inform Start Date'])|| null;
+                                dependent.Notes = row['Notes'] || null;
 
-                                // Add dependent to the array
-                                dependents.push(dependent);
 
-                                // Also link this dependent to the employee
-                                employee.Dependents.push(dependent);
+                                //get the dependent's employee
+                                const dependentsEmployee = findDependentsEmployee(employee, employees);
+
+                                if(!dependentsEmployee || dependentsEmployee.length === 0){
+                                    throw new Error('Dependent must have an employee' + " Name:" + dependent.DependentName);
+                                }
+                                
+
+                                empIndex = employees.findIndex(e => dependentsEmployee[dependentsEmployee.length-1] === e);
+                                //console.log("empIndex: " + empIndex);
+
+                                employees[empIndex].Dependents.push(dependent);
+                                //console.log(`Dependent added:`, dependent, `to employee:`, employees[empIndex]);
+                            }else{
+                                // Add the employee to the array
+                                //console.log(`Employee added:`, employee);
+                                employees.push(employee);
                             }
-
-                            // Add the employee to the array
-                            employees.push(employee);
                         });
 
-                        // Resolve with both employees and dependents
-                        resolve({ employees, dependents });
+                        // Resolve with employees
+                        resolve(employees);
                     };
                     reader.onerror = reject;
                     reader.readAsArrayBuffer(file);
                 });
             }
         });
+
+        function formatDate(serial) {
+            if (!serial) return null;
+            const epoch = new Date(1899, 11, 30);
+            const excelDate = new Date(epoch.getTime() + serial * 86400 * 1000);
+
+            // Adding one day to correct the Excel date offset issue
+            // excelDate.setDate(excelDate.getDate() + 1);
+
+            const date = excelDate;
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0'); // Month is 0-indexed
+            const day = date.getDate().toString().padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function findDependentsEmployee(employee, employees) {
+            // Look for the employee that matches all values except the dependents and notes
+            return employees.filter(e => {
+                for (const key in employee) {
+                    if (key === 'Dependents' || key === 'Notes') continue;
+                    if (employee[key] !== e[key]) return false;
+                }
+                console.log(e);
+                return true;
+            });
+        }
     </script>
 </body>
 </html>

@@ -86,7 +86,7 @@ get_table_fields = lambda key, subkey: {
         "RequiredFields" : ["EmployerID", "CarrierID", "TierID", "FundingAmount", "GrenzFee", "StartDate"],
         "OptionalFields": ["PlanID", "GrenzFeeC", "GrenzFeeS", "EndDate"],
         "DenormalizedData" : ["CarrierName", "TierName", "EmployerID"],
-        "DenormalizeDataFunctions" : {"CarrierName": getCarrierNameForPlan(), "TierName": getTierNameForPlan(), "EmployerID": getEmployerIDForPlan()}
+        "DenormalizeDataFunctions" : {"CarrierName": getCarrierNameForPlan, "TierName": getTierNameForPlan, "EmployerID": getEmployerIDForPlan}
     },
     "Tier": {
         "RequiredFields" : ["EmployerID", "TierName"],
@@ -98,14 +98,14 @@ get_table_fields = lambda key, subkey: {
     },
     "Dependent": {
         "RequiredFields" : ["EmployeeID", "DependentName", "Relationship", "DOB", "StartDate"],
-        "OptionalFields": ["InformStartDate", "EndDate", "InformEndDate"],
+        "OptionalFields": ["InformStartDate", "EndDate", "InformEndDate", "Notes"],
     },
     "Employee": {
         "RequiredFields" : ["EmployerID", "EmployeeFullName", "StartDate"],
         "OptionalFields": ["EmployeeID", "EndDate", "InformStartDate", "InformEndDate", "DOB", "CobraStatus", "Notes", "GlCode", "Division", "Location", "Title", "EmployeeFirstName", "EmployeeLastName"],
-        "Subtables": ["Dependents", "EmployeePlans"],
+        "Subtables": ["Dependents", "EmployeePlan"],
         "DenormalizedData" : ['Carrier', 'Tier'],
-        "DenormalizedDataFunctions" : {'Carrier': getCarrierForEmployee(), 'Tier': getTierForEmployee()}
+        "DenormalizedDataFunctions" : {'Carrier': getCarrierForEmployee, 'Tier': getTierForEmployee}
     },
     "EmployeePlan": {
         "RequiredFields" : ["EmployeeID", "PlanID", "StartDate"],
@@ -117,7 +117,7 @@ get_table_fields = lambda key, subkey: {
         "OptionalSetToFalse": ["UsesGlCode", "UsesDivision", "UsesLocation", "UsesTitle"],
         "Subtables": ["Carriers", "Tiers", "Plans", "Employees"]
     }
-}.get(key, {}).get(subkey, {})
+}.get(key, {}).get(subkey, [])
 
 
 #### Denormalize Data Functions ####
@@ -444,16 +444,16 @@ def get_full_element_by_id(cursor: MySQLCursor, table_name: str, id: int):
     soft_errors = []
     try:
         # make sure the table name is capitalized
-        if get_table_fields(table_name, "RequiredFields") == {}:
+        if get_table_fields(table_name, "RequiredFields") == []:
             table_name = table_name.capitalize()
         # check if the table name is valid
-        if get_table_fields(table_name, "RequiredFields") == {}:
+        if get_table_fields(table_name, "RequiredFields") == []:
             #remove the last leter of the table name to get the singular form
             table_name = table_name[:-1]
-        if get_table_fields(table_name, "RequiredFields") == {}:
+        if get_table_fields(table_name, "RequiredFields") == []:
             raise ValueError(f"Table {table_name} does not exist.")
         
-        element = json.loads(get_element_by_id(cursor, table_name, id))
+        element = get_element_by_id(cursor, table_name, id)
 
         # denormalize the data
         for field in get_table_fields(table_name, "DenormalizedData"):
@@ -466,19 +466,34 @@ def get_full_element_by_id(cursor: MySQLCursor, table_name: str, id: int):
         # get subtables
         for subtable in get_table_fields(table_name, "Subtables"):
             try:
-                element[subtable] = get_full_element_by_id(cursor, subtable, table_name + "ID", id)
+                subtable_name = subtable
+                # make sure the table name is capitalized
+                if get_table_fields(subtable_name, "RequiredFields") == []:
+                    subtable_name = subtable_name.capitalize()
+                # check if the table name is valid
+                if get_table_fields(subtable_name, "RequiredFields") == []:
+                    #remove the last leter of the table name to get the singular form
+                    subtable_name = subtable_name[:-1]
+                if get_table_fields(subtable_name, "RequiredFields") == []:
+                    raise ValueError(f"Table {subtable_name} does not exist.")
+                element_ids = execute_query(cursor, f"SELECT {subtable_name}ID FROM {subtable_name} WHERE {table_name}ID = {id}")
+                element[subtable] = []
+                for element_id in element_ids:
+                    element[subtable].append(get_full_element_by_id(cursor, subtable_name, element_id[0]))
             except Exception as e:
                 soft_errors.append(f"Error getting subtable {subtable}: {str(e)}")
         return element
     except Exception as e:
         raise ValueError(f"Get Full Element by ID: " + str(e))
 
-@app.route('full/<table_name>/<int:id>', methods=['GET'])
+@app.route('/full/<table_name>/<int:id>', methods=['GET'])
 def route_get_full_element_by_id(table_name, id):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        element, soft_errors = get_full_element_by_id(cursor, table_name, id)
+        # Note: Not using softerrors rn
+        element = get_full_element_by_id(cursor, table_name, id)
+        soft_errors = []
         cursor.close()
         connection.close()
         response = {"status": "success", "Element": element}
@@ -622,13 +637,13 @@ def add_element_by_table_name(cursor: MySQLCursor, table_name, element_json):
         raise ValueError("Element cannot be a list. Please provide a dictionary.")
 
     # make sure the table name is capitalized
-    if get_table_fields(table_name, "RequiredFields") == {}:
+    if get_table_fields(table_name, "RequiredFields") == []:
         table_name = table_name.capitalize()
     # check if the table name is valid
-    if get_table_fields(table_name, "RequiredFields") == {}:
+    if get_table_fields(table_name, "RequiredFields") == []:
         #remove the last leter of the table name to get the singular form
         table_name = table_name[:-1]
-    if get_table_fields(table_name, "RequiredFields") == {}:
+    if get_table_fields(table_name, "RequiredFields") == []:
         raise ValueError(f"Table {table_name} does not exist.")
     
     # get the required and optional fields for the table
@@ -653,7 +668,7 @@ def add_element_by_table_name(cursor: MySQLCursor, table_name, element_json):
             except Exception as e:
                 raise ValueError(f"Auto fill StartDate: " + str(e))
             try:
-                if "EmployeePlans" not in element_json:
+                if "EmployeePlan" not in element_json:
                     try:
                         # Get CarrierID
                         carrier_id = get_carrier_id(cursor, element_json['Carrier'], element_json['EmployerID'])
@@ -686,7 +701,7 @@ def add_element_by_table_name(cursor: MySQLCursor, table_name, element_json):
                     except Exception as e:
                         raise ValueError(f"Add EmployeePlan: " + str(e))
             except Exception as e:
-                raise ValueError(f"Auto fill EmployeePlans: " + str(e))
+                raise ValueError(f"Auto fill EmployeePlan: " + str(e))
         except Exception as e:
             raise ValueError(f"Auto fill Employee: " + str(e))
         
@@ -762,15 +777,33 @@ def add_element_by_table_name(cursor: MySQLCursor, table_name, element_json):
                         try:
                             sub_element[table_name + "ID"] = str(element_id)
                         except Exception as e:
-                            raise ValueError(f"Adding ID: " + str(e) + " " + str(sub_element))
+                            raise ValueError(f"Adding ID: " + str(e) + " Subelement:" + str(sub_element))
                         try:
                             s_errors, sub_element_id = add_element_by_table_name(cursor, subtable, sub_element)
                         except Exception as e:
                             raise ValueError(f"Subtable {subtable}: " + str(e))
-                        soft_errors.append(s_errors)
+    
+                        for errorKey in s_errors:
+                            el_errors = []
+                            error = s_errors[errorKey]
+                            if error != None and error != [] and error != [[]]:
+                                el_errors.append(error)
+                            if el_errors != []:
+                                soft_errors.append({errorKey: el_errors})                                             
         except Exception as e:
             raise ValueError(f"Adding Subtables: " + str(e))
-        return soft_errors, element_id
+        if soft_errors == []:
+            soft_errors = None
+        if element_json.get(f"{table_name}Name" , "") == "":
+            if table_name == "Plan":
+                carrier_name = element_json["CarrierName"]
+                tier_name = element_json["TierName"]
+                element_json["PlanName"] = f"{carrier_name} + {tier_name}"
+            elif table_name == "EmployeePlan":
+                element_json["EmployeePlanName"] = f"Plan"
+            elif table_name == "Employee":
+                element_json['EmployeeName'] = element_json['EmployeeFullName']
+        return {element_json[f"{table_name}Name"]: soft_errors}, element_id
     except Exception as e:
         raise ValueError(f"Add {table_name}: " + str(e))
     
@@ -793,7 +826,7 @@ def change_element_by_table_name(cursor, table_name: str, element_id, element_js
     # make sure the table name is capitalized
     table_name = table_name.capitalize()
     # check if the table name is valid
-    if get_table_fields(table_name, "RequiredFields") == {}:
+    if get_table_fields(table_name, "RequiredFields") == []:
         raise ValueError(f"Table {table_name} does not exist.")
     # get the required and optional fields for the table
     required_fields = get_table_fields(table_name, "RequiredFields")
@@ -1065,7 +1098,7 @@ def add_element(cursor, table_name, element_json, required_fields, optional_fiel
             query = f"INSERT INTO {str(table_name)} ({str(columns)}) VALUES ({str(placeholders)})"
             cursor.execute(query, values)
         except Exception as e:
-            raise ValueError(f"Insert into {table_name}: {str(e)}")
+            raise ValueError(f"Insert into {table_name}: {str(e)} Query: {query} FilteredData: {filtered_data}")
         
     try:
         # Retrieve the ID of the newly inserted row
@@ -1083,7 +1116,7 @@ def route_add_element(table_name, element_json):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        new_id, soft_errors = add_element_by_table_name(cursor, table_name, element_json)
+        soft_errors, new_id = add_element_by_table_name(cursor, table_name, element_json)
         connection.commit()
         cursor.close()
         response = {"status": "success", "new_id": new_id}
@@ -1128,7 +1161,7 @@ def route_change_element(table_name, element_id, element_json):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        soft_errors, element_id = change_element_by_table_name(cursor, table_name, element_id, element_json)
+        element_id, soft_errors = change_element_by_table_name(cursor, table_name, element_id, element_json)
         connection.commit()
         cursor.close()
         response = {"status": "success"}
@@ -1793,7 +1826,7 @@ test_json_1 = """{
             "UsesTitle": false,
             "PerferedBillingDate": "2025-02-01",
             "RenewalDate": "2000-01-01",
-            "employees": [
+            "Employees": [
                 {
                     "EmployerID": 1,
                     "EmployeeFullName": "John Jones",
@@ -1993,7 +2026,7 @@ test_json_1 = """{
             "UsesTitle": true,
             "PerferedBillingDate": "2025-05-01",
             "RenewalDate": "2000-01-01",
-            "employees": [
+            "Employees": [
                 {
                     "EmployeeID": 1,
                     "EmployerID": 1,
@@ -2357,6 +2390,20 @@ def test_get_element_by_id():
     cursor.close()
     connection.close()
     return jsonify(element)
+
+@app.route('/test/executeCommand', methods=['GET'])
+def test_execute_command():
+    test_commands = [
+        "ALTER TABLE Dependent ADD COLUMN Notes TEXT",
+    ]
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    for command in test_commands:
+        cursor.execute(command)
+    result = cursor.fetchall()
+    cursor.close()
+    connection.close()
+    return jsonify(result)
 
 ####### Run on Start #######
 
