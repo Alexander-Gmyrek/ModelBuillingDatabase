@@ -1,43 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Company</title>
     <!-- Include the xlsx library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.3/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+        }
+        input[type="text"],
+        input[type="file"],
+        input[type="date"],
+        input[type="radio"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input[type="radio"] {
+            width: auto;
+            margin-right: 10px;
+        }
+        .radio-label {
+            display: inline-block;
+            margin-right: 20px;
+        }
+        button {
+            background: #007BFF;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
 </head>
 <body>
     <h1>New Company</h1>
     <form id="companyForm">
         <label for="EmployerName">Name:</label>
         <input type="text" id="EmployerName" name="EmployerName" placeholder="ACME">
-        <p></p>
+        
         <label for="file">Upload employee template file:</label>
         <input type="file" id="file" name="file">
-        <p></p>
+        
         <label for="RenewalDate">Renewal Date:</label>
         <input type="date" id="RenewalDate" name="RenewalDate">
-        <p></p>
+        
         <label for="BillingDate">Preferred Billing Date:</label>
         <input type="date" id="BillingDate" name="BillingDate">
-        <p></p>
+        
         <h4>Choose tier:</h4>
-        <input type="radio" id="tier3" name="TierStructure" value="3 Tier">
-        <label for="tier3"> 3 Tier</label><br>
-        <input type="radio" id="tier4" name="TierStructure" value="4 Tier">
-        <label for="tier4"> 4 Tier</label><br>
-        <input type="radio" id="supercomposite" name="TierStructure" value="Supercomposite">
-        <label for="supercomposite"> Supercomposite</label><br>
-        <input type="radio" id="ageBanded" name="TierStructure" value="Age Banded">
-        <label for="ageBanded"> Age Banded</label><br>
-        <input type="radio" id="ageBandedTiered" name="TierStructure" value="Age Banded Tiered">
-        <label for="ageBandedTiered"> Age Banded Tiered</label><br>
-        <p></p>
-
+        <div class="radio-group">
+            <input type="radio" id="tier3" name="TierStructure" value="3 Tier">
+            <label for="tier3" class="radio-label">3 Tier</label>
+            
+            <input type="radio" id="tier4" name="TierStructure" value="4 Tier">
+            <label for="tier4" class="radio-label">4 Tier</label>
+            
+            <input type="radio" id="supercomposite" name="TierStructure" value="Supercomposite">
+            <label for="supercomposite" class="radio-label">Supercomposite</label>
+            
+            <input type="radio" id="ageBanded" name="TierStructure" value="Age Banded">
+            <label for="ageBanded" class="radio-label">Age Banded</label>
+            
+            <input type="radio" id="ageBandedTiered" name="TierStructure" value="Age Banded Tiered">
+            <label for="ageBandedTiered" class="radio-label">Age Banded Tiered</label>
+        </div>
+        
         <button type="submit">Next</button>
     </form>
-
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Handle form submission

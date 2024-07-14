@@ -6,6 +6,7 @@
 </head>
 <body>
     <div id="tableContainer"></div>
+    <button id="submitBtn">Submit</button>
     
 </body>
 <script type="module">
@@ -27,6 +28,8 @@
         const plans = await searchPlanByJson({CarrierID: carrierId});
         const tiers = await searchTierByJson({EmployerID: carrier[0].EmployerID});
         addTable(plans, tiers, carrier);
+
+        document.getElementById('submitBtn').addEventListener('click', gatherInputsAndSend)
     });
     function addTable(plans, tiers, carriers) {
         const tableContainer = document.getElementById('tableContainer');
@@ -77,6 +80,32 @@
                 </table>
             `;
             tableContainer.appendChild(newTableWrapper);
+        });
+    }
+
+    function gatherInputsAndSend() {
+        const tables = document.querySelectorAll('.tableWrapper table');
+        const carrierDetails = [];
+
+        tables.forEach(table => {
+            const carrierName = table.previousElementSibling.textContent;
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                const planDetails = {
+                    Tier: inputs[0].value,
+                    FundingAmount: inputs[1].value,
+                    GrenzFee: inputs[2].value,
+                    GrenzFeeC: inputs[3].value,
+                    GrenzFeeS: inputs[4].value,
+                    MaxAge: inputs[5].value,
+                    MinAge: inputs[6].value
+                };
+                carrierDetails.push({
+                    CarrierName: carrierName,
+                    PlanDetails: planDetails
+                });
+            });
         });
     }
 
