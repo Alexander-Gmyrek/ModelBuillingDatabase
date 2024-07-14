@@ -3,28 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <title>Grenz & Co Invoice Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        header {
+            background-color: #333;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+        }
+
+        main {
+            padding: 20px;
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .add-company-button {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .add-company-button:hover {
+            background: #0056b3;
+        }
+
+        #companyList {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #companyList li {
+            background-color: white;
+            margin-bottom: 10px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #companyList li:hover {
+            background-color: #f1f1f1;
+        }
+    </style>
 </head>
+
 <body>
-    <h1>Companies</h1>
-    <div>
-        <input type="text" id="searchInput" placeholder="Search.." onkeyup="filterCompanies()">
-    </div>
-    <a href="addcompany.html" type="button">
-        <span>Add Company</span>
-    </a>
-    <ul id="companyList"></ul>
+    <header>
+        <h1>Grenz & Co Invoice Generator</h1>
+    </header>
+    <main>
+        <h2>Companies</h2>
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Search.." onkeyup="filterCompanies()">
+        </div>
+        <a href="addcompany.html" class="add-company-button">
+            <span>Add Company</span>
+        </a>
+        <ul id="companyList"></ul>
+    </main>
 
     <script type="module">
-        import { 
+        import {
             getAllEmployers,
             searchEmployerByJson
-        } from './apiFunctions.js'; 
-        console.log("Hello World!");
-        document.addEventListener('DOMContentLoaded', (event) => {
+        } from './apiFunctions.js';
+
+        document.addEventListener('DOMContentLoaded', () => {
             async function fetchAndDisplayCompanies() {
                 try {
                     const companies = await getAllEmployers();
-                    console.log(companies);
                     displayCompanies(companies);
                 } catch (error) {
                     console.error('Error fetching companies:', error);
@@ -50,7 +117,7 @@
                 window.location.href = `company1.html?id=${companyId}`;
             }
 
-            window.filterCompanies = async function() {
+            window.filterCompanies = async function () {
                 const searchInput = document.getElementById('searchInput').value.toLowerCase();
                 try {
                     const companies = await searchEmployerByJson({ EmployerName: searchInput });

@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Make 3 Tier Table</title>
+    <title>Carrier Details</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -13,15 +12,10 @@
             margin-bottom: 20px;
         }
         button {
-            background: #007BFF;
-            color: #fff;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
+            margin-right: 10px;
+            padding: 10px 15px;
+            font-size: 14px;
             cursor: pointer;
-        }
-        button:hover {
-            background: #0056b3;
         }
         .tableWrapper {
             margin-bottom: 20px;
@@ -57,172 +51,33 @@
     </style>
 </head>
 <body>
-
-<div class="button-container">
-    <button id="addCarrierButton">Add Carrier</button>
-    <button id="addTierButton">Add Tier</button>
-    <button id="deleteCarrierButton">Delete Carrier</button>
-    <button id="deleteTierButton">Delete Tier</button>
-    <button id="submitButton">Submit</button>
-</div>
-<div id="tableContainer"></div>
-
+    <div class="button-container">
+        <button id="addCarrierButton">Add Carrier</button>
+        <button id="addTierButton">Add Tier</button>
+        <button id="deleteCarrierButton">Delete Carrier</button>
+        <button id="deleteTierButton">Delete Tier</button>
+        <button id="gatherDataButton">Gather Data</button>
+    </div>
+    <div id="tableContainer"></div>
+</body>
 <script type="module">
-    import {
-        addEmployer,
-        getFullTable
-    } from './apiFunctions.js';
-
-    // Modified submitTable function
-    async function submitTable(gatheredData) {
-        // Retrieve the stored company data from localStorage
-        const companyDataString = localStorage.getItem('companyData');
-        if (!companyDataString) {
-            console.error('No company data found in localStorage');
-            return;
-        }
-
-        // Parse the stored JSON string into an object
-        const companyData = JSON.parse(companyDataString);
-
-        console.log
-
-        // Apend the gathered data to the companyData object
-        companyData.Tiers = gatheredData.Tiers;
-        companyData.Carriers = gatheredData.Carriers;
-        companyData.Plans = gatheredData.Plans;
-
-        // Log the complete data to the console for debugging
-        console.log('Complete Data:', companyData);
-
-        // Send the complete data to the server
-        try {
-            const response = await addEmployer(companyData);
-            // update the company id with the new_id from response
-            companyData.EmployerID = response.new_id;
-            // update the company data in local storage
-            localStorage.setItem('companyData', JSON.stringify(companyData));
-            let userAlert = 'Data submitted successfully!'
-            // Notify of warnings
-            if (response.warnings) {
-                console.warn('Submission warnings:', response.warnings);
-                //add warnings to local storage
-                localStorage.setItem('warnings', JSON.stringify(response.warnings));
-                // add the number of warnings to the user alert
-                userAlert += '\nWarnings ' + countWarnings(response.warnings);
-            }
-
-            // check if there is missing data and alert the user
-            //get the data
-            const employerID = companyData.EmployerID;
-            const missingData = await checkForMissingData(employerID, companyData);
-            //add missing data to local storage
-            localStorage.setItem('missingData', JSON.stringify(missingData));
-            console.log(missingData);
-            if (missingData.length > 0){
-                for (let data of missingData){
-                    for (let key in data){
-                        if(data[key] && data[key] != []){
-                            userAlert += '\nMissing ' + key + ': '; /*+ JSON.stringify(data[key]).join(', ');*/
-                        }
-                    }
-                }
-            }
-
-            alert(userAlert);
-
-            // Optionally, clear the localStorage or redirect to another page
-            //localStorage.removeItem('companyData'); // Clear the storage after submission
-
-            //window.location.href = 'reviewcompany.html';
-
-        } catch (error) {
-            console.error('Error submitting data:', error);
-            alert('Failed to submit data.');
-        }
-    }
-
-    async function checkForMissingData(employerID,  companyData){
-        //get the full table
-        const myfullTable = await getFullTable('Employer', employerID);
-        const fullTable = myfullTable.Element
-        console.log(fullTable);
-        
-        let missingData = [];
-        //check for missing carriers
-        const missingCarriers = companyData.Carriers.filter(c => !fullTable.Carriers.find(fc => fc.CarrierName === c.CarrierName));
-        const missingCarrierNames = missingCarriers.map(c => c.CarrierName);
-        missingData.push({"Carriers": missingCarrierNames});
-
-        //check for missing tiers
-        const missingTiers = companyData.Tiers.filter(t => !fullTable.Tiers.find(ft => ft.TierName === t.TierName));
-        const missingTierNames = missingTiers.map(t => t.TierName);
-        missingData.push({"Tiers": missingTierNames});
-
-        //check for missing plans
-        //for (let plan of companyData.Plans){
-        //    if (!fullTable.Plans.find(p => p.PlanName === plan.PlanName)){
-        //        missingData.push(plan.PlanName);
-        //    }
-        //}
-
-        //check for missing employees
-        const missingEmployees = companyData.Employees.filter(e => !fullTable.Employees.find(fe => fe.EmployeeFullName === e.EmployeeFullName));
-        const missingEmployeeNames = missingEmployees.map(e => e.EmployeeFullName);
-        missingData.push({"Employees": missingEmployeeNames});
-
-        //check for missing dependents
-        const allMissingDependents = [];
-        const allMissingEmployeePlans = [];
-        for (let employee of companyData.Employees){
-            let fullEmployee = fullTable.Employees.find(e => e.EmployeeFullName === employee.EmployeeFullName);
-            if (!fullEmployee){
-                continue;
-            }else{
-                //check for missing dependents
-                if(employee.Dependents){
-                    let missingDependents = [];
-                    let missingDependentNames = [];
-                    missingDependents = employee.Dependents.filter(d => {
-                        const match = fullEmployee.Dependents.find(fd => fd.DependentName === d.DependentName);
-                        //if (!match) {
-                            //console.log(`Missing: ${d.DependentName}`);
-                            //console.log(`Full Employee: ${JSON.stringify(fullEmployee)}`);
-                            //console.log(`Employee Dependents: ${JSON.stringify(employee.Dependents)}`);
-                        //}
-                        return !match;
-                    });
-                    missingDependentNames = missingDependents.map(d => d.DependentName);
-                    if(missingDependentNames.length > 0){
-                        allMissingDependents.push({[fullEmployee.EmployeeFullName]: missingDependentNames});
-                    }
-                    
-                }
-                
-
-                // Check to make sure the employee has an employee plan
-                if (!fullEmployee.EmployeePlan){
-                    allMissingEmployeePlans.push(fullEmployee.EmployeeFullName);
-                }
-            }
-        }
-        missingData.push({"Dependents": allMissingDependents});
-        missingData.push({"EmployeePlan": allMissingEmployeePlans});
-        return missingData;
-    }
-
-    document.addEventListener('DOMContentLoaded', async () => {
+    document.addEventListener('DOMContentLoaded', () => {
         const carriers = [
-            { CarrierName: 'C1' }
+            { CarrierName: 'Carrier A' },
+            { CarrierName: 'Carrier B' }
         ];
         const tiers = [
-            { TierName: 'T11', MaxAge: '', MinAge: '' },
-            { TierName: 'T2', MaxAge: '', MinAge: '' }
+            { TierName: 'Basic', MaxAge: '', MinAge: '' },
+            { TierName: 'Premium', MaxAge: '', MinAge: '' }
         ];
         const data = {
-            'C1': {
-                'T11': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' },
-                'T2': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' }
+            'Carrier A': {
+                'Basic': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' },
+                'Premium': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' }
+            },
+            'Carrier B': {
+                'Basic': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' },
+                'Premium': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' }
             }
         };
         addTable(tiers, carriers, data);
@@ -264,30 +119,19 @@
             }
         });
 
-        document.getElementById('submitButton').addEventListener('click', () => {
+        document.getElementById('gatherDataButton').addEventListener('click', () => {
             const gatheredData = gatherData(tiers, carriers, data);
-            submitTable(gatheredData);
+            console.log(gatheredData);
         });
     });
 
-    function countWarnings(warnings){
-        let count = 0;
-        for (let warning in warnings){
-            if (warnings[warning].hasOwnProperty('toString')){
-                count += countWarnings(warning[warning]);
-            } else {
-                count++;
-            } 
-        }
-        return count;
-    }
     function gatherData(tiers, carriers, data) {
         const gatheredData = {
             Carriers: carriers.map(carrier => ({"CarrierName": carrier.CarrierName})),
             Tiers: tiers.map(tier => ({
                 TierName: tier.TierName,
-                MaxAge: tier.MaxAge || null,
-                MinAge: tier.MinAge || null
+                MaxAge: tier.MaxAge,
+                MinAge: tier.MinAge
             })),
             Plans: []
         };
@@ -298,10 +142,10 @@
                 gatheredData.Plans.push({
                     CarrierName: carrier.CarrierName,
                     TierName: tier.TierName,
-                    FundingAmount: planData['Funding Amount'] || null,
-                    GrenzFee: planData['Grenz Fee'] || null,
-                    GrenzFeeC: planData['Grenz Fee C'] || null,
-                    GrenzFeeS: planData['Grenz Fee S'] || null
+                    FundingAmount: planData['Funding Amount'],
+                    GrenzFee: planData['Grenz Fee'],
+                    GrenzFeeC: planData['Grenz Fee C'],
+                    GrenzFeeS: planData['Grenz Fee S']
                 });
             });
         });
@@ -446,32 +290,7 @@
         document.querySelectorAll('.data-input').forEach(input => {
             input.addEventListener('input', (event) => {
                 const { carrier, tier, type } = event.target.dataset;
-
-                // Convert NodeList to an array and find the current input elements
-                const carrierInputs = Array.from(document.querySelectorAll('.carrier-input'));
-                const tierInputs = Array.from(document.querySelectorAll('.tier-input'));
-
-                // Get the current carrier and tier names or fallback to the dataset values
-                const currentCarriername = carrierInputs.find(c => c.defaultValue === carrier)?.dataset.oldName || carrier;
-                const currentTiername = tierInputs.find(t => t.defaultValue === tier)?.dataset.oldName || tier;
-
-                // If the old names have changed, update the data object accordingly
-                if (data[currentCarriername] && data[currentCarriername][currentTiername]) {
-                    // Update the existing data
-                    data[currentCarriername][currentTiername][type] = event.target.value;
-                } else {
-                    // If the names have changed, update the data structure to reflect the changes
-                    if (!data[carrier]) data[carrier] = {};
-                    if (!data[carrier][tier]) data[carrier][tier] = {};
-                    data[carrier][tier][type] = event.target.value;
-
-                    // Update the old names to reflect the new names
-                    const carrierInput = carrierInputs.find(c => c.defaultValue === carrier);
-                    if (carrierInput) carrierInput.dataset.oldName = carrier;
-                    
-                    const tierInput = tierInputs.find(t => t.defaultValue === tier);
-                    if (tierInput) tierInput.dataset.oldName = tier;
-                }
+                data[carrier][tier][type] = event.target.value;
             });
         });
 
@@ -483,9 +302,5 @@
             });
         });
     }
-    
 </script>
-
-</body>
 </html>
-// do imports
