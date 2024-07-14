@@ -23,7 +23,11 @@ async function apiRequest(endpoint, method = "GET", body = null) {
     try {
         const response = await fetch(`${BASE_URL}${endpoint}`, options);
         if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}` + " " + response.text());
+            return response.json().then(err => {
+                // Log the detailed JSON error message
+                console.error(`HTTP error! Status: ${response.status} Error: ${err.Error}`);
+                throw new Error(`HTTP error! Status: ${response.status} Error: ${err.Error}`);
+            });
         }
         return await response.json();
     } catch (error) {
@@ -256,6 +260,14 @@ async function searchTableByName(tableName, tableFullName) {
     return await apiRequest(`/${tableName}/${encodeURIComponent(tableFullName)}`);
 }
 
+async function searchTableByJson(tableName, partialJson) {
+    return await apiRequest(`/${tableName}/search`, "POST", partialJson);
+}
+
+async function getFullTable(tableName, tableId) {
+    return await apiRequest(`/full/${tableName}/${tableId}`);
+}
+
 
 // Exporting all functions for use in other files
 export {
@@ -290,7 +302,6 @@ export {
     deleteEmployee,
     searchAllEmployeePlans,
     searchEmployeePlanById,
-    searchEmployeePlanByName,
     searchActiveEmployeePlans,
     searchEmployeePlanByJson,
     addEmployeePlan,
@@ -310,5 +321,10 @@ export {
     searchActivePlans,
     addPlan,
     changePlan,
-    deletePlan
+    deletePlan,
+    getAllTable,
+    searchTableById,
+    searchTableByName,
+    searchTableByJson,
+    getFullTable
 };

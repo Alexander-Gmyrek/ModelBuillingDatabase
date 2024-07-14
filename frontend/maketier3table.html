@@ -16,7 +16,8 @@
 
 <script type="module">
     import {
-        addEmployer
+        addEmployer,
+        getFullTable
     } from './apiFunctions.js';
 
     let tableCount = 0; // Counter for tracking tables
@@ -155,7 +156,7 @@
                         // "EmployerID": 1, // Replace with actual EmployerID
                         // "CarrierID": carrierID,
                         "CarrierName": carrierName,
-                        "PlanName": planName,
+                        //"PlanName": planName,
                         "FundingAmount": parseFloat(inputs[j].value) || 0,
                         "GrenzFee": parseFloat(inputs[inputs.length - 1].value) || 0,
                         "TierName": tierName
@@ -182,24 +183,39 @@
             const response = await addEmployer(companyData);
             // update the company id with the new_id from response
             companyData.EmployerID = response.new_id;
+            // update the company data in local storage
+            localStorage.setItem('companyData', JSON.stringify(companyData));
             let userAlert = 'Data submitted successfully!'
             // Notify of warnings
             if (response.warnings) {
                 console.warn('Submission warnings:', response.warnings);
-                // add the number of warnings to the user alert
-                userAlert += '\nWarnings: ' + response.warnings.length;
                 //add warnings to local storage
                 localStorage.setItem('warnings', JSON.stringify(response.warnings));
+                // add the number of warnings to the user alert
+                userAlert += '\nWarnings ' + countWarnings(response.warnings);
             }
 
             // check if there is missing data and alert the user
             //get the data
+            const employerID = companyData.EmployerID;
+            const missingData = await checkForMissingData(employerID, companyData);
+            //add missing data to local storage
+            localStorage.setItem('missingData', JSON.stringify(missingData));
+            console.log(missingData);
+            if (missingData.length > 0){
+                for (let data of missingData){
+                    for (let key in data){
+                        userAlert += '\nMissing ' + key + ': ' + data[key].join(', ');
+                    }
+                }
+            }
 
             alert(userAlert);
 
             // Optionally, clear the localStorage or redirect to another page
             //localStorage.removeItem('companyData'); // Clear the storage after submission
-            window.location.href = 'reviewcompany.html';
+
+            //window.location.href = 'reviewcompany.html';
 
         } catch (error) {
             console.error('Error submitting data:', error);
@@ -207,8 +223,65 @@
         }
     }
 
-    function checkForMissingData(tableName, employerID = 1,  companyData){
-        
+    async function checkForMissingData(employerID,  companyData){
+        //get the full table
+        const myfullTable = await getFullTable('Employer', employerID);
+        const fullTable = myfullTable.Element
+        console.log(fullTable);
+        console.log(JSON.stringify(fullTable));
+        let missingData = [];
+        //check for missing carriers
+        const missingCarriers = companyData.Carriers.filter(c => !fullTable.Carriers.find(fc => fc.CarrierName === c.CarrierName));
+        const missingCarrierNames = missingCarriers.map(c => c.CarrierName);
+        missingData.push({"Carriers": missingCarrierNames});
+
+        //check for missing tiers
+        const missingTiers = companyData.Tiers.filter(t => !fullTable.Tiers.find(ft => ft.TierName === t.TierName));
+        const missingTierNames = missingTiers.map(t => t.TierName);
+        missingData.push({"Tiers": missingTierNames});
+
+        //check for missing plans
+        //for (let plan of companyData.Plans){
+        //    if (!fullTable.Plans.find(p => p.PlanName === plan.PlanName)){
+        //        missingData.push(plan.PlanName);
+        //    }
+        //}
+
+        //check for missing employees
+        const missingEmployees = companyData.Employees.filter(e => !fullTable.Employees.find(fe => fe.EmployeeName === e.EmployeeName));
+        const missingEmployeeNames = missingEmployees.map(e => e.EmployeeName);
+        missingData.push({"Employees": missingEmployeeNames});
+
+        //check for missing dependents
+        const allMissingDependents = [];
+        const allMissingEmployeePlans = [];
+        for (let employee of companyData.Employees){
+            const fullEmployee = fullTable.Employees.find(e => e.EmployeeName === employee.EmployeeName);
+            if (!fullEmployee){
+                continue;
+            }else{
+                //check for missing dependents
+                if(employee.Dependents){
+                    let missingDependents = [];
+                    let missingDependentNames = [];
+                    missingDependents = employee.Dependents.filter(d => !fullEmployee.Dependents.find(fd => fd.DependentName === d.DependentName));
+                    missingDependentNames = missingDependents.map(d => d.DependentName);
+                    if(missingDependentNames.length > 0){
+                        allMissingDependents.push({[fullEmployee.EmployeeFullName]: missingDependentNames});
+                    }
+                    
+                }
+                
+
+                // Check to make sure the employee has an employee plan
+                if (!fullEmployee.EmployeePlan){
+                    allMissingEmployeePlans.push(fullEmployee.EmployeeName);
+                }
+            }
+        }
+        missingData.push({"Dependents": allMissingDependents});
+        missingData.push({"EmployeePlan": allMissingEmployeePlans});
+        return missingData;
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -218,6 +291,18 @@
         // make the submit button submit the data
         document.getElementById('submit').addEventListener('click', submitTable);
     });
+
+    function countWarnings(warnings){
+        let count = 0;
+        for (let warning in warnings){
+            if (warnings[warning].hasOwnProperty('toString')){
+                count += countWarnings(warning[warning]);
+            } else {
+                count++;
+            } 
+        }
+        return count;
+    }
 
     
 </script>

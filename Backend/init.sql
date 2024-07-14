@@ -105,6 +105,7 @@ CREATE TABLE Dependent (
     InformStartDate DATE,
     EndDate DATE,
     InformEndDate DATE,
+    Notes TEXT,
     PRIMARY KEY (DependentID),
     FOREIGN KEY (EmployeeID) REFERENCES Employee(EmployeeID) ON DELETE CASCADE
 );
