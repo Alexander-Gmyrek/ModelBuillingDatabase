@@ -205,7 +205,9 @@
             if (missingData.length > 0){
                 for (let data of missingData){
                     for (let key in data){
-                        userAlert += '\nMissing ' + key + ': ' + data[key].join(', ');
+                        if(data[key] && data[key] != []){
+                            userAlert += '\nMissing ' + key + ': ' + JSON.stringify(data[key]).join(', ');
+                        }
                     }
                 }
             }
@@ -228,7 +230,7 @@
         const myfullTable = await getFullTable('Employer', employerID);
         const fullTable = myfullTable.Element
         console.log(fullTable);
-        console.log(JSON.stringify(fullTable));
+        
         let missingData = [];
         //check for missing carriers
         const missingCarriers = companyData.Carriers.filter(c => !fullTable.Carriers.find(fc => fc.CarrierName === c.CarrierName));
@@ -248,15 +250,15 @@
         //}
 
         //check for missing employees
-        const missingEmployees = companyData.Employees.filter(e => !fullTable.Employees.find(fe => fe.EmployeeName === e.EmployeeName));
-        const missingEmployeeNames = missingEmployees.map(e => e.EmployeeName);
+        const missingEmployees = companyData.Employees.filter(e => !fullTable.Employees.find(fe => fe.EmployeeFullName === e.EmployeeFullName));
+        const missingEmployeeNames = missingEmployees.map(e => e.EmployeeFullName);
         missingData.push({"Employees": missingEmployeeNames});
 
         //check for missing dependents
         const allMissingDependents = [];
         const allMissingEmployeePlans = [];
         for (let employee of companyData.Employees){
-            const fullEmployee = fullTable.Employees.find(e => e.EmployeeName === employee.EmployeeName);
+            let fullEmployee = fullTable.Employees.find(e => e.EmployeeFullName === employee.EmployeeFullName);
             if (!fullEmployee){
                 continue;
             }else{
@@ -264,7 +266,15 @@
                 if(employee.Dependents){
                     let missingDependents = [];
                     let missingDependentNames = [];
-                    missingDependents = employee.Dependents.filter(d => !fullEmployee.Dependents.find(fd => fd.DependentName === d.DependentName));
+                    missingDependents = employee.Dependents.filter(d => {
+                        const match = fullEmployee.Dependents.find(fd => fd.DependentName === d.DependentName);
+                        //if (!match) {
+                            //console.log(`Missing: ${d.DependentName}`);
+                            //console.log(`Full Employee: ${JSON.stringify(fullEmployee)}`);
+                            //console.log(`Employee Dependents: ${JSON.stringify(employee.Dependents)}`);
+                        //}
+                        return !match;
+                    });
                     missingDependentNames = missingDependents.map(d => d.DependentName);
                     if(missingDependentNames.length > 0){
                         allMissingDependents.push({[fullEmployee.EmployeeFullName]: missingDependentNames});
@@ -275,7 +285,7 @@
 
                 // Check to make sure the employee has an employee plan
                 if (!fullEmployee.EmployeePlan){
-                    allMissingEmployeePlans.push(fullEmployee.EmployeeName);
+                    allMissingEmployeePlans.push(fullEmployee.EmployeeFullName);
                 }
             }
         }
