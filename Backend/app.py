@@ -11,7 +11,8 @@ from flask_cors import CORS
 
 ####################### Helper Functions #######################
 app = Flask(__name__)
-CORS(app)
+# CORS(app)
+CORS(app, expose_headers=['Content-Disposition'])
 
 def get_db_connection():
     connection = mysql.connector.connect(
@@ -1772,6 +1773,13 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
             try:
                 carrier_name = "/ ".join(set(carrier_names))
                 tier_name = "/ ".join(set(tier_names))
+                try:
+                    empDOB = execute_query(cursor, f"SELECT DOB FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
+                    # format dob
+                    empDOB = empDOB.strftime("%m/%d/%Y")
+                except Exception as e:
+                    empDOB = None
+
                 if(uses_gl_code):
                     gl_code = execute_query(cursor, f"SELECT GlCode FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
                 else:
@@ -1790,7 +1798,7 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                     title = None
                 try:
                     total = funding_amount + grenz_fee
-                    df = add_data(df, str(notes).strip("[]"), employee_name, carrier_name, tier_name, funding_amount, grenz_fee, total, gl_code, division, location, title, dependents)
+                    df = add_data(df, str(notes).strip("[]"), employee_name, carrier_name, tier_name, funding_amount, grenz_fee, total, gl_code, division, location, title, dependents, empDOB)
                 except Exception as e:
                     raise ValueError(f"Error adding data for {employee_name}: {e}")
             except Exception as e:
@@ -2377,11 +2385,23 @@ def test_generate_report(EmployerID, Year, Month):
     except Exception as e:
         return jsonify({"Error Gennerating Report": str(e)}), 500
     
-    if(not report):
-        return jsonify("Report not generated"), 400
+    
         #report = "output.xlsx"
     connection.close()
-    return send_file(report, as_attachment=True, download_name=(report + ".xlsx"))
+    if(not report):
+        return jsonify("Report not generated"), 400
+    # set the header
+    response = send_file(report, as_attachment=True, download_name=(report))
+    # response.headers.set('Content-Disposition', 'attachment', filename=(report))
+    # response.headers.set('content-disposition', 'attachment', filename=(report))
+    # response.headers.set('Content-Disposition', 'attachment; filename=' + report)
+    # response.headers.set('content-disposition', 'attachment; filename=' + report)
+    # response.headers.add("Content-Disposition", "attachment", filename=(report))
+    # response.headers.add("Content-Type", "application/xlsx")
+    #header = {"Content-Type": "application/xlsx", "Content-Disposition": "attachment; filename=" + (report + ".xlsx")}
+    #response.headers = header
+    # raise ValueError (response.headers)
+    return response
     
 @app.route('/test/getelementbyid', methods=['GET'])
 def test_get_element_by_id():
