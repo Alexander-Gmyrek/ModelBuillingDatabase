@@ -77,6 +77,7 @@
     async function submitTable(gatheredData) {
         // Retrieve the stored company data from localStorage
         const companyDataString = localStorage.getItem('companyData');
+        console.log(companyDataString);
         if (!companyDataString) {
             console.error('No company data found in localStorage');
             return;
@@ -85,7 +86,7 @@
         // Parse the stored JSON string into an object
         const companyData = JSON.parse(companyDataString);
 
-        console.log
+        //console.log
 
         // Apend the gathered data to the companyData object
         companyData.Tiers = gatheredData.Tiers;
@@ -122,8 +123,8 @@
             if (missingData.length > 0){
                 for (let data of missingData){
                     for (let key in data){
-                        if(data[key] && data[key] != []){
-                            userAlert += '\nMissing ' + key + ': '; /*+ JSON.stringify(data[key]).join(', ');*/
+                        if(data[key] && data[key].length != 0){
+                            userAlert += '\nFailed to add ' + key + ': '; /*+ JSON.stringify(data[key]).join(', ');*/
                         }
                     }
                 }
@@ -210,8 +211,12 @@
         missingData.push({"EmployeePlan": allMissingEmployeePlans});
         return missingData;
     }
-
+    //on load
     document.addEventListener('DOMContentLoaded', async () => {
+        if(!localStorage.getItem('companyData')){
+            alert('No company data found in local storage. Please go back and enter company data.');
+            return;
+        }
         const carriers = [
             { CarrierName: 'C1' }
         ];
