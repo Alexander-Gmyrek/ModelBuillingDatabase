@@ -29,7 +29,21 @@ async function apiRequest(endpoint, method = "GET", body = null) {
                 throw new Error(`HTTP error! Status: ${response.status} Error: ${err.Error}`);
             });
         }
-        return await response.json();
+        // else check if it is a file and auto download it
+        else if (response.headers.get("content-type").includes("application/xlsx")) {
+            return response.blob().then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "report.xlsx";
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            });
+        } else {
+            return response.json();
+        }
+
     } catch (error) {
         console.error("API Request Error:", error);
         throw error;
@@ -268,6 +282,9 @@ async function getFullTable(tableName, tableId) {
     return await apiRequest(`/full/${tableName}/${tableId}`);
 }
 
+async function generateReport(EmployerID, Year, Month){
+    return await apiRequest(`/test/generatereport/${EmployerID}/${Year}/${Month}`);
+}
 
 // Exporting all functions for use in other files
 export {
@@ -326,5 +343,6 @@ export {
     searchTableById,
     searchTableByName,
     searchTableByJson,
-    getFullTable
+    getFullTable,
+    generateReport
 };

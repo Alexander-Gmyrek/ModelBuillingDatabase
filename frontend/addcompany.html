@@ -180,7 +180,7 @@
                             "StartDate": null,
                             "EndDate": null,
                             "InformStartDate": null,
-                            "InformEndDate": null,
+                            //"InformEndDate": null,
                             "DOB": null,
                             "CobraStatus": null,
                             "Notes": null,
@@ -200,7 +200,7 @@
                             "Relationship": null,
                             "DOB": null,
                             "StartDate": null,
-                            "InformStartDate": null,
+                            //"InformStartDate": null,
                             "EndDate": null,
                             "InformEndDate": null
                         };
@@ -241,7 +241,7 @@
                             employee.Title= row['Title'] || null
 
                             employee.StartDate = formatDate(row['Start Date']) || null;
-                            employee.InformStartDate = formatDate(row['Inform Start Date']) || null;
+                            employee.InformStartDate = formatDate(row['Inform Start Date']) || employee.StartDate;
 
                             // check if is dependent
                             if ((row['Dependent Name'] && row['Relationship'] && row['Dependent DOB']) || row['Dependent']) {

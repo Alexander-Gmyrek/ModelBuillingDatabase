@@ -576,11 +576,12 @@ def search_by_part_name(table_name, Name, EmployerID=None):
         else:
             cursor.execute(f"SELECT {table_name}ID FROM {table_name} WHERE EmployerID={EmployerID} AND {table_name}Name LIKE '%{Name}%'")
         employers = cursor.fetchall()
+        new_employers = []
         for employer in employers:
-            employer = get_element_by_id(cursor, table_name, employer[0])
+            new_employers.append(get_element_by_id(cursor, table_name, employer[0]))
         cursor.close()
         connection.close()
-        return jsonify(employers)
+        return jsonify(new_employers)
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
     
@@ -1184,7 +1185,7 @@ def delete_element(cursor, table_name, element_id):
     cursor.execute(query, (element_id,))
     return soft_errors, element_id
     
-def route_delete_element(table_name, element_id):
+def route_delete_element(element_id, table_name):
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
@@ -2374,7 +2375,7 @@ def test_generate_report(EmployerID, Year, Month):
     try:
         report = generate_report(connection, EmployerName, Date, get_format=get_format_normal)
     except Exception as e:
-        return jsonify({"Error Gennerating Report": str(e)}), 400
+        return jsonify({"Error Gennerating Report": str(e)}), 500
     
     if(not report):
         return jsonify("Report not generated"), 400
