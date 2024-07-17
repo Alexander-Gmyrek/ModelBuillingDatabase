@@ -30,12 +30,19 @@ async function apiRequest(endpoint, method = "GET", body = null) {
             });
         }
         // else check if it is a file and auto download it
-        else if (response.headers.get("content-type").includes("application/xlsx")) {
+        else if (response.headers.get("content-type").includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
+            let headersObj = {};
+            response.headers.forEach((value, key) => {
+                headersObj[key] = value;
+            });
+
+            console.log("headers: " + JSON.stringify(headersObj) + " content-type: " + response.headers.get("content-type"));
             return response.blob().then(blob => {
+                console.log("Downloading Excel file");
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = "report.xlsx";
+                a.download = response.headers.get("content-disposition").split("filename=")[1];
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
