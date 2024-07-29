@@ -2415,7 +2415,7 @@ def test_get_element_by_id():
 @app.route('/test/executeCommand', methods=['GET'])
 def test_execute_command():
     test_commands = [
-        "ALTER TABLE Dependent ADD COLUMN Notes TEXT",
+        # "ALTER TABLE Dependent ADD COLUMN Notes TEXT",
     ]
     connection = get_db_connection()
     cursor = connection.cursor()
