@@ -180,6 +180,18 @@ def change_plan(id):
 def delete_plan(id):
     return route_delete_element(id, "Plan")
 
+# modify
+@app.route('/plan/<int:id>/modify', methods=['PATCH'])
+def modify_plan_route(id):
+    data = request.get_json()
+    return modify_plan(id, data)
+
+# End
+@app.route('/plan/<int:id>/end', methods=['PATCH'])
+def end_plan(id):
+    data = request.get_json()
+    return end_plan(id, "Plan", data)
+
 ### Tier Methods ###
 
 # Add
@@ -915,7 +927,7 @@ def end_plan(cursor, plan_id):
         #end all the employee plans
         employee_plans = get_active_depfree(cursor, "EmployeePlan", plan_id, "EndDate", "PlanID")
         for employee_plan in employee_plans:
-            change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], {"EndDate": end_date, "InformEndDate": end_date})
+                change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], {"EndDate": end_date, "InformEndDate": end_date})
     except Exception as e:
         raise ValueError(f"End Plan: " + str(e))
 

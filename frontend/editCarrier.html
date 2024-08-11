@@ -2,112 +2,508 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Carrier Details</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Make 3 Tier Table</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .button-container {
+            margin-bottom: 20px;
+        }
+        button {
+            background: #007BFF;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .tableWrapper {
+            margin-bottom: 20px;
+        }
+        .tableWrapper input[type="text"] {
+            width: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        .tableWrapper table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .tableWrapper th,
+        .tableWrapper td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .tableWrapper th {
+            background-color: #f2f2f2;
+        }
+        .tableWrapper tr:hover {
+            background-color: #f1f1f1;
+        }
+        .carrier-input {
+            font-size: 18px;
+            font-weight: bold;
+            width: calc(100% - 10px);
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 <body>
-    <div id="tableContainer"></div>
-    <button id="submitBtn">Submit</button>
-    
-</body>
+
+<div class="button-container">
+    <button id="addCarrierButton">Add Carrier</button>
+    <button id="addTierButton">Add Tier</button>
+    <button id="deleteCarrierButton">Delete Carrier</button>
+    <button id="deleteTierButton">Delete Tier</button>
+    <button id="submitButton">Submit</button>
+</div>
+<div id="tableContainer"></div>
+
 <script type="module">
     import {
-        searchEmployerById,
-        searchEmployeeByJson,
-        searchEmployeePlanByJson,
-        searchActiveEmployees,
+        changeCarrier,
+        changeTier,
+        modifyPlan,
+        addCarrier,
+        addTier,
+        addPlan,
+        deleteCarrier,
+        deleteTier,
+        endPlan,
         searchActivePlans,
-        searchCarrierByJson,
-        searchTierByJson,
-        searchPlanByJson
+        getFullTable
     } from './apiFunctions.js';
+
+    // TO DO: Rework this so instead it checks for changes and uses change plan
+    async function submitTable(gatheredData) {
+        // Retrieve the stored company data from localStorage
+        const companyDataString = localStorage.getItem('companyData');
+        console.log(companyDataString);
+        if (!companyDataString) {
+            console.error('No company data found in localStorage');
+            return;
+        }
+
+        // Get the company data from localStorage
+        const companyData = JSON.parse(companyDataString);
+
+        function compareData(oldData, newData){
+            let changes = {};
+            for (let key in oldData){
+                if (oldData[key] !== newData[key]){
+                    changes[key] = newData[key];
+                }
+            }
+            //Check if there are any changes and if not return false
+            if (Object.keys(changes).length === 0){
+                return false;
+            }
+            return changes;
+            
+        }
+        // Look for any ID that has the value -1 and add if it is return true
+        function checkIfAdditions(newData, IDName){
+            if (newData[IDName] === -1){
+                return true;
+            }
+        }
+
+            
+
+        // TO DO: Check for changes additions and deletions
+        // Carrier changes
+        for (let carrier of companyData.Carriers){
+            // for each of the old carriers find the carrier with the same ID and compare the data and if it has change the data
+            const oldCarrier = gatheredData.Carriers.find(c => c.CarrierID === carrier.CarrierID);
+            if (oldCarrier){
+                const changes = compareData(oldCarrier, carrier);
+                if (changes){
+                    // TO DO: Change the carrier data
+                    console.log('Carrier Changes:', changes);
+                }
+            } else {
+                // TO DO: Delete the carrier
+                console.log('Carrier Deleted:', carrier);
+            }
+        }
+
+        // Tier changes
+        for (let tier of companyData.Tiers){
+            // for each of the old tiers find the tier with the same ID and compare the data and if it has change the data
+            const oldTier = gatheredData.Tiers.find(t => t.TierID === tier.TierID);
+            if (oldTier){
+                const changes = compareData(oldTier, tier);
+                if (changes){
+                    // TO DO: Change the tier data
+                    console.log('Tier Changes:', changes);
+                }
+            } else {
+                // TO DO: Delete the tier
+                console.log('Tier Deleted:', tier);
+            }
+        }
+
+        // Plan changes
+        for (let plan of companyData.Plans){
+            // for each of the old plans find the plan with the same ID and compare the data and if it has change the data
+            const oldPlan = gatheredData.Plans.find(p => p.PlanID === plan.PlanID);
+            if (oldPlan){
+                const changes = compareData(oldPlan, plan);
+                if (changes){
+                    // TO DO: Change the plan data
+                    console.log('Plan Changes:', changes);
+                }
+            } else {
+                // TO DO: Delete the plan
+                console.log('Plan Deleted:', plan);
+            }
+        }
+
+        // New Carrier
+        const newCarriers = gatheredData.Carriers.filter(c => checkIfAdditions(c, 'CarrierID'));
+        if (newCarriers.length > 0){
+            // TO DO: Add the new carriers
+            console.log('New Carriers:', newCarriers);
+        }
+
+        // New Tier
+        const newTiers = gatheredData.Tiers.filter(t => checkIfAdditions(t, 'TierID'));
+        if (newTiers.length > 0){
+            // TO DO: Add the new tiers
+            console.log('New Tiers:', newTiers);
+        }
+
+        // New Plan
+        const newPlans = gatheredData.Plans.filter(p => checkIfAdditions(p, 'PlanID'));
+        if (newPlans.length > 0){
+            // TO DO: Add the new plans
+            console.log('New Plans:', newPlans);
+        }
+    }
+    //on load
     document.addEventListener('DOMContentLoaded', async () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const carrierId = urlParams.get('id');
-        console.log(carrierId);
-        const carrier = await searchCarrierByJson({CarrierID: carrierId});
-        const plans = await searchPlanByJson({CarrierID: carrierId});
-        const tiers = await searchTierByJson({EmployerID: carrier[0].EmployerID});
-        addTable(plans, tiers, carrier);
+        if(!localStorage.getItem('employerID')){
+            alert('No company data found in local storage. Please go back and enter company data.');
+            return;
+        }
+        // TO DO: Write some code here to get the carrier, tier, and plan data from the server and format it for the table
+        // get the id from local storage
+        const employerID = localStorage.getItem('employerID');
+        // get the data from the server
+        const fullData = await getFullTable('Employer', employerID);
+        // format the data for the table
+        const carriers = fullData.Carriers.map(carrier => {
+            return {
+                CarrierName: carrier.CarrierName,
+                CarrierID: carrier.CarrierID
+            };
+        });
+        const tiers = fullData.Tiers.map(tier => {
+            return {
+                TierName: tier.TierName,
+                MaxAge: tier.MaxAge,
+                MinAge: tier.MinAge,
+                TierID: tier.TierID
+            };
+        });
+        // loop through the plans and add them to the data object
+        // for each carrier add a new object with the tier name as the key and the plan data as the value
+        // get the active plans
+        const activePlans = await searchActivePlans(employerID);
+        // only keep the active plans
+        // MARKER
+        fullData.Plans = fullData.Plans.filter(plan => activePlans.includes(plan.PlanID));
 
-        document.getElementById('submitBtn').addEventListener('click', gatherInputsAndSend)
-    });
-    function addTable(plans, tiers, carriers) {
-        const tableContainer = document.getElementById('tableContainer');
+        const data = {};
+        fullData.Plans.forEach(plan => {
+            if (!data[plan.CarrierName]) {
+                data[plan.CarrierName] = {};
+            }
+            data[plan.CarrierName][plan.TierName] = {
+                'Funding Amount': plan.FundingAmount || '',
+                'Grenz Fee': plan.GrenzFee || '',
+                'Grenz Fee C': plan.GrenzFeeC || '',
+                'Grenz Fee S': plan.GrenzFeeS || '',
+                'PlanID': plan.PlanID || -1
+            };
+        });
+
+        // save tier, carrier, and plan data to local storage
+        localStorage.setItem('companyData', JSON.stringify(fullData));
+
+
+
         
-        carriers.forEach(carrier => {
-            const carrierPlans = plans.filter(plan => plan.CarrierID === carrier.CarrierID);
-            console.log('Carrier plans:', carrierPlans);
+        addTable(tiers, carriers, data);
 
+        document.getElementById('addCarrierButton').addEventListener('click', () => {
+            const newCarrierName = `Carrier ${carriers.length + 1}`;
+            carriers.push({ CarrierName: newCarrierName });
+            data[newCarrierName] = {};
+            tiers.forEach(tier => {
+                data[newCarrierName][tier.TierName] = { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' };
+            });
+            updateTables(tiers, carriers, data);
+        });
+
+        document.getElementById('addTierButton').addEventListener('click', () => {
+            const newTierName = `New Tier ${tiers.length + 1}`;
+            tiers.push({ TierName: newTierName, MaxAge: '', MinAge: '' });
+            carriers.forEach(carrier => {
+                data[carrier.CarrierName][newTierName] = { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' };
+            });
+            updateTables(tiers, carriers, data);
+        });
+
+        document.getElementById('deleteCarrierButton').addEventListener('click', () => {
+            if (carriers.length > 0) {
+                const carrierToDelete = carriers.pop();
+                delete data[carrierToDelete.CarrierName];
+                updateTables(tiers, carriers, data);
+            }
+        });
+
+        document.getElementById('deleteTierButton').addEventListener('click', () => {
+            if (tiers.length > 0) {
+                const tierToDelete = tiers.pop().TierName;
+                carriers.forEach(carrier => {
+                    delete data[carrier.CarrierName][tierToDelete];
+                });
+                updateTables(tiers, carriers, data);
+            }
+        });
+
+        document.getElementById('submitButton').addEventListener('click', () => {
+            const gatheredData = gatherData(tiers, carriers, data);
+            submitTable(gatheredData);
+        });
+    });
+
+    function countWarnings(warnings){
+        let count = 0;
+        for (let warning in warnings){
+            if (warnings[warning].hasOwnProperty('toString')){
+                count += countWarnings(warning[warning]);
+            } else {
+                count++;
+            } 
+        }
+        return count;
+    }
+    function gatherData(tiers, carriers, data) {
+        const gatheredData = {
+            Carriers: carriers.map(carrier => ({"CarrierName": carrier.CarrierName, "CarrierID": carrier.CarrierID || -1})),
+            Tiers: tiers.map(tier => ({
+                TierName: tier.TierName,
+                MaxAge: tier.MaxAge || null,
+                MinAge: tier.MinAge || null,
+                TierID: tier.TierID || -1
+            })),
+            Plans: []
+        };
+
+        carriers.forEach(carrier => {
+            tiers.forEach(tier => {
+                const planData = data[carrier.CarrierName][tier.TierName];
+                gatheredData.Plans.push({
+                    CarrierName: carrier.CarrierName,
+                    TierName: tier.TierName,
+                    FundingAmount: planData['Funding Amount'] || null,
+                    GrenzFee: planData['Grenz Fee'] || null,
+                    GrenzFeeC: planData['Grenz Fee C'] || null,
+                    GrenzFeeS: planData['Grenz Fee S'] || null,
+                    PlanID: planData.PlanID || -1
+                });
+            });
+        });
+
+        return gatheredData;
+    }
+
+    function updateTables(tiers, carriers, data) {
+        const tableContainer = document.getElementById('tableContainer');
+        tableContainer.innerHTML = '';
+        addTable(tiers, carriers, data);
+    }
+
+    function addTable(tiers, carriers, data) {
+        const tableContainer = document.getElementById('tableContainer');
+
+        const updateTierNames = () => {
+            document.querySelectorAll('.tier-input').forEach((input) => {
+                // Check if the new name is the same as any of the old names except the one being edited
+                // const newName = input.value;
+                // if (tiers.filter((tier, index) => index !== parseInt(input.dataset.index) && tier.TierName === newName).length > 0){
+                //     input.value = tiers[input.dataset.index].TierName;
+                //     //warn user that the name is already in use
+                //     alert('Tier name already in use: ' + newName + '. \nPlease change before changing anything else or submitting.');
+                //     return;
+                // }
+                input.value = tiers[input.dataset.index].TierName;
+            });
+        };
+
+        const updateCarrierNames = () => {
+            document.querySelectorAll('.carrier-input').forEach((input) => {
+                const oldName = input.dataset.oldName || input.defaultValue;
+                const newName = input.value;
+                if (newName === '' || carriers.filter(carrier => carrier.CarrierName === newName).length > 1) {
+                    return;
+                }
+                if (oldName !== newName) {
+                    carriers.find(carrier => carrier.CarrierName === oldName).CarrierName = newName;
+                    Object.defineProperty(data, newName, Object.getOwnPropertyDescriptor(data, oldName));
+                    delete data[oldName];
+                    input.dataset.oldName = newName;
+
+                    // Update all data-input fields to reflect new carrier name
+                    document.querySelectorAll('.data-input').forEach(dataInput => {
+                        if (dataInput.dataset.carrier === oldName) {
+                            dataInput.dataset.carrier = newName;
+                        }
+                    });
+                }
+            });
+        };
+
+        const updateTierAges = (index, field, value) => {
+            tiers[index][field] = value;
+            document.querySelectorAll(`.tier-age-input[data-index="${index}"][data-field="${field}"]`).forEach(input => {
+                input.value = value;
+            });
+        };
+
+        carriers.forEach(carrier => {
             const newTableWrapper = document.createElement('div');
             newTableWrapper.className = 'tableWrapper';
             newTableWrapper.innerHTML = `
-                <h2>${carrier.CarrierName}</h2>
+                <input type="text" class="carrier-input" value="${carrier.CarrierName}" data-old-name="${carrier.CarrierName}">
                 <table>
                     <thead>
                         <tr>
-                            <th>Tier</th>
-                            <th>Funding Amount</th>
-                            <th>Grenz Fee</th>
-                            <th>Grenz Fee C</th>
-                            <th>Grenz Fee S</th>
-                            <th>Max age</th>
-                            <th>Min age</th>
+                            <th>Data</th>
+                            ${tiers.map((tier, index) => `
+                                <th>
+                                    <input type="text" class="tier-input" data-index="${index}" value="${tier.TierName}">
+                                </th>
+                            `).join('')}
                         </tr>
                     </thead>
                     <tbody>
-                        ${carrierPlans.map(plan => {
-                            const tierName = tiers.find(tier => tier.TierID === plan.TierID)?.TierName || 'null';
-                            const fundingAmount = plan.FundingAmount || '0';
-                            const grenzFee = plan.GrenzFee || '0';
-                            const grenzFeeC = plan.GrenzFeeC || '0';
-                            const grenzFeeS = plan.GrenzFeeS || '0';
-                            const maxAge = tiers.find(tier => tier.TierID === plan.TierID)?.MaxAge || '+100' ;
-                            const minAge = tiers.find(tier => tier.TierID === plan.TierID)?.MinAge || '0' ;
-                            
-                            return `
-                                <tr>
-                                    <td><input type="text" value="${tierName}" disabled></td>
-                                    <td><input type="text" value="${fundingAmount}"></td>
-                                    <td><input type="text" value="${grenzFee}"></td>
-                                    <td><input type="text" value="${grenzFeeC}"></td>
-                                    <td><input type="text" value="${grenzFeeS}"></td>
-                                    <td><input type="text" value="${maxAge}"></td>
-                                    <td><input type="text" value="${minAge}"></td>
-                                </tr>
-                            `;
-                        }).join('')}
+                        ${['Funding Amount', 'Grenz Fee', 'Grenz Fee C', 'Grenz Fee S'].map(dataType => `
+                            <tr>
+                                <td>${dataType}</td>
+                                ${tiers.map(tier => `
+                                    <td>
+                                        <input type="text" class="data-input" data-carrier="${carrier.CarrierName}" data-tier="${tier.TierName}" data-type="${dataType}" value="${data[carrier.CarrierName][tier.TierName][dataType] || ''}">
+                                    </td>
+                                `).join('')}
+                            </tr>
+                        `).join('')}
+                        <tr>
+                            <td>Max Age</td>
+                            ${tiers.map((tier, index) => `
+                                <td>
+                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MaxAge" value="${tier.MaxAge}">
+                                </td>
+                            `).join('')}
+                        </tr>
+                        <tr>
+                            <td>Min Age</td>
+                            ${tiers.map((tier, index) => `
+                                <td>
+                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MinAge" value="${tier.MinAge}">
+                                </td>
+                            `).join('')}
+                        </tr>
                     </tbody>
                 </table>
             `;
             tableContainer.appendChild(newTableWrapper);
         });
-    }
 
-    function gatherInputsAndSend() {
-        const tables = document.querySelectorAll('.tableWrapper table');
-        const carrierDetails = [];
-
-        tables.forEach(table => {
-            const carrierName = table.previousElementSibling.textContent;
-            const rows = table.querySelectorAll('tbody tr');
-            rows.forEach(row => {
-                const inputs = row.querySelectorAll('input');
-                const planDetails = {
-                    Tier: inputs[0].value,
-                    FundingAmount: inputs[1].value,
-                    GrenzFee: inputs[2].value,
-                    GrenzFeeC: inputs[3].value,
-                    GrenzFeeS: inputs[4].value,
-                    MaxAge: inputs[5].value,
-                    MinAge: inputs[6].value
-                };
-                carrierDetails.push({
-                    CarrierName: carrierName,
-                    PlanDetails: planDetails
+        document.querySelectorAll('.tier-input').forEach(input => {
+            input.addEventListener('input', (event) => {
+                const index = event.target.dataset.index;
+                // Make sure the new name is not the same as any of the old names except the one being edited
+                if (tiers.filter((tier, i) => i !== parseInt(index) && tier.TierName === event.target.value).length > 0){
+                    //warn user that the name is already in use
+                    alert('Tier name already in use: ' + event.target.value + '. \nPlease change before changing anything else or submitting.');
+                    // event.target.value = tiers[index].TierName;
+                    return;
+                }
+                if (event.target.value === '') {
+                    //event.target.value = tiers[index].TierName;
+                    return;
+                }
+                tiers[index].TierName = event.target.value;
+                // update carriers data
+                carriers.forEach(carrier => {
+                    const oldTierName = event.target.dataset.oldName || event.target.defaultValue;
+                    data[carrier.CarrierName][event.target.value] = data[carrier.CarrierName][oldTierName];
+                    delete data[carrier.CarrierName][oldTierName];
                 });
+                updateTierNames();
+                event.target.dataset.oldName = event.target.value;
+            });
+        });
+
+        document.querySelectorAll('.carrier-input').forEach(input => {
+            input.addEventListener('input', () => {
+                updateCarrierNames();
+            });
+        });
+
+        document.querySelectorAll('.data-input').forEach(input => {
+            input.addEventListener('input', (event) => {
+                const { carrier, tier, type } = event.target.dataset;
+
+                // Convert NodeList to an array and find the current input elements
+                const carrierInputs = Array.from(document.querySelectorAll('.carrier-input'));
+                const tierInputs = Array.from(document.querySelectorAll('.tier-input'));
+
+                // Get the current carrier and tier names or fallback to the dataset values
+                const currentCarriername = carrierInputs.find(c => c.defaultValue === carrier)?.dataset.oldName || carrier;
+                const currentTiername = tierInputs.find(t => t.defaultValue === tier)?.dataset.oldName || tier;
+
+                // If the old names have changed, update the data object accordingly
+                if (data[currentCarriername] && data[currentCarriername][currentTiername]) {
+                    // Update the existing data
+                    data[currentCarriername][currentTiername][type] = event.target.value;
+                } else {
+                    // If the names have changed, update the data structure to reflect the changes
+                    if (!data[carrier]) data[carrier] = {};
+                    if (!data[carrier][tier]) data[carrier][tier] = {};
+                    data[carrier][tier][type] = event.target.value;
+
+                    // Update the old names to reflect the new names
+                    const carrierInput = carrierInputs.find(c => c.defaultValue === carrier);
+                    if (carrierInput) carrierInput.dataset.oldName = carrier;
+                    
+                    const tierInput = tierInputs.find(t => t.defaultValue === tier);
+                    if (tierInput) tierInput.dataset.oldName = tier;
+                }
+            });
+        });
+
+        document.querySelectorAll('.tier-age-input').forEach(input => {
+            input.addEventListener('input', (event) => {
+                const index = event.target.dataset.index;
+                const field = event.target.dataset.field;
+                updateTierAges(index, field, event.target.value);
             });
         });
     }
-
+    
 </script>
+
+</body>
 </html>

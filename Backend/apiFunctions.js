@@ -256,17 +256,31 @@ async function addPlan(planJson) {
     return await apiRequest("/plan", "POST", planJson);
 }
 
+// DO NOT USE THIS FUNCTION, IT IS NOT SAFE FOR BACKDATING AND IS ONLY FOR TESTING use modifyPlan instead
 async function changePlan(planId, partialJson) {
     return await apiRequest(`/plan/${planId}`, "PATCH", partialJson);
 }
 
+// Use this function, The other one is not safe for backdating and is only for testing
+async function modifyPlan(planId, partialJson) {
+    return await apiRequest(`/plan/${planId}/modify`, "PATCH", partialJson);
+}
+
+// DO NOT USE THIS FUNCTION, IT IS NOT SAFE FOR BACKDATING AND IS ONLY FOR TESTING use endPlan instead
 async function deletePlan(planId) {
     return await apiRequest(`/plan/${planId}`, "DELETE");
+}
+
+// Use this function, The other one is not safe for backdating and is only for testing
+async function endPlan(planId) {
+    return await apiRequest(`/plan/${planId}/end`, "DELETE");
 }
 
 async function searchActivePlans(EmployeerId) {
     return await apiRequest(`/plan/${EmployeerId}/active`);
 }
+
+
 
 ////// General API Functions //////
 async function getAllTable(tableName) {
@@ -345,7 +359,9 @@ export {
     searchActivePlans,
     addPlan,
     changePlan,
+    modifyPlan,
     deletePlan,
+    endPlan,
     getAllTable,
     searchTableById,
     searchTableByName,
