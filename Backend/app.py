@@ -927,7 +927,7 @@ def end_plan(cursor, plan_id):
         #end all the employee plans
         employee_plans = get_active_depfree(cursor, "EmployeePlan", plan_id, "EndDate", "PlanID")
         for employee_plan in employee_plans:
-                change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], {"EndDate": end_date, "InformEndDate": end_date})
+            change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], {"EndDate": end_date, "InformEndDate": end_date})
     except Exception as e:
         raise ValueError(f"End Plan: " + str(e))
 
