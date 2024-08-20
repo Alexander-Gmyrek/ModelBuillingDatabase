@@ -1,5 +1,7 @@
 *This is a work in progress right now.
 
+You can now run The full project.
+
 To run the Back-end database 
 1. Navigate to Backend folder in terminal (cd ./Backend)
 2. Then run: "docker-compose up --build"

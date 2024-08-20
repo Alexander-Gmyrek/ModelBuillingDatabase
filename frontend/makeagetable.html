@@ -3,125 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Make Age Table</title>
+    <title>Make 3 Tier Table</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .button-container {
+            margin-bottom: 20px;
+        }
+        button {
+            background: #007BFF;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .tableWrapper {
+            margin-bottom: 20px;
+        }
+        .tableWrapper input[type="text"] {
+            width: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        .tableWrapper table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .tableWrapper th,
+        .tableWrapper td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .tableWrapper th {
+            background-color: #f2f2f2;
+        }
+        .tableWrapper tr:hover {
+            background-color: #f1f1f1;
+        }
+        .carrier-input {
+            font-size: 18px;
+            font-weight: bold;
+            width: calc(100% - 10px);
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 <body>
 
-<h1>Make Age Table</h1>
-
-<div id="tableContainer">
-    <!-- Initial table with a header and rows -->
-    <div class="tableWrapper" id="tableWrapper_1">
-        <h2>Table 1: <input id="carrierName_1" type="text" value="Carrier 1"></h2>
-        <table id="editableTable_1">
-            <thead>
-                <tr>
-                    <th><input type="text" value="Plan Name"></th>
-                    <th><input type="text" value="0-17"></th>
-                    <th><input type="text" value="18-25"></th>
-                    <th><input type="text" value="26-35"></th>
-                    <th><input type="text" value="36-45"></th>
-                    <th><input type="text" value="Admin Fee"></th>
-                    <th></th> <!-- Placeholder for delete button -->
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><input type="text" value="Plan A"></td>
-                    <td><input type="number" value="$"></td>
-                    <td><input type="number" value="$"></td>
-                    <td><input type="number" value="$"></td>
-                    <td><input type="number" value="$"></td>
-                </tr>
-            </tbody>
-        </table>
-        
-        <button onclick="addColumn(1)">Add Column</button>
-        <button onclick="deleteLastColumn(1)">Delete Last Column</button>
-    </div>
+<div class="button-container">
+    <button id="addCarrierButton">Add Carrier</button>
+    <button id="addTierButton">Add Tier</button>
+    <button id="deleteCarrierButton">Delete Carrier</button>
+    <button id="deleteTierButton">Delete Tier</button>
+    <button id="submitButton">Submit</button>
 </div>
+<div id="tableContainer"></div>
 
-<button onclick="addTable()">Add Table</button>
-<button onclick="submitTable()">Submit</button>
-
-<script>
-    let tableCount = 1; // Counter for tracking tables
-
-    function addColumn(tableId) {
-        const table = document.getElementById(`editableTable_${tableId}`);
-        const headerRow = table.rows[0];
-        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-
-        const newHeaderCell = document.createElement('th');
-        const newHeaderInput = document.createElement('input');
-        newHeaderInput.type = 'text';
-        newHeaderInput.value = 'New Column ' + (headerRow.cells.length - 5);
-        newHeaderCell.appendChild(newHeaderInput);
-        headerRow.insertBefore(newHeaderCell, headerRow.cells[headerRow.cells.length - 1]);
-
-        for (let row of rows) {
-            const newCell = row.insertCell(row.cells.length - 1);
-            newCell.innerHTML = '<input type="number">';
-        }
-    }
-
-    function deleteLastColumn(tableId) {
-        const table = document.getElementById(`editableTable_${tableId}`);
-        const headerRow = table.rows[0];
-        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-
-        if (headerRow.cells.length <= 2) {
-            alert("You cannot delete the last column!");
-            return;
-        }
-
-        headerRow.deleteCell(headerRow.cells.length - 2);
-        for (let row of rows) {
-            row.deleteCell(row.cells.length - 2);
-        }
-    }
-
-    function addTable() {
-        tableCount++;
-        const tableContainer = document.getElementById('tableContainer');
-        const newTableWrapper = document.createElement('div');
-        newTableWrapper.className = 'tableWrapper';
-        newTableWrapper.id = `tableWrapper_${tableCount}`;
-        newTableWrapper.innerHTML = `
-            <h2>Table ${tableCount}: <input id="carrierName_${tableCount}" type="text" value="Carrier ${tableCount}"></h2>
-            <table id="editableTable_${tableCount}">
-                <thead>
-                    <tr>
-                        <th><input type="text" value="Plan Name"></th>
-                        <th><input type="text" value="0-17"></th>
-                        <th><input type="text" value="18-25"></th>
-                        <th><input type="text" value="26-35"></th>
-                        <th><input type="text" value="36-45"></th>
-                        <th><input type="text" value="Admin Fee"></th>
-                        <th></th> <!-- Placeholder for delete button -->
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><input type="text" value="Plan A"></td>
-                        <td><input type="number" value="$"></td>
-                        <td><input type="number" value="$"></td>
-                        <td><input type="number" value="$"></td>
-                        <td><input type="number" value="$"></td>
-                    </tr>
-                </tbody>
-            </table>
-            
-            <button onclick="addColumn(${tableCount})">Add Column</button>
-            <button onclick="deleteLastColumn(${tableCount})">Delete Last Column</button>
-        `;
-        tableContainer.appendChild(newTableWrapper);
-    }
+<script type="module">
+    import {
+        addEmployer,
+        getFullTable
+    } from './apiFunctions.js';
 
     // Modified submitTable function
-    async function submitTable() {
+    async function submitTable(gatheredData) {
         // Retrieve the stored company data from localStorage
         const companyDataString = localStorage.getItem('companyData');
+        console.log(companyDataString);
         if (!companyDataString) {
             console.error('No company data found in localStorage');
             return;
@@ -130,136 +86,411 @@
         // Parse the stored JSON string into an object
         const companyData = JSON.parse(companyDataString);
 
-        // Initialize arrays to hold the collected data
-        const carriers = [];
-        const tiers = [];
-        const plans = [];
+        //console.log
 
-        // Track IDs for Carriers and Tiers
-        let carrierID = 1;
-        let tierID = 1;
-        let planID = 1;
+        // Apend the gathered data to the companyData object
+        companyData.Tiers = gatheredData.Tiers;
+        companyData.Carriers = gatheredData.Carriers;
+        companyData.Plans = gatheredData.Plans;
 
-        for (let i = 1; i <= tableCount; i++) {
-            // Collect carrier data
-            const carrierName = document.getElementById(`carrierName_${i}`).value;
-            const carrierObject = {
-                "CarrierID": carrierID,
-                "EmployerID": 1, // Replace with actual EmployerID
-                "CarrierName": carrierName,
-            };
-            carriers.push(carrierObject);
-
-            // Collect tier data based on the header row of the table
-            const table = document.getElementById(`editableTable_${i}`);
-            const headerCells = table.rows[0].cells;
-            
-            for (let j = 1; j < headerCells.length - 1; j++) { // Ignore the first cell (Plan Name) and the last cell (Admin Fee)
-                const tierNameInput = headerCells[j].getElementsByTagName('input')[0].value;
-                let minAge = 0;
-                let maxAge = 100;
-
-                // Parse min and max age from the tier name
-                const ageRangeMatch = tierNameInput.match(/(\d+)-(\d+)/);
-                if (ageRangeMatch) {
-                    minAge = parseInt(ageRangeMatch[1]);
-                    maxAge = parseInt(ageRangeMatch[2]);
-                }
-
-                const tierObject = {
-                    "TierID": tierID,
-                    "EmployerID": 1, // Replace with actual EmployerID
-                    "TierName": null, // Set to null as per the requirements
-                    "MaxAge": maxAge,
-                    "MinAge": minAge
-                };
-                tiers.push(tierObject);
-                tierID++;
-            }
-
-            // Collect plan data for each row in the table
-            const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-
-            for (let row of rows) {
-                const inputs = row.getElementsByTagName('input');
-                const planName = inputs[0].value;
-
-                // Iterate over each input for funding details, except the last which is the admin fee
-                for (let j = 1; j < inputs.length - 1; j++) {
-                    // Create a plan object for each column
-                    const planObject = {
-                        "PlanID": planID,
-                        "EmployerID": 1, // Replace with actual EmployerID
-                        "CarrierID": carrierID,
-                        "CarrierName": carrierName,
-                        "PlanName": planName,
-                        "FundingAmount": parseFloat(inputs[j].value) || 0,
-                        "GrenzFee": parseFloat(inputs[inputs.length - 1].value) || 0,
-                        "TierID": j // This maps to the tier position (1 for 0-17, 2 for 18-25, etc.)
-                    };
-                    plans.push(planObject);
-                    planID++;
-                }
-            }
-
-            // Increment the carrier ID for the next table
-            carrierID++;
-        }
-
-        // Add the collected data to the company data object
-        companyData['Carriers'] = carriers;
-        companyData['Tiers'] = tiers;
-        companyData['Plans'] = plans;
-
-        // Log the complete data to the console
+        // Log the complete data to the console for debugging
         console.log('Complete Data:', companyData);
 
         // Send the complete data to the server
         try {
-            await addEmployer(companyData);
-            alert('Data submitted successfully!');
+            const response = await addEmployer(companyData);
+            // update the company id with the new_id from response
+            companyData.EmployerID = response.new_id;
+            // update the company data in local storage
+            localStorage.setItem('companyData', JSON.stringify(companyData));
+            let userAlert = 'Data submitted successfully!'
+            // Notify of warnings
+            if (response.warnings) {
+                console.warn('Submission warnings:', response.warnings);
+                //add warnings to local storage
+                localStorage.setItem('warnings', JSON.stringify(response.warnings));
+                // add the number of warnings to the user alert
+                userAlert += '\nWarnings ' + countWarnings(response.warnings);
+            }
+
+            // check if there is missing data and alert the user
+            //get the data
+            const employerID = companyData.EmployerID;
+            const missingData = await checkForMissingData(employerID, companyData);
+            //add missing data to local storage
+            localStorage.setItem('missingData', JSON.stringify(missingData));
+            console.log(missingData);
+            if (missingData.length > 0){
+                for (let data of missingData){
+                    for (let key in data){
+                        if(data[key] && data[key].length != 0){
+                            userAlert += '\nFailed to add ' + key + ': '; /*+ JSON.stringify(data[key]).join(', ');*/
+                        }
+                    }
+                }
+            }
+
+            alert(userAlert);
+
             // Optionally, clear the localStorage or redirect to another page
-            localStorage.removeItem('companyData'); // Clear the storage after submission
+            //localStorage.removeItem('companyData'); // Clear the storage after submission
+
+            //window.location.href = 'reviewcompany.html';
+
         } catch (error) {
             console.error('Error submitting data:', error);
             alert('Failed to submit data.');
         }
     }
 
-    // Placeholder for the apiFunctions.js methods.
-    // In a real scenario, these would be imported from the actual `apiFunctions.js` file.
-    const BASE_URL = "http://localhost:5000";
+    async function checkForMissingData(employerID,  companyData){
+        //get the full table
+        const myfullTable = await getFullTable('Employer', employerID);
+        const fullTable = myfullTable.Element
+        console.log(fullTable);
+        
+        let missingData = [];
+        //check for missing carriers
+        const missingCarriers = companyData.Carriers.filter(c => !fullTable.Carriers.find(fc => fc.CarrierName === c.CarrierName));
+        const missingCarrierNames = missingCarriers.map(c => c.CarrierName);
+        missingData.push({"Carriers": missingCarrierNames});
 
-    // Helper function to make API requests
-    async function apiRequest(endpoint, method = "GET", body = null) {
-        const options = {
-            method,
-            headers: {
-                "Content-Type": "application/json"
+        //check for missing tiers
+        const missingTiers = companyData.Tiers.filter(t => !fullTable.Tiers.find(ft => ft.TierName === t.TierName));
+        const missingTierNames = missingTiers.map(t => t.TierName);
+        missingData.push({"Tiers": missingTierNames});
+
+        //check for missing plans
+        //for (let plan of companyData.Plans){
+        //    if (!fullTable.Plans.find(p => p.PlanName === plan.PlanName)){
+        //        missingData.push(plan.PlanName);
+        //    }
+        //}
+
+        //check for missing employees
+        const missingEmployees = companyData.Employees.filter(e => !fullTable.Employees.find(fe => fe.EmployeeFullName === e.EmployeeFullName));
+        const missingEmployeeNames = missingEmployees.map(e => e.EmployeeFullName);
+        missingData.push({"Employees": missingEmployeeNames});
+
+        //check for missing dependents
+        const allMissingDependents = [];
+        const allMissingEmployeePlans = [];
+        for (let employee of companyData.Employees){
+            let fullEmployee = fullTable.Employees.find(e => e.EmployeeFullName === employee.EmployeeFullName);
+            if (!fullEmployee){
+                continue;
+            }else{
+                //check for missing dependents
+                if(employee.Dependents){
+                    let missingDependents = [];
+                    let missingDependentNames = [];
+                    missingDependents = employee.Dependents.filter(d => {
+                        const match = fullEmployee.Dependents.find(fd => fd.DependentName === d.DependentName);
+                        //if (!match) {
+                            //console.log(`Missing: ${d.DependentName}`);
+                            //console.log(`Full Employee: ${JSON.stringify(fullEmployee)}`);
+                            //console.log(`Employee Dependents: ${JSON.stringify(employee.Dependents)}`);
+                        //}
+                        return !match;
+                    });
+                    missingDependentNames = missingDependents.map(d => d.DependentName);
+                    if(missingDependentNames.length > 0){
+                        allMissingDependents.push({[fullEmployee.EmployeeFullName]: missingDependentNames});
+                    }
+                    
+                }
+                
+
+                // Check to make sure the employee has an employee plan
+                if (!fullEmployee.EmployeePlan){
+                    allMissingEmployeePlans.push(fullEmployee.EmployeeFullName);
+                }
+            }
+        }
+        missingData.push({"Dependents": allMissingDependents});
+        missingData.push({"EmployeePlan": allMissingEmployeePlans});
+        return missingData;
+    }
+    //on load
+    document.addEventListener('DOMContentLoaded', async () => {
+        if(!localStorage.getItem('companyData')){
+            alert('No company data found in local storage. Please go back and enter company data.');
+            return;
+        }
+        const carriers = [
+            { CarrierName: 'C1' }
+        ];
+        const tiers = [
+            { TierName: '0-49', MaxAge: '', MinAge: '' },
+            { TierName: '50-100', MaxAge: '', MinAge: '' }
+        ];
+        const data = {
+            'C1': {
+                '0-49': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' },
+                '49-100': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' }
             }
         };
+        addTable(tiers, carriers, data);
 
-        if (body) {
-            options.body = JSON.stringify(body);
-        }
+        document.getElementById('addCarrierButton').addEventListener('click', () => {
+            const newCarrierName = `Carrier ${carriers.length + 1}`;
+            carriers.push({ CarrierName: newCarrierName });
+            data[newCarrierName] = {};
+            tiers.forEach(tier => {
+                data[newCarrierName][tier.TierName] = { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' };
+            });
+            updateTables(tiers, carriers, data);
+        });
 
-        try {
-            const response = await fetch(`${BASE_URL}${endpoint}`, options);
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
+        document.getElementById('addTierButton').addEventListener('click', () => {
+            const newTierName = `New Tier ${tiers.length + 1}`;
+            tiers.push({ TierName: newTierName, MaxAge: '', MinAge: '' });
+            carriers.forEach(carrier => {
+                data[carrier.CarrierName][newTierName] = { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' };
+            });
+            updateTables(tiers, carriers, data);
+        });
+
+        document.getElementById('deleteCarrierButton').addEventListener('click', () => {
+            if (carriers.length > 0) {
+                const carrierToDelete = carriers.pop();
+                delete data[carrierToDelete.CarrierName];
+                updateTables(tiers, carriers, data);
             }
-            return await response.json();
-        } catch (error) {
-            console.error("API Request Error:", error);
-            throw error;
+        });
+
+        document.getElementById('deleteTierButton').addEventListener('click', () => {
+            if (tiers.length > 0) {
+                const tierToDelete = tiers.pop().TierName;
+                carriers.forEach(carrier => {
+                    delete data[carrier.CarrierName][tierToDelete];
+                });
+                updateTables(tiers, carriers, data);
+            }
+        });
+
+        document.getElementById('submitButton').addEventListener('click', () => {
+            const gatheredData = gatherData(tiers, carriers, data);
+            submitTable(gatheredData);
+        });
+    });
+
+    function countWarnings(warnings){
+        let count = 0;
+        for (let warning in warnings){
+            if (warnings[warning].hasOwnProperty('toString')){
+                count += countWarnings(warning[warning]);
+            } else {
+                count++;
+            } 
         }
+        return count;
+    }
+    function gatherData(tiers, carriers, data) {
+        const gatheredData = {
+            Carriers: carriers.map(carrier => ({"CarrierName": carrier.CarrierName})),
+            Tiers: tiers.map(tier => ({
+                TierName: tier.TierName,
+                MaxAge: tier.MaxAge || null,
+                MinAge: tier.MinAge || null
+            })),
+            Plans: []
+        };
+
+        carriers.forEach(carrier => {
+            tiers.forEach(tier => {
+                const planData = data[carrier.CarrierName][tier.TierName];
+                gatheredData.Plans.push({
+                    CarrierName: carrier.CarrierName,
+                    TierName: tier.TierName,
+                    FundingAmount: planData['Funding Amount'] || null,
+                    GrenzFee: planData['Grenz Fee'] || null,
+                    GrenzFeeC: planData['Grenz Fee C'] || null,
+                    GrenzFeeS: planData['Grenz Fee S'] || null
+                });
+            });
+        });
+
+        return gatheredData;
     }
 
-    // Function to add an employer
-    async function addEmployer(employerJson) {
-        return await apiRequest("/employer", "POST", employerJson);
+    function updateTables(tiers, carriers, data) {
+        const tableContainer = document.getElementById('tableContainer');
+        tableContainer.innerHTML = '';
+        addTable(tiers, carriers, data);
     }
+
+    function addTable(tiers, carriers, data) {
+        const tableContainer = document.getElementById('tableContainer');
+
+        const updateTierNames = () => {
+            document.querySelectorAll('.tier-input').forEach((input) => {
+                // Check if the new name is the same as any of the old names except the one being edited
+                // const newName = input.value;
+                // if (tiers.filter((tier, index) => index !== parseInt(input.dataset.index) && tier.TierName === newName).length > 0){
+                //     input.value = tiers[input.dataset.index].TierName;
+                //     //warn user that the name is already in use
+                //     alert('Tier name already in use: ' + newName + '. \nPlease change before changing anything else or submitting.');
+                //     return;
+                // }
+                input.value = tiers[input.dataset.index].TierName;
+            });
+        };
+
+        const updateCarrierNames = () => {
+            document.querySelectorAll('.carrier-input').forEach((input) => {
+                const oldName = input.dataset.oldName || input.defaultValue;
+                const newName = input.value;
+                if (newName === '' || carriers.filter(carrier => carrier.CarrierName === newName).length > 1) {
+                    return;
+                }
+                if (oldName !== newName) {
+                    carriers.find(carrier => carrier.CarrierName === oldName).CarrierName = newName;
+                    Object.defineProperty(data, newName, Object.getOwnPropertyDescriptor(data, oldName));
+                    delete data[oldName];
+                    input.dataset.oldName = newName;
+
+                    // Update all data-input fields to reflect new carrier name
+                    document.querySelectorAll('.data-input').forEach(dataInput => {
+                        if (dataInput.dataset.carrier === oldName) {
+                            dataInput.dataset.carrier = newName;
+                        }
+                    });
+                }
+            });
+        };
+
+        const updateTierAges = (index, field, value) => {
+            tiers[index][field] = value;
+            document.querySelectorAll(`.tier-age-input[data-index="${index}"][data-field="${field}"]`).forEach(input => {
+                input.value = value;
+            });
+        };
+
+        carriers.forEach(carrier => {
+            const newTableWrapper = document.createElement('div');
+            newTableWrapper.className = 'tableWrapper';
+            newTableWrapper.innerHTML = `
+                <input type="text" class="carrier-input" value="${carrier.CarrierName}" data-old-name="${carrier.CarrierName}">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            ${tiers.map((tier, index) => `
+                                <th>
+                                    <input type="text" class="tier-input" data-index="${index}" value="${tier.TierName}">
+                                </th>
+                            `).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${['Funding Amount', 'Grenz Fee', 'Grenz Fee C', 'Grenz Fee S'].map(dataType => `
+                            <tr>
+                                <td>${dataType}</td>
+                                ${tiers.map(tier => `
+                                    <td>
+                                        <input type="text" class="data-input" data-carrier="${carrier.CarrierName}" data-tier="${tier.TierName}" data-type="${dataType}" value="${data[carrier.CarrierName][tier.TierName][dataType] || ''}">
+                                    </td>
+                                `).join('')}
+                            </tr>
+                        `).join('')}
+                        <tr>
+                            <td>Max Age</td>
+                            ${tiers.map((tier, index) => `
+                                <td>
+                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MaxAge" value="${tier.MaxAge}">
+                                </td>
+                            `).join('')}
+                        </tr>
+                        <tr>
+                            <td>Min Age</td>
+                            ${tiers.map((tier, index) => `
+                                <td>
+                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MinAge" value="${tier.MinAge}">
+                                </td>
+                            `).join('')}
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+            tableContainer.appendChild(newTableWrapper);
+        });
+
+        document.querySelectorAll('.tier-input').forEach(input => {
+            input.addEventListener('input', (event) => {
+                const index = event.target.dataset.index;
+                // Make sure the new name is not the same as any of the old names except the one being edited
+                if (tiers.filter((tier, i) => i !== parseInt(index) && tier.TierName === event.target.value).length > 0){
+                    //warn user that the name is already in use
+                    alert('Tier name already in use: ' + event.target.value + '. \nPlease change before changing anything else or submitting.');
+                    // event.target.value = tiers[index].TierName;
+                    return;
+                }
+                if (event.target.value === '') {
+                    //event.target.value = tiers[index].TierName;
+                    return;
+                }
+                tiers[index].TierName = event.target.value;
+                // update carriers data
+                carriers.forEach(carrier => {
+                    const oldTierName = event.target.dataset.oldName || event.target.defaultValue;
+                    data[carrier.CarrierName][event.target.value] = data[carrier.CarrierName][oldTierName];
+                    delete data[carrier.CarrierName][oldTierName];
+                });
+                updateTierNames();
+                event.target.dataset.oldName = event.target.value;
+            });
+        });
+
+        document.querySelectorAll('.carrier-input').forEach(input => {
+            input.addEventListener('input', () => {
+                updateCarrierNames();
+            });
+        });
+
+        document.querySelectorAll('.data-input').forEach(input => {
+            input.addEventListener('input', (event) => {
+                const { carrier, tier, type } = event.target.dataset;
+
+                // Convert NodeList to an array and find the current input elements
+                const carrierInputs = Array.from(document.querySelectorAll('.carrier-input'));
+                const tierInputs = Array.from(document.querySelectorAll('.tier-input'));
+
+                // Get the current carrier and tier names or fallback to the dataset values
+                const currentCarriername = carrierInputs.find(c => c.defaultValue === carrier)?.dataset.oldName || carrier;
+                const currentTiername = tierInputs.find(t => t.defaultValue === tier)?.dataset.oldName || tier;
+
+                // If the old names have changed, update the data object accordingly
+                if (data[currentCarriername] && data[currentCarriername][currentTiername]) {
+                    // Update the existing data
+                    data[currentCarriername][currentTiername][type] = event.target.value;
+                } else {
+                    // If the names have changed, update the data structure to reflect the changes
+                    if (!data[carrier]) data[carrier] = {};
+                    if (!data[carrier][tier]) data[carrier][tier] = {};
+                    data[carrier][tier][type] = event.target.value;
+
+                    // Update the old names to reflect the new names
+                    const carrierInput = carrierInputs.find(c => c.defaultValue === carrier);
+                    if (carrierInput) carrierInput.dataset.oldName = carrier;
+                    
+                    const tierInput = tierInputs.find(t => t.defaultValue === tier);
+                    if (tierInput) tierInput.dataset.oldName = tier;
+                }
+            });
+        });
+
+        document.querySelectorAll('.tier-age-input').forEach(input => {
+            input.addEventListener('input', (event) => {
+                const index = event.target.dataset.index;
+                const field = event.target.dataset.field;
+                updateTierAges(index, field, event.target.value);
+            });
+        });
+    }
+    
 </script>
 
 </body>
 </html>
+// do imports
