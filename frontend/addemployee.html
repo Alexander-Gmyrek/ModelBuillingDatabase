@@ -61,6 +61,7 @@
 
     <script type="module">
         import {
+            addEmployee,
             getFullTable,
             searchEmployerById,
             searchEmployeeByJson,
@@ -213,7 +214,7 @@
             const employeeJson = Object.fromEntries(formData);
     
             try {
-                await addEmployee(employeeJson); // Using the API function to add employee
+                await instEmployee(employeeJson); // Using the API function to add employee
                 alert('Employee added successfully!');
                 // Redirect or handle success as needed
             } catch (error) {
@@ -223,15 +224,54 @@
         });
     
         // API function to add an employee
-        async function addEmployee(employeeData) {
+        async function instEmployee(employeeData) {
             try {
-                const response = await addEmployee(employeeData);
-                console.log('Employee added:', response);
-                // Handle response if needed
+                // Construct the Employee object
+                const employee = {
+                    EmployerID: employeeData.EmployerID, // This should be retrieved from the company data or form
+                    EmployeeFullName: document.getElementById('employeeFullName'),
+                    StartDate: document.getElementById('joinDate'),
+                    EndDate: null,
+                    InformStartDate: document.getElementById('informJoinDate'),
+                    InformEndDate: null,
+                    DOB: document.getElementById('dob'),
+                    CobraStatus: document.getElementById('COBRA') || null,
+                    Notes: document.getElementById('notes') || '',
+                    GlCode: document.getElementById('GL') || null,
+                    Division: document.getElementById('Division') || null,
+                    Location: document.getElementById('Location') || null,
+                    Title: document.getElementById('Title') || null,
+                    Carrier: document.getElementById('carrier'),
+                    Tier: document.getElementById('tier')
+                };
+                console.log(employee);
+
+                // Add dependents to the employee object if any
+                employee.Dependents = [];
+                const rows = document.querySelectorAll('#editableTable tbody tr');
+                rows.forEach(row => {
+                    const dependentName = row.querySelector('input[name="dependentName"]').value;
+                    const dependentRelationship = row.querySelector('input[name="dependentRelationship"]').value;
+                    const dependentDOB = row.querySelector('input[name="dependentDOB"]').value;
+
+                    if (dependentName && dependentRelationship && dependentDOB) {
+                        employee.Dependents.push({
+                            DependentName: dependentName,
+                            DependentRelationship: dependentRelationship,
+                            DependentDOB: dependentDOB
+                        });
+                    }
+                });
+
+                // Now, call the API function to actually add the employee to the database
+                await addEmployee(employee);
+                alert('Employee added successfully!');
             } catch (error) {
-                throw error;
+                console.error('Error adding employee:', error);
+                alert('Failed to add employee.');
             }
-        }
+}
+
     </script>
 </body>
 </html>
