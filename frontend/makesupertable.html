@@ -267,9 +267,16 @@
             }
         });
 
-        document.getElementById('submitButton').addEventListener('click', () => {
+        document.getElementById('submitButton').addEventListener('click', async () => {
             const gatheredData = gatherData(tiers, carriers, data);
-            submitTable(gatheredData);
+            try{
+                const response = await submitTable(gatheredData);
+            }catch(e){
+                console.log(e);
+                return;
+            }
+            //window.location.href = 'reviewcompany.html';
+            window.location.href = 'index.html';
         });
     });
 
