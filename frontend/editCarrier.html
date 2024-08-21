@@ -190,15 +190,18 @@
     }
     //on load
     document.addEventListener('DOMContentLoaded', async () => {
-        if(!localStorage.getItem('employerID')){
-            alert('No company data found in local storage. Please go back and enter company data.');
-            return;
-        }
+        const urlParams = new URLSearchParams(window.location.search);
+        const employerID = urlParams.get('id');
         // TO DO: Write some code here to get the carrier, tier, and plan data from the server and format it for the table
         // get the id from local storage
-        const employerID = localStorage.getItem('employerID');
+        // const employerID = localStorage.getItem('employerID');
         // get the data from the server
-        const fullData = await getFullTable('Employer', employerID);
+        const fullD = await getFullTable('Employer', employerID);
+
+        const fullData = fullD.Element
+
+        console.log(fullData)
+        console.log(fullD)
         // format the data for the table
         const carriers = fullData.Carriers.map(carrier => {
             return {

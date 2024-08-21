@@ -19,6 +19,16 @@
         <label for="notes">Notes:</label><br>
         <input type="text" id="notes" name="Notes"><br>
 
+        <label for="carrier">carrier:</label>
+        <select id="carrier" name="carrier">
+            <option value="">Select a category</option>
+        </select>
+
+        <label for="tier">tier:</label>
+        <select id="tier" name="tier">
+            <option value="">Select an item</option>
+        </select>
+
         <!-- Inputs for GL, Division, Location, Title, and COBRA -->
         <div id="companyInfoInputs">
             <!-- These inputs will be dynamically added based on company data -->
@@ -49,10 +59,26 @@
         <button type="submit">Submit</button>
     </form>
 
-    <script>
+    <script type="module">
+        import {
+            getFullTable,
+            searchEmployerById,
+            searchEmployeeByJson,
+            searchEmployeePlanByJson,
+            searchActiveEmployees,
+            searchActivePlans,
+            searchCarrierByJson,
+            searchTierByJson,
+            searchPlanByJson,
+            searchEmployeeByName,
+            generateReport
+            
+        } from './apiFunctions.js'
+
+
         document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
-            const companyId = urlParams.get('companyId');
+            const companyId = urlParams.get('id');
 
             if (!companyId) {
                 console.error('No company ID found in URL parameters');
@@ -60,8 +86,11 @@
             }
 
             try {
-                const company = await searchEmployerById(companyId);
+                const companyResponse = await getFullTable("Employer", companyId);
+                const company = companyResponse.Element;
                 displayCompanyInfoInputs(company);
+                createTierCarrierDropdown(company);
+
             } catch (error) {
                 console.error('Error fetching company details:', error);
             }
@@ -123,6 +152,34 @@
             return label;
         }
 
+        function createTierCarrierDropdown(company){
+            const carrier = company.Carriers;
+            const tier = company.Tiers;
+            console.log(company);
+            console.log(carrier);
+            console.log(tier);
+
+            const carrierSelect = document.getElementById('carrier');
+            const tierSelect = document.getElementById('tier');
+
+            // Fetch carrier from an external API
+            // Populate carrier dropdown
+            carrier.forEach(carrier => {
+                const option = document.createElement('option');
+                option.value = carrier.CarrierId;
+                option.textContent = carrier.CarrierName;
+                carrierSelect.appendChild(option);
+            });
+
+            tier.forEach(tier => {
+                const option = document.createElement('option');
+                option.value = tier.TierId;
+                option.textContent = tier.TierName;
+                tierSelect.appendChild(option);
+            });
+
+        }
+
         // Function to add a new row to the table
         function addRow() {
             const table = document.getElementById('editableTable').getElementsByTagName('tbody')[0];
@@ -178,4 +235,7 @@
     </script>
 </body>
 </html>
-// add plan
+// choose carrier
+// choose choose tier
+// first, middle, last names
+//fix add employee functiom

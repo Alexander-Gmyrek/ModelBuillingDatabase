@@ -125,7 +125,7 @@
 
         <div class="search-container">
             <input type="text" id="employeeSearchInput" placeholder="Search employees..." onkeyup="filterEmployees()">
-            <a href="addemployee.html" class="button">
+            <a href="addemployee.html?id=${employerID}" class="button" id="addemployeeButton">
                 <span>Add Employee</span>
             </a>
         </div>
@@ -167,6 +167,8 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const companyId = urlParams.get('id');
+            const myButton = document.getElementById("addemployeeButton");
+            myButton.herf = "addemployee.html?id=" + companyId;
 
             if (!companyId) {
                 console.error('No company ID found in URL parameters');
