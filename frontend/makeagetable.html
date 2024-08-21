@@ -221,13 +221,13 @@
             { CarrierName: 'C1' }
         ];
         const tiers = [
-            { TierName: '0-49', MaxAge: '', MinAge: '' },
-            { TierName: '50-100', MaxAge: '', MinAge: '' }
+            { TierName: '0-49', MaxAge: 0, MinAge: 49 },
+            { TierName: '50-100', MaxAge: 50, MinAge: 100 }
         ];
         const data = {
             'C1': {
                 '0-49': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' },
-                '49-100': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' }
+                '50-100': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' }
             }
         };
         addTable(tiers, carriers, data);
