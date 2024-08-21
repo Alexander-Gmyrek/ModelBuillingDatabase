@@ -14,6 +14,7 @@ app = Flask(__name__)
 # CORS(app)
 CORS(app, expose_headers=['Content-Disposition'])
 
+
 def get_db_connection():
     connection = mysql.connector.connect(
         host='host.docker.internal',  # This matches the service name defined in docker-compose.yml
