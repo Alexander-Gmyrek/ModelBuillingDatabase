@@ -99,16 +99,18 @@
 
         function displayCompanyInfoInputs(company) {
             const companyInfoInputs = document.getElementById('companyInfoInputs');
+            const companyData = JSON.parse(company);
             
-            if (company.GL !== null) {
+            if (companyData.UsesGlCode !== 0) {
                 const glInput = createInputField('GL', company.GL);
                 companyInfoInputs.appendChild(glInput);
+                console.log(companyData.UsesGlCode);
             } else {
                 const glInput = createInputField('GL');
                 companyInfoInputs.appendChild(glInput);
             }
 
-            if (company.Division !== null) {
+            if (companyData.UsesDivision !== 0){
                 const divisionInput = createInputField('Division', company.Division);
                 companyInfoInputs.appendChild(divisionInput);
             } else {
@@ -116,7 +118,7 @@
                 companyInfoInputs.appendChild(divisionInput);
             }
 
-            if (company.Location !== null) {
+            if (companyData.UsesLocation !== 0) {
                 const locationInput = createInputField('Location', company.Location);
                 companyInfoInputs.appendChild(locationInput);
             } else {
@@ -124,7 +126,7 @@
                 companyInfoInputs.appendChild(locationInput);
             }
 
-            if (company.Title !== null) {
+            if (companyData.UsesTitle !== 0) {
                 const titleInput = createInputField('Title', company.Title);
                 companyInfoInputs.appendChild(titleInput);
             } else {
@@ -132,13 +134,13 @@
                 companyInfoInputs.appendChild(titleInput);
             }
 
-            if (company.COBRA !== null) {
+            /*if (company.COBRA !== 0) {
                 const cobraInput = createInputField('COBRA', company.COBRA);
                 companyInfoInputs.appendChild(cobraInput);
             } else {
                 const cobraInput = createInputField('COBRA');
                 companyInfoInputs.appendChild(cobraInput);
-            }
+            }*/
         }
 
         function createInputField(labelText, value = '') {
@@ -212,9 +214,11 @@
     
             const formData = new FormData(event.target);
             const employeeJson = Object.fromEntries(formData);
+            const companyId = urlParams.get('id');
+            
     
             try {
-                await instEmployee(employeeJson); // Using the API function to add employee
+                await instEmployee(employeeJson, companyId); // Using the API function to add employee
                 alert('Employee added successfully!');
                 // Redirect or handle success as needed
             } catch (error) {
@@ -224,11 +228,11 @@
         });
     
         // API function to add an employee
-        async function instEmployee(employeeData) {
+        async function instEmployee(employeeData, companyId) {
             try {
                 // Construct the Employee object
                 const employee = {
-                    EmployerID: employeeData.EmployerID, // This should be retrieved from the company data or form
+                    EmployerID: companyId, // This should be retrieved from the company data or form
                     EmployeeFullName: document.getElementById('employeeFullName'),
                     StartDate: document.getElementById('joinDate'),
                     EndDate: null,
