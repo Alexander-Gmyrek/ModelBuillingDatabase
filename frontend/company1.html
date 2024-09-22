@@ -125,7 +125,7 @@
 
         <div class="search-container">
             <input type="text" id="employeeSearchInput" placeholder="Search employees..." onkeyup="filterEmployees()">
-            <a href="addemployee.html" class="button">
+            <a class="button" id="addemployeeButton">
                 <span>Add Employee</span>
             </a>
         </div>
@@ -167,6 +167,8 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const companyId = urlParams.get('id');
+            const myButton = document.getElementById("addemployeeButton");
+            myButton.href = "addemployee.html?id=" + companyId;
 
             if (!companyId) {
                 console.error('No company ID found in URL parameters');
@@ -208,7 +210,7 @@
                     };
                 });
                 console.log('Plans:', plans);
-                addTable(plans, tiers, carriers);
+                addTable(plans, tiers, carriers, companyId);
             } catch (error) {
                 console.error('Error fetching company details:', error);
             }
@@ -225,9 +227,9 @@
             generateReport(companyId, year, month);
         });
 
-        function addTable(plans, tiers, carriers) {
+        function addTable(plans, tiers, carriers, companyId) {
             const tableContainer = document.getElementById('tableContainer');
-            
+
             carriers.forEach(carrier => {
                 const carrierPlans = plans.filter(plan => plan.CarrierID === carrier.CarrierID);
                 console.log('Carrier plans:', carrierPlans);
@@ -236,7 +238,7 @@
                 newTableWrapper.className = 'tableWrapper';
                 newTableWrapper.innerHTML = `
                     <h2>${carrier.CarrierName}</h2>
-                    <a href="editCarrier.html?id=${carrier.CarrierID}" class="button">
+                    <a href="editCarrier.html?id=${companyId}" class="button">
                         <span>Edit Plan</span>
                     </a>
                     <table>
