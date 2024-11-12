@@ -1024,9 +1024,12 @@ def swap_employee_plan(cursor, employeeplan_id, new_plan_id, start_date, inform_
         old_employee_plan = get_element_by_id(cursor, "EmployeePlan", employeeplan_id)
         # End the old plan
         if not end_date:
-            end_date = datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=1)
+            # I am changing this to the same as start date because then the plans will calculate the difference owed correctly.
+            # Ok so I finally remembered why I did this. It was because I was worried that the end date being the same as the start date would cause issues but I was wrong.
+            # end_date = datetime.strptime(start_date, '%Y-%m-%d') - timedelta(days=1)
+            end_date = start_date
         old_employee_plan["EndDate"] = end_date
-        old_employee_plan["InformEndDate"] = inform_end_date if inform_end_date else end_date
+        old_employee_plan["InformEndDate"] = inform_end_date if inform_end_date else inform_start_date
         change_element_by_table_name(cursor, "EmployeePlan", employeeplan_id, old_employee_plan)
         # Create the new plan for the employee
         new_employee_plan = {
@@ -1444,15 +1447,18 @@ def add_data_test(df, notes, employee_name, plan, tier, funding_amount):
 
 def generate_month_range(start, end):
     # Convert start and end to date objects if they aren't already
-    if isinstance(start, datetime):
-        start = start.date()
-    if isinstance(end, datetime):
-        end = end.date()
-    current = start
-    while current <= end:
-        yield date(current.year, current.month, 1)
-        current += timedelta(days=calendar.monthrange(current.year, current.month)[1])
-        current = date(current.year, current.month, 1)
+    try:
+        if isinstance(start, datetime):
+            start = start.date()
+        if isinstance(end, datetime):
+            end = end.date()
+        current = start
+        while current <= end:
+            yield date(current.year, current.month, 1)
+            current += timedelta(days=calendar.monthrange(current.year, current.month)[1])
+            current = date(current.year, current.month, 1)
+    except Exception as e:
+        raise ValueError(f"Generate Month Range: " + str(e))
 
 def update_dependents(dependents, new_entries):
     try:
@@ -1720,6 +1726,9 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                     notes.append("Joined " + str(current_month) + "/" +  str(current_year))
                     #raise ValueError("Join Worked")
                     print(f"{employee_name} joined")
+                    daterange = generate_month_range(join_date, join_inform_date)
+                    # this is how you properly display the output of a generator as a string
+                    notes.append("Testing generate_month_range: " + ", ".join([str(date) for date in daterange]))
                     for back_date in generate_month_range(join_date, join_inform_date):
                         plan_id = get_plan_for_employee(cursor, employee_id, back_date)
                         f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
@@ -1730,39 +1739,54 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                         dependents = update_dependents(dependents, new_dependents)
             except Exception as e:
                 raise ValueError(f"Error handeling join inform date for {employee_name}: {e}")
+            
+            # This section handles changes in plans
+            # 
             try:
                 for plan in employee_plans:
                     plan_id, start_date, inform_start_date, end_date, inform_end_date = plan
                     if end_date and inform_end_date < date(current_year, current_month, 1):
                         continue
-                    if inform_start_date == date(current_year, current_month, 1):
-                        notes.append("Started Plan " + start_date.month() + "/" +  start_date.year())
-                        for back_date in generate_month_range(start_date, inform_start_date):
-                            f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
-                            funding_amount += f_amount
-                            grenz_fee += g_fee
-                            carrier_names.append(carrier_name)
-                            tier_names.append(tier_name)
-                            dependents = update_dependents(dependents, new_dependents)
+                    try:
+                        if inform_start_date == date(current_year, current_month, 1):
+                            notes.append("Started Plan " + str(start_date.month) + "/" + str(start_date.year) + " Inform Start Date: " + str(inform_start_date))
+                            for back_date in generate_month_range(start_date, inform_start_date):
+                                if(back_date == datetime(current_year, current_month, 1).date()):
+                                    continue
+                                f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
+                                funding_amount += f_amount
+                                grenz_fee += g_fee
+                                carrier_names.append(carrier_name)
+                                tier_names.append(tier_name)               
+                                dependents = update_dependents(dependents, new_dependents)
+                    except Exception as e:
+                        # errnotes = ", ".join(notes)
+                        raise ValueError(f"Error in inform startdate == date. Startdate = {inform_start_date}")
 
-                    if inform_end_date == date(current_year, current_month, 1):
-                        notes.append("Ended Plan " + end_date.month() + "/" +  end_date.year())
-                        for back_date in generate_month_range(end_date, inform_end_date):
-                            if(back_date == datetime(current_year, current_month, 1).date()):
-                                continue
-                            #Update the plan_id incase the end date is less then the start date 
-                            plan_id = get_plan_for_employee(cursor, employee_id, back_date)
-                            f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
-                            funding_amount -= f_amount
-                            grenz_fee -= g_fee
-                            carrier_names.append(carrier_name)
-                            tier_names.append(tier_name)
-                            dependents = update_dependents(dependents, new_dependents)
+                    try:
+                        if inform_end_date == date(current_year, current_month, 1):
+                            notes.append("Ended Plan " + str(end_date.month) + "/" +  str(end_date.year))
+                            for back_date in generate_month_range(end_date, inform_end_date):
+                                if(back_date == datetime(current_year, current_month, 1).date()):
+                                    continue
+                                #Update the plan_id incase the end date is less then the start date 
+                                plan_id = get_plan_for_employee(cursor, employee_id, back_date)
+                                f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
+                                funding_amount -= f_amount
+                                grenz_fee -= g_fee
+                                carrier_names.append(carrier_name)
+                                tier_names.append(tier_name)
+                                dependents = update_dependents(dependents, new_dependents)
+                    except Exception as e:
+                        raise ValueError(f"Error in inform enddate == date. Enddate = {inform_end_date}: {e}")
             except Exception as e:
                 raise ValueError(f"Error handling plans for {employee_name}: {e}")
                 
             try:
                 if not carrier_names or not tier_names:
+                    # check if notes are not empty
+                    if notes:
+                        notes.append("Not finding carrier name but has notes.")
                     try:
                         plan_id = get_plan_for_employee(cursor, employee_id, datetime(current_year, current_month, 1).date())
                     except Exception as e:

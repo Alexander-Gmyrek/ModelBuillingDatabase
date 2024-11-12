@@ -91,6 +91,9 @@
             <input type="radio" id="ageBandedTiered" name="TierStructure" value="Age Banded Tiered">
             <label for="ageBandedTiered" class="radio-label">Age Banded Tiered</label>
         </div>
+
+        <input type="checkbox" id="autogenerate" name="autogenerate" value="autogenerate">
+        <label for="autogenerate">Auto-generate tiers and carriers</label>
         
         <button type="submit">Next</button>
     </form>
@@ -129,6 +132,55 @@
                     data['Employees'] = [];
                 }
 
+                // Validate the data
+                if (!data['EmployerName']) {
+                    alert('Please enter the company name');
+                    return;
+                }
+                if (!data['RenewalDate']) {
+                    alert('Please enter the renewal date');
+                    return;
+                }
+                if (!data['PerferedBillingDate']) {
+                    alert('Please enter the preferred billing date');
+                    return;
+                }
+                if (!data['TierStructure']) {
+                    alert('Please select a tier structure');
+                    return;
+                }
+                if (data['Employees'].length === 0) {
+                    alert('Please upload an employee template file');
+                    return;
+                }
+                if (data['TierStructure'] === 'Age Banded' && data['Employees'].some(e => !e.DOB)) {
+                    alert('Please ensure all employees have a Date of Birth');
+                    return;
+                }
+                if (data['TierStructure'] === 'Age Banded Composite' && data['Employees'].some(e => !e.DOB)) {
+                    alert('Please ensure all employees have a Date of Birth');
+                    return;
+                }
+                if (data['Employees'].some(e => !e.Tier)) {
+                    alert('Not all employees have a Tier. Continue?');
+                    //return;
+                }
+                if (data['Employees'].some(e => !e.Carrier)) {
+                    alert('Not all employees have a Carrier. Continue?');
+                    //return;
+                }
+                renewalDate = new Date(data["RenewalDate"]);
+                if (renewalDate >= new Date()) {
+                    alert('Renewal Date should be in the past. Preferably when the company joined as this will serve as the defult for backdating');
+                    //return;
+                }
+                // parse the year from perfered billing date
+                PerferedBillingYear = new Date(data["PerferedBillingDate"]).getFullYear();
+                if (PerferedBillingYear > 2400 || PerferedBillingYear < 1900) {
+                    alert('Prefered Billing Date should must be a valid date before the year 2400 and after 1900.');
+                    return;
+                }
+
                 // Store data locally
                 localStorage.setItem('companyData', JSON.stringify(data));
 
@@ -152,6 +204,48 @@
                         break;
                     default:
                         nextPage = 'default_page.html'; // Default page if tier is not specified
+                }
+
+                // Check if the autogenerate checkbox is checked
+                const autogenerate = formData.get('autogenerate') === 'autogenerate';
+
+                if(autogenerate == true){
+                    tiers = []
+                    carriers = []
+                    basicCarriers = []
+                    data['Employees'].forEach(employee => {
+                        if (!tiers.includes(employee.Tier)) {
+                            tiers.push(employee.Tier);
+                        }
+                        if (!carriers.includes(employee.Carrier)) {
+                            carriers.push(employee.Carrier);
+                        }
+                    });
+                    // Tiers should be formated as: { TierName: 'Employee', MaxAge: '', MinAge: '' },
+                    // CarrierData should be formated as: 'CarrierName': {
+                        //'T1': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' },
+                        //'T2': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' }
+                    // }
+                    // Carries should be formated as: [{ CarrierName: 'C1' }]
+                    formatedBasicCarriers = []
+                    carriers.forEach(carrier => {
+                        formatedBasicCarriers.push({ CarrierName: carrier });
+                    });
+                    formatedTiers = []
+                    tiers.forEach(tier => {
+                        formatedTiers.push({ TierName: tier, MaxAge: '', MinAge: '' });
+                    });
+                    formatedCarriers = {}
+                    carriers.forEach(carrier => {
+                        formatedCarriers[carrier] = {}
+                        tiers.forEach(tier => {
+                            formatedCarriers[carrier][tier] = { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' }
+                        });
+                    });
+                    localStorage.setItem('tiers', JSON.stringify(formatedTiers));
+                    localStorage.setItem('carriers', JSON.stringify(formatedBasicCarriers));
+                    localStorage.setItem('carrierData', JSON.stringify(formatedCarriers));
+                    nextPage = 'makeautogeneratetable.html';
                 }
 
                 // Redirect to the next page
@@ -207,8 +301,23 @@
 
                         // Arrays to hold employees and dependents
                         const employees = [];
-                        
 
+                        // This should be unnecessary but it just checks if all the employees have the same name
+                        // If they do, it will be used as the employee name
+                        // If not, the first and last name will be used
+                        let checkIfTheyAcidentalyPutTheEmployeeFullNameAsTheCompanyName = true;
+                        let employeeName = jsonData[0]['Employee Name'];
+                        jsonData.forEach((row, index) => {
+                            if (row['Employee Name'] !== employeeName) {
+                                employeeName = null;
+                                checkIfTheyAcidentalyPutTheEmployeeFullNameAsTheCompanyName = false;
+
+                            }
+                        });
+                        if (checkIfTheyAcidentalyPutTheEmployeeFullNameAsTheCompanyName) {
+                            alert('Employee Name is the same for all employees. Using it as the employee name');
+                        }
+                        
                         // Convert the Excel data to the employee objects
                         jsonData.forEach((row, index) => {
                             const employee = {
