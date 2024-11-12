@@ -38,14 +38,19 @@ async function apiRequest(endpoint, method = "GET", body = null) {
 
             console.log("headers: " + JSON.stringify(headersObj) + " content-type: " + response.headers.get("content-type"));
             return response.blob().then(blob => {
-                console.log("Downloading Excel file");
+                console.log("Downloading Excel file: " + response.headers.get("content-disposition").split("filename=")[1]);
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = response.headers.get("content-disposition").split("filename=")[1];
+                // Get the filename from Content-Disposition and remove any surrounding quotes
+                let filename = response.headers.get("content-disposition").split("filename=")[1];
+                filename = decodeURIComponent(filename.replace(/^"|"$/g, '')); // Remove any leading/trailing quotes
+                console.log("filename: " + filename);
+                a.download = filename;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
+                console.log("a:" + a);
             });
         } else {
             return response.json();

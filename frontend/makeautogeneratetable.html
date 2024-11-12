@@ -217,22 +217,42 @@
             alert('No company data found in local storage. Please go back and enter company data.');
             return;
         }
-        const carriers = [
-            { CarrierName: 'Carrier1' }
+        
+        const defultCarriers = [
+            { CarrierName: 'No carriers found' }
         ];
-        const tiers = [
-            { TierName: 'Employee', MaxAge: '', MinAge: '' },
-            { TierName: 'EE + Spouse', MaxAge: '', MinAge: '' },
-            { TierName: 'EE + Child(ren)', MaxAge: '', MinAge: '' },
-            { TierName: 'EE + Family', MaxAge: '', MinAge: '' }
+        const defultTiers = [
+            { TierName: 'No tiers found', MaxAge: '', MinAge: '' },
         ];
-        const data = {
-            'Carrier1': {
-                'EE': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' },
-                'EE+1': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' },
-                'EE+2': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' }
+        const defultData = {
+            'No carriers found': {
+                'No tiers found': {
+                    'Funding Amount': '',
+                    'Grenz Fee': '',
+                    'Grenz Fee C': '',
+                    'Grenz Fee S': ''
+                }
             }
         };
+        // Get the tiers carriers and data from the local storage
+        const tierFromLocal = JSON.parse(localStorage.getItem('tiers'));
+        const carriersFromLocal = JSON.parse(localStorage.getItem('carriers'));
+        const dataFromLocal = JSON.parse(localStorage.getItem('carrierData'));
+
+        const tiers = tierFromLocal;
+        const carriers = carriersFromLocal;
+        const data = dataFromLocal;
+        // Check if the data is in the local storage make sure to remember this uses consts
+        if (!tiers) {
+            tiers = defultTiers;
+        }
+        if (!carriers) {
+            carriers = defultCarriers;
+        }
+        if (!data) {
+            data = defultData;
+        }
+
         addTable(tiers, carriers, data);
 
         document.getElementById('addCarrierButton').addEventListener('click', () => {
