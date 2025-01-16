@@ -332,7 +332,15 @@
                                 employee.EmployeeFullName = row['Employee Name'];
                             }else if (employee.EmployeeFirstName === null || employee.EmployeeLastName === null){
                                 throw new Error('Employee must have a Name');
-                            }else{
+                            }/* check if this works- Jagger
+                            //probably want to make this the main if statement
+                            else if(row['Employee name'].includes(",")){
+                                employee.EmployeeLastName= row['Employee Name'].split(" ").slice(-1)
+                                employee.EmployeeFirstName= row['Employee Name'].split(" ").slice(-1)
+
+                            }
+                            */
+                            else{
                                 employee.EmployeeFullName = employee.EmployeeFirstName + " " + employee.EmployeeLastName;
                             }
                             
