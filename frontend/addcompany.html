@@ -333,13 +333,22 @@
                                 employee.EmployeeFullName = row['Employee Name'];
                             }else if (employee.EmployeeFirstName === null || employee.EmployeeLastName === null){
                                 throw new Error('Employee must have a Name');
-                            }/* check if this works- Jagger
+                            }
+                            /* check if this works- Jagger
                             //probably want to make this the main if statement
+                            if (employee.EmployeeFirstName === null || employee.EmployeeLastName === null){
+                                throw new Error('Employee must have a Name');
+                            }
+                            else if(row['Employee Name']!=employee.EmployeeFirstName + " " + employee.EmployeeLastName){
+                                employee.EmployeeFullName = employee.EmployeeFirstName + " " + employee.EmployeeLastName;
+                            }
                             else if (row['Employee Name'].includes(",")) {
                                 const nameParts = row['Employee Name'].split(",");
                                 employee.EmployeeLastName = nameParts[0].trim(); // Get the part before the comma
                                 employee.EmployeeFirstName = nameParts[1].trim(); // Get the part after the comma
-                                employee.EmployeeFullName = `${employee.EmployeeFirstName} ${employee.EmployeeLastName}`;
+                                employee.EmployeeFullName = employee.EmployeeFirstName + " " + employee.EmployeeLastName;
+                            }else{
+                                employee.EmployeeFullName = row['Employee Name'];
                             }
                             */
                             else{
