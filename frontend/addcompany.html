@@ -328,6 +328,7 @@
                             // Split Employee Name into first and last names
                             employee.EmployeeLastName = row['Last Name'] || null;
                             employee.EmployeeFirstName = row['First Name'] || null;
+                            //prioritize employee firstname lastname over full name
                             if (row['Employee Name']) {
                                 employee.EmployeeFullName = row['Employee Name'];
                             }else if (employee.EmployeeFirstName === null || employee.EmployeeLastName === null){
