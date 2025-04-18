@@ -23,6 +23,7 @@ services:
     ports:
       - "${BACKEND_PORT}:3000"
     environment:
+      - BASE_URL=http://localhost:${BACKEND_PORT}
       - FLASK_APP=app.py
       - FLASK_ENV=development
       - MYSQL_HOST=${MYSQL_HOST}
