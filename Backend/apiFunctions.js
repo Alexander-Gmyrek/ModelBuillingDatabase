@@ -3,7 +3,9 @@
 
 //export default config;
 
-const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
+const BASE_URL = (window.BASE_API_URL || "http://localhost:3000") + "/api";
+
+
 
 
 // Helper function to make API requests
