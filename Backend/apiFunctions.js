@@ -3,7 +3,7 @@
 
 //export default config;
 
-const BASE_URL = (window.BASE_API_URL || "http://localhost:3000") + "/api";
+const BASE_URL = (window.BASE_API_URL || "http://localhost:3000");
 
 
 
