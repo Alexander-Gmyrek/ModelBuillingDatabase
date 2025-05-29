@@ -1,11 +1,5 @@
-// apiFunctions.js
-const config = {
-    MY_BASE_URL: "http://127.0.0.1:3000"
-};
 
-//export default config;
-
-const BASE_URL = config.MY_BASE_URL || "http://localhost:3000";
+const BASE_URL = (window.BASE_API_URL || "http://localhost:3000");
 
 // Helper function to make API requests
 async function apiRequest(endpoint, method = "GET", body = null) {

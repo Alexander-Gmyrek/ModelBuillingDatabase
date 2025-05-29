@@ -17,10 +17,10 @@ CORS(app, expose_headers=['Content-Disposition'])
 
 def get_db_connection():
     connection = mysql.connector.connect(
-        host='host.docker.internal',  # This matches the service name defined in docker-compose.yml
-        user='root',
-        password='Root',
-        database='modelBillingDBv1'
+        host=os.environ.get("MYSQL_HOST", "localhost"),
+        user=os.environ.get("MYSQL_USER", "root"),
+        password=os.environ.get("MYSQL_PASSWORD", ""),
+        database=os.environ.get("MYSQL_DATABASE", "modelBillingDBv1")
     )
     return connection
 

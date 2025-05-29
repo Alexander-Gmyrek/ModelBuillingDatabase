@@ -1,24 +1,20 @@
-# Stage 1: Build the frontend (assuming React, Vue, etc.)
-FROM node:16 AS builder
+# Final version: serve static frontend only
 
-WORKDIR /app
-COPY . .
-
-# Inject environment variable for backend API
-ARG SET_BASE_URL=http://localhost:3000
-ENV REACT_APP_BACKEND_URL=$SET_BASE_URL
-
-RUN npm install && npm run build
-
-# Stage 2: Serve the built app using Nginx
 FROM nginx:alpine
 
-# Replace default nginx config
+# Optional: custom Nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Copy only the build output
-COPY --from=builder /app/build /usr/share/nginx/html
+
+ARG SET_BASE_URL=http://localhost:3000
+ENV SET_BASE_URL=$SET_BASE_URL
+
+COPY . /usr/share/nginx/html
+
+# Inject SET_BASE_URL into config.js from config.template.js
+RUN envsubst '${SET_BASE_URL}' < /usr/share/nginx/html/config.template.js > /usr/share/nginx/html/config.js
+RUN echo "SET_BASE_URL is: $SET_BASE_URL"
+
 
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]
