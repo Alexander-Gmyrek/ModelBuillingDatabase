@@ -1,8 +1,8 @@
-# Stage 1 removed — we don't need to build anything
+# Final version: serve static frontend only
 
 FROM nginx:alpine
 
-# Custom Nginx config (optional)
+# Optional: custom Nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
 
 
@@ -13,6 +13,7 @@ COPY . /usr/share/nginx/html
 
 # Inject SET_BASE_URL into config.js from config.template.js
 RUN envsubst '${SET_BASE_URL}' < /usr/share/nginx/html/config.template.js > /usr/share/nginx/html/config.js
+RUN echo "SET_BASE_URL is: $SET_BASE_URL"
 
 
 EXPOSE 80
