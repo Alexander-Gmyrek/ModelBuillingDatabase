@@ -205,7 +205,7 @@
             event.preventDefault();
 
             const formData = new FormData(event.target);
-            const employeeJson = Object.fromEntries(formData);
+            const employeeJson = JSON.stringify(Object.fromEntries(formData));
             const urlParams = new URLSearchParams(window.location.search);
             const employeeId = urlParams.get('id');
 
