@@ -206,10 +206,12 @@
 
             const formData = new FormData(event.target);
             const employeeJson = Object.fromEntries(formData);
+            const urlParams = new URLSearchParams(window.location.search);
+            const employeeId = urlParams.get('id');
 
             try {
                 // Submit updated employee data
-                await changeEmployee(employeeJson.EmployeeID, employeeJson);
+                await changeEmployee(employeeId, employeeJson);
                 alert('Employee information updated successfully!');
                 // Redirect or handle success as needed
             } catch (error) {

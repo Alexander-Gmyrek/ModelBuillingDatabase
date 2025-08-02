@@ -107,7 +107,7 @@
             let userAlert = 'Data submitted successfully!'
             // Notify of warnings
             if (response.warnings) {
-                console.warn('Submission warnings:', response.warnings);
+                console.warn('Submission warnings:', response.warnings ? countWarnings(response.warnings) > 1 : 'No warnings');
                 //add warnings to local storage
                 localStorage.setItem('warnings', JSON.stringify(response.warnings));
                 // add the number of warnings to the user alert
