@@ -178,6 +178,10 @@ async function deleteEmployee(employeeId) {
     return await apiRequest(`/employee/${employeeId}`, "DELETE");
 }
 
+async function terminateEmployee(employeeId, partialJson) {
+    return await apiRequest(`/employee/${employeeId}/terminate`, "PATCH", partialJson);
+}
+
 // EmployeePlan API Functions
 async function searchAllEmployeePlans() {
     return await apiRequest("/employeeplan");
@@ -368,5 +372,6 @@ export {
     searchTableByName,
     searchTableByJson,
     getFullTable,
-    generateReport
+    generateReport,
+    terminateEmployee
 };
