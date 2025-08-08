@@ -1063,7 +1063,7 @@ def terminate_employee(cursor, employee_id, end_date=None, inform_end_date=None)
                 try:
                     change_element_by_table_name(cursor, "EmployeePlan", employee_plan_id, partial_employee_plan_dict)
                 except Exception as e:
-                    raise ValueError(f"Change Employee Plan: " + str(e))
+                    raise ValueError(f"Change Employee Plan " + employee_plan_id + " Error: " + str(e))
         except Exception as e:
             raise ValueError(f"End Employee Plan: " + str(e))
         dependents = get_active_depfree(cursor, "Dependent", employee_id, "EndDate", "EmployeeID")
