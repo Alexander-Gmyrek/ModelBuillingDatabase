@@ -289,7 +289,13 @@ def terminate_employee_route(id):
     try:
         if "EndDate" not in data or "InformEndDate" not in data:
             return jsonify({"Error": "EndDate and InformEndDate are required"}), 400
-        return terminate_employee(cursor, id, data["EndDate"], data["InformEndDate"])
+        response = terminate_employee(cursor, id, data["EndDate"], data["InformEndDate"])
+        if not response:
+            return jsonify({"Error": "Employee not found"}), 404
+        connection.commit()
+        cursor.close()
+        connection.close()
+        return jsonify("Succesfully terminated employee"), 200
     except KeyError as e:
         return jsonify({"Error": f"Missing key in request data: {str(e)}"}), 400
     except Exception as e:
