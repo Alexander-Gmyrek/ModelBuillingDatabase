@@ -1046,9 +1046,19 @@ def terminate_employee(cursor, employee_id, end_date=None, inform_end_date=None)
                 employee_plans = get_active_depfree(cursor, "EmployeePlan", employee_id, "EndDate", "EmployeeID")
             except Exception as e:
                 raise ValueError(f"Get Employee Plans: " + str(e))
+            if not employee_plans:
+                raise ValueError("No active Employee Plans found for this employee.")
+            if type(employee_plans) is not list:
+                employee_plans = [employee_plans]
             for employee_plan in employee_plans:
-                partial_employee_plan_dict = {"EndDate": end_date, "InformEndDate": end_date}
-                change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], partial_employee_plan_dict)
+                try:
+                    partial_employee_plan_dict = {"EndDate": end_date, "InformEndDate": end_date}
+                except Exception as e:
+                    raise ValueError(f"Setting End Date for Employee Plan: " + str(e))
+                try:
+                    change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], partial_employee_plan_dict)
+                except Exception as e:
+                    raise ValueError(f"Change Employee Plan: " + str(e))
         except Exception as e:
             raise ValueError(f"End Employee Plan: " + str(e))
         dependents = get_active_depfree(cursor, "Dependent", employee_id, "EndDate", "EmployeeID")
