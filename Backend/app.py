@@ -273,11 +273,13 @@ def delete_employee(id):
 def terminate_employee_route(id):
     data = request.get_json()
     try:
+        if "EndDate" not in data or "InformEndDate" not in data:
+            return jsonify({"Error": "EndDate and InformEndDate are required"}), 400
         return terminate_employee(id, data["EndDate"], data["InformEndDate"])
     except KeyError as e:
         return jsonify({"Error": f"Missing key in request data: {str(e)}"}), 400
     except Exception as e:
-        return jsonify({"Error": str(e)}), 500
+        return jsonify({"Error Terminating Employee: ": str(e)}), 500
 
 
 ### EmployeePlan Methods ###
@@ -1002,13 +1004,25 @@ def calculate_age(employer_id, dob, year, cursor):
 def terminate_employee(cursor, employee_id, end_date=None, inform_end_date=None):
     try:
         # Get the employee
-        employee = get_element_by_id(cursor, "Employee", employee_id)
+        try:
+            employee = get_element_by_id(cursor, "Employee", employee_id)
+        except Exception as e:
+            raise ValueError(f"Getting Employee: " + str(e))
+        
         # End the employee
         if not end_date:
             raise ValueError("End Date is required to terminate an employee.")
-        employee["EndDate"] = end_date
-        employee["InformEndDate"] = inform_end_date if inform_end_date else end_date
-        change_element_by_table_name(cursor, "Employee", employee_id, employee)
+        try:
+            employee["EndDate"] = end_date
+            employee["InformEndDate"] = inform_end_date if inform_end_date else end_date
+        except Exception as e:
+            raise ValueError(f"Setting End Date: " + str(e))
+        
+        try:
+            change_element_by_table_name(cursor, "Employee", employee_id, employee)
+        except Exception as e:
+            raise ValueError(f"Changing Employee: " + str(e))
+        
         #end plan and dependents
         employee_plans = get_active_depfree(cursor, "EmployeePlan", employee_id, "EndDate", "EmployeeID")
         for employee_plan in employee_plans:
