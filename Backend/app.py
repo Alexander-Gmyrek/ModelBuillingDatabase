@@ -859,17 +859,20 @@ def get_date_with_message(element_json, preferred_datename, backup_datename):
     return result, None
 
 def change_element_by_table_name(cursor, table_name: str, element_id, element_json):
-    soft_errors = []
-    # make sure the table name is capitalized
-    table_name = table_name.capitalize()
-    # check if the table name is valid
-    if get_table_fields(table_name, "RequiredFields") == []:
-        raise ValueError(f"Table {table_name} does not exist.")
-    # get the required and optional fields for the table
-    required_fields = get_table_fields(table_name, "RequiredFields")
-    optional_fields = get_table_fields(table_name, "OptionalFields")
-    soft_errors, element_id = change_element(cursor, table_name, element_id, element_json, required_fields, optional_fields)
-    return soft_errors, element_id
+    try:
+        soft_errors = []
+        # make sure the table name is capitalized
+        table_name = table_name.capitalize()
+        # check if the table name is valid
+        if get_table_fields(table_name, "RequiredFields") == []:
+            raise ValueError(f"Table {table_name} does not exist.")
+        # get the required and optional fields for the table
+        required_fields = get_table_fields(table_name, "RequiredFields")
+        optional_fields = get_table_fields(table_name, "OptionalFields")
+        soft_errors, element_id = change_element(cursor, table_name, element_id, element_json, required_fields, optional_fields)
+        return soft_errors, element_id
+    except Exception as e:
+        raise ValueError(f"Change Element by Table Name: " + str(e))
 
 ### Plan Functions ###
 
@@ -1044,7 +1047,8 @@ def terminate_employee(cursor, employee_id, end_date=None, inform_end_date=None)
             except Exception as e:
                 raise ValueError(f"Get Employee Plans: " + str(e))
             for employee_plan in employee_plans:
-                change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], {"EndDate": end_date, "InformEndDate": end_date})
+                partial_employee_plan_dict = {"EndDate": end_date, "InformEndDate": end_date}
+                change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], partial_employee_plan_dict)
         except Exception as e:
             raise ValueError(f"End Employee Plan: " + str(e))
         dependents = get_active_depfree(cursor, "Dependent", employee_id, "EndDate", "EmployeeID")
