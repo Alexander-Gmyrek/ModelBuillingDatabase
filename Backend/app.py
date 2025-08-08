@@ -282,9 +282,14 @@ def terminate_employee_route(id):
     except Exception as e:
         return jsonify({"Error": "Invalid JSON data"}), 400
     try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+    except Exception as e:
+        return jsonify({"Error": "Database connection failed: " + str(e)}), 500
+    try:
         if "EndDate" not in data or "InformEndDate" not in data:
             return jsonify({"Error": "EndDate and InformEndDate are required"}), 400
-        return terminate_employee(id, data["EndDate"], data["InformEndDate"])
+        return terminate_employee(cursor, id, data["EndDate"], data["InformEndDate"])
     except KeyError as e:
         return jsonify({"Error": f"Missing key in request data: {str(e)}"}), 400
     except Exception as e:
