@@ -271,7 +271,14 @@ def delete_employee(id):
 
 @app.route('/employee/<int:id>/terminate', methods=['PATCH'])
 def terminate_employee_route(id):
-    data = request.get_json()
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"Error": "No data provided"}), 400
+        if not isinstance(data, dict):
+            return jsonify({"Error": "Data must be a JSON object"}), 400
+    except Exception as e:
+        return jsonify({"Error": "Invalid JSON data"}), 400
     try:
         if "EndDate" not in data or "InformEndDate" not in data:
             return jsonify({"Error": "EndDate and InformEndDate are required"}), 400
