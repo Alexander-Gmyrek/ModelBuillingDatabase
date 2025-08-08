@@ -1057,9 +1057,9 @@ def terminate_employee(cursor, employee_id, end_date=None, inform_end_date=None)
                     raise ValueError(f"Setting End Date for Employee Plan: " + str(e))
                 # Get employee plan ID
                 try:
-                    employee_plan_id = employee_plan[0] if isinstance(employee_plan, list) else employee_plan["EmployeePlanID"]
+                    employee_plan_id = employee_plan[0] if isinstance(employee_plan, tuple) else employee_plan["EmployeePlanID"]
                 except Exception as e:
-                    raise ValueError(f"Get Employee Plan ID, format looks like: " + employee_plan + str(e))
+                    raise ValueError(f"Get Employee Plan ID, format looks like: " + str(employee_plan) + str(e))
                 try:
                     change_element_by_table_name(cursor, "EmployeePlan", employee_plan_id, partial_employee_plan_dict)
                 except Exception as e:
