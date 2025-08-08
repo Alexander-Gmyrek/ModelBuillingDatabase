@@ -1055,8 +1055,13 @@ def terminate_employee(cursor, employee_id, end_date=None, inform_end_date=None)
                     partial_employee_plan_dict = {"EndDate": end_date, "InformEndDate": end_date}
                 except Exception as e:
                     raise ValueError(f"Setting End Date for Employee Plan: " + str(e))
+                # Get employee plan ID
                 try:
-                    change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], partial_employee_plan_dict)
+                    employee_plan_id = employee_plan["EmployeePlanID"]
+                except Exception as e:
+                    raise ValueError(f"Get Employee Plan ID, format looks like: " + employee_plan + str(e))
+                try:
+                    change_element_by_table_name(cursor, "EmployeePlan", employee_plan_id, partial_employee_plan_dict)
                 except Exception as e:
                     raise ValueError(f"Change Employee Plan: " + str(e))
         except Exception as e:
