@@ -1044,6 +1044,7 @@ def terminate_employee(cursor, employee_id, end_date=None, inform_end_date=None)
         try:
             try:
                 employee_plans = get_active_depfree(cursor, "EmployeePlan", employee_id, "EndDate", "EmployeeID")
+                raise ValueError("Test: " + str(employee_plans))
             except Exception as e:
                 raise ValueError(f"Get Employee Plans: " + str(e))
             if not employee_plans:
