@@ -1038,9 +1038,15 @@ def terminate_employee(cursor, employee_id, end_date=None, inform_end_date=None)
             raise ValueError(f"Changing Employee: " + str(e))
         
         #end plan and dependents
-        employee_plans = get_active_depfree(cursor, "EmployeePlan", employee_id, "EndDate", "EmployeeID")
-        for employee_plan in employee_plans:
-            change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], {"EndDate": end_date, "InformEndDate": end_date})
+        try:
+            try:
+                employee_plans = get_active_depfree(cursor, "EmployeePlan", employee_id, "EndDate", "EmployeeID")
+            except Exception as e:
+                raise ValueError(f"Get Employee Plans: " + str(e))
+            for employee_plan in employee_plans:
+                change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], {"EndDate": end_date, "InformEndDate": end_date})
+        except Exception as e:
+            raise ValueError(f"End Employee Plan: " + str(e))
         dependents = get_active_depfree(cursor, "Dependent", employee_id, "EndDate", "EmployeeID")
         for dependent in dependents:
             change_element_by_table_name(cursor, "Dependent", dependent["DependentID"], {"EndDate": end_date, "InformEndDate": end_date})
