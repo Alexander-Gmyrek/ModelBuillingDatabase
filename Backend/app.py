@@ -862,7 +862,8 @@ def change_element_by_table_name(cursor, table_name: str, element_id, element_js
     try:
         soft_errors = []
         # make sure the table name is capitalized
-        table_name = table_name.capitalize()
+        if table_name[0].islower():
+            table_name = table_name.capitalize()
         # check if the table name is valid
         if get_table_fields(table_name, "RequiredFields") == []:
             raise ValueError(f"Table {table_name} does not exist.")
@@ -1063,7 +1064,7 @@ def terminate_employee(cursor, employee_id, end_date=None, inform_end_date=None)
                 try:
                     change_element_by_table_name(cursor, "EmployeePlan", employee_plan_id, partial_employee_plan_dict)
                 except Exception as e:
-                    raise ValueError(f"Change Employee Plan " + employee_plan_id + " Error: " + str(e))
+                    raise ValueError(f"Change Employee Plan " + str(employee_plan_id) + " Error: " + str(e))
         except Exception as e:
             raise ValueError(f"End Employee Plan: " + str(e))
         dependents = get_active_depfree(cursor, "Dependent", employee_id, "EndDate", "EmployeeID")
