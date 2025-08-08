@@ -212,10 +212,7 @@
 
             if(document.getElementById('terminationCheckbox').checked) {
                 try{
-                    await terminateEmployee(employeeId, JSON.stringify({
-                        EndDate: formData.get('EndDate'),
-                        InformeEndDate: formData.get('InformEndDate')
-                    }));
+                    await terminateEmployee(employeeId, employeeJson);
                     alert('Employee terminated successfully!');
                 } catch (error) {
                     console.error('Error terminating employee:', error);
