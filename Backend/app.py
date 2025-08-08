@@ -276,7 +276,9 @@ def terminate_employee_route(id):
         if not data:
             return jsonify({"Error": "No data provided"}), 400
         if not isinstance(data, dict):
-            return jsonify({"Error": "Data must be a JSON object"}), 400
+            type_of_data = type(data)
+            #return jsonify({f"Error": "Data must be a JSON object data type is: " + type_of_data}), 400
+            data = json.loads(data)
     except Exception as e:
         return jsonify({"Error": "Invalid JSON data"}), 400
     try:
