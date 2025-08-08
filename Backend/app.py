@@ -1182,32 +1182,41 @@ def route_add_element(table_name, element_json):
         return jsonify({"Error": str(e)}), 500
     
 def change_element(cursor, table_name, element_id, element_json, required_fields, optional_fields):
-    data_to_change = json.loads(element_json)
-    soft_errors = []
+    try:
+        if isinstance(element_json, str):
+            # Convert JSON string to dictionary
+            data_to_change = json.loads(element_json)
+        else:
+            data_to_change = element_json
+        soft_errors = []
 
-    # check to see if the element exists
-    cursor.execute(f"SELECT * FROM {table_name} WHERE {table_name}ID = %s", (element_id,))
-    if not cursor.fetchall():
-        raise ValueError("Element does not exist")
+        # check to see if the element exists
+        cursor.execute(f"SELECT * FROM {table_name} WHERE {table_name}ID = %s", (element_id,))
+        if not cursor.fetchall():
+            raise ValueError("Element does not exist")
 
-    # Identify invalid fields
-    valid_fields = required_fields + optional_fields
-    invalid_fields = [field for field in data_to_change if field not in valid_fields]
+        # Identify invalid fields
+        valid_fields = required_fields + optional_fields
+        invalid_fields = [field for field in data_to_change if field not in valid_fields]
 
-    # Log soft errors for invalid fields
-    if invalid_fields:
-        soft_errors.append(f"Invalid fields: {', '.join(invalid_fields)}")
-    
-    # Filter data to include only valid fields
-    filtered_data = {key: value for key, value in data_to_change.items() if key in valid_fields}
+        # Log soft errors for invalid fields
+        if invalid_fields:
+            soft_errors.append(f"Invalid fields: {', '.join(invalid_fields)}")
+        
+        # Filter data to include only valid fields
+        filtered_data = {key: value for key, value in data_to_change.items() if key in valid_fields}
 
-    update_fields = ", ".join([f"{key} = %s" for key in filtered_data])
-    update_values = tuple(filtered_data.values())
+        update_fields = ", ".join([f"{key} = %s" for key in filtered_data])
+        update_values = tuple(filtered_data.values())
 
-    query = f"UPDATE {table_name} SET {update_fields} WHERE {table_name}ID = %s"
-    cursor.execute(query, update_values + (element_id,))
-    
-    return soft_errors, element_id
+        query = f"UPDATE {table_name} SET {update_fields} WHERE {table_name}ID = %s"
+        cursor.execute(query, update_values + (element_id,))
+        
+        return soft_errors, element_id
+    except ValueError as ve:
+        raise ValueError(f"Change Element VE: " + str(ve))
+    except Exception as e:
+        raise ValueError(f"Change Element: " + str(e))
 
 def route_change_element(table_name, element_id, element_json):
     try:
