@@ -272,7 +272,13 @@ def delete_employee(id):
 @app.route('/employee/<int:id>/terminate', methods=['PATCH'])
 def terminate_employee_route(id):
     data = request.get_json()
-    return terminate_employee(id, data["EndDate"], data["InformEndDate"])
+    try:
+        return terminate_employee(id, data["EndDate"], data["InformEndDate"])
+    except KeyError as e:
+        return jsonify({"Error": f"Missing key in request data: {str(e)}"}), 400
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 500
+
 
 ### EmployeePlan Methods ###
 
@@ -817,7 +823,7 @@ def add_element_by_table_name(cursor: MySQLCursor, table_name, element_json):
             elif table_name == "EmployeePlan":
                 element_json["EmployeePlanName"] = f"Plan"
             elif table_name == "Employee":
-                element_json['EmployeeName'] = element_json['EmployeeFullName']
+                element_json['EmployeeFullName'] = element_json['EmployeeFullName']
         return {element_json[f"{table_name}Name"]: soft_errors}, element_id
     except Exception as e:
         raise ValueError(f"Add {table_name}: " + str(e))
