@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Add Company</title>
+    <link rel="stylesheet" href="app.css">
 </head>
 <body>
     <h1>New Company</h1>
@@ -52,12 +53,14 @@
                     nextPage = 'makeagetable.html';
                     break;
                 default:
-                    nextPage = 'default_page.html'; // Default page if tier is not specified
+                    alert('Please select a valid tier structure.');
+                    return;
             }
 
             // Redirect to the next page
             window.location.href = nextPage;
         });
     </script>
+    <script src="app-shell.js" defer></script>
 </body>
 </html>

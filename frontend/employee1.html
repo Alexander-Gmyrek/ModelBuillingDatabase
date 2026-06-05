@@ -2,256 +2,339 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Employee</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f4f4f9;
+            color: #222;
+        }
+
+        form {
+            max-width: 1100px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        label {
+            display: block;
+            margin-top: 12px;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            max-width: 420px;
+            padding: 8px;
+            margin-top: 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        button,
+        input[type="submit"] {
+            margin-top: 14px;
+            margin-right: 8px;
+            background: #007bff;
+            color: #fff;
+            border: 0;
+            border-radius: 4px;
+            padding: 10px 16px;
+            cursor: pointer;
+            width: auto;
+        }
+
+        .secondary {
+            background: #5f6b77;
+        }
+    </style>
+    <link rel="stylesheet" href="app.css">
 </head>
 <body>
     <h1>Edit Employee</h1>
+    <p class="app-page-intro">Update employee details, dependent records, or mark the employee terminated. Termination also ends active dependent and plan records.</p>
 
     <form id="employeeForm">
-        <label for="employeeFullName">Full Name:</label><br>
-        <input type="text" id="employeeFullName" name="EmployeeFullName"><br>
-        <label for="joinDate">Join Date:</label><br>
-        <input type="date" id="joinDate" name="JoinDate"><br>
-        <label for="informJoinDate">Inform Join Date:</label><br>
-        <input type="date" id="informJoinDate" name="InformJoinDate"><br>
-        <label for="dob">Date of Birth:</label><br>
-        <input type="date" id="dob" name="DOB"><br>
-        <label for="notes">Notes:</label><br>
-        <input type="text" id="notes" name="Notes"><br>
+        <label for="employeeFullName">Full Name</label>
+        <input type="text" id="employeeFullName" name="EmployeeFullName" required>
 
-        <div id="companyInfoInputs">
-            <!-- These inputs will be dynamically added based on employee data -->
-        </div>
+        <label for="joinDate">Start Date</label>
+        <input type="date" id="joinDate" name="StartDate">
 
-        <!-- Table structure with header and initial rows -->
+        <label for="informJoinDate">Inform Start Date</label>
+        <input type="date" id="informJoinDate" name="InformStartDate">
+
+        <label for="dob">Date of Birth</label>
+        <input type="date" id="dob" name="DOB">
+
+        <label for="notes">Notes</label>
+        <input type="text" id="notes" name="Notes">
+
+        <div id="companyInfoInputs"></div>
+
+        <h2>Dependents</h2>
         <table id="editableTable">
             <thead>
                 <tr>
                     <th>Dependent Name</th>
-                    <th>Dependent Relationship</th>
-                    <th>Dependent DOB</th>
+                    <th>Relationship</th>
+                    <th>Date of Birth</th>
                     <th>Start Date</th>
                     <th>Inform Start Date</th>
                     <th>End Date</th>
                     <th>Inform End Date</th>
+                    <th>Action</th>
                 </tr>
             </thead>
-            <tbody>
-                <!-- Initial row with inputs and delete button -->
-                <!-- <tr>
-                    <td><input type="text" name="dependentName"></td>
-                    <td><input type="text" name="dependentRelationship"></td>
-                    <td><input type="date" name="dependentDOB"></td>
-                    <td><input type="date" name="StartDate"></td>
-                    <td><input type="date" name="InformStartDate"></td>
-                    <td><input type="date" name="EndDate"></td>
-                    <td><input type="date" name="InformEndDate"></td>
-                </tr> -->
-            </tbody>
+            <tbody></tbody>
         </table>
 
-        <button type="button" onclick="addRow()">Add Row</button>
-        <input type="submit" value="Submit">
+        <button type="button" id="addDependentRow" class="secondary">Add Dependent</button>
 
-        <div class="form-group">
-            <label>
-                <input type="checkbox" id="terminationCheckbox" name="terminationCheckbox">
-                Termination
-            </label>
-        </div>
+        <label>
+            <input type="checkbox" id="terminationCheckbox" name="terminationCheckbox" style="width: auto;">
+            Termination
+        </label>
 
-        <div class="form-group">
-            <label for="termDate">Term Date:</label>
-            <input type="date" id="termDate" name="termDate" disabled>
-        </div>
+        <label for="termDate">Term Date</label>
+        <input type="date" id="termDate" name="termDate" disabled>
 
-        <div class="form-group">
-            <label for="informedTermDate">Informed Term Date:</label>
-            <input type="date" id="informedTermDate" name="informedTermDate" disabled>
+        <label for="informedTermDate">Informed Term Date</label>
+        <input type="date" id="informedTermDate" name="informedTermDate" disabled>
+
+        <div>
+            <input type="submit" value="Save Employee">
+            <button type="button" id="cancelButton" class="secondary">Back To Company</button>
         </div>
     </form>
 
-    <script type="module"> 
+    <script type="module">
         import {
             searchEmployeeById,
             changeEmployee,
-            searchDependentByJson
+            terminateEmployee,
+            searchDependentByJson,
+            addDependent,
+            changeDependent
         } from './apiFunctions.js';
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const employeeId = urlParams.get('id');
+        let loadedEmployee = null;
+
         document.addEventListener('DOMContentLoaded', async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const employeeId = urlParams.get('id');
-            const employee = await searchEmployeeById(employeeId);
-            const dependents = await searchDependentByJson({ EmployeeID: employeeId });
-            populateForm(employee, dependents);
+            if (!employeeId) {
+                alert('No employee ID was provided.');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            try {
+                loadedEmployee = await searchEmployeeById(employeeId);
+                const dependents = await searchDependentByJson({ EmployeeID: employeeId });
+                populateForm(loadedEmployee, dependents);
+            } catch (error) {
+                console.error('Error loading employee:', error);
+                alert('Could not load employee details.');
+            }
         });
 
         document.getElementById('terminationCheckbox').addEventListener('change', function() {
-            var termDateInput = document.getElementById('termDate');
-            var informedTermDateInput = document.getElementById('informedTermDate');
-            
-            if (this.checked) {
-                termDateInput.disabled = false;
-                informedTermDateInput.disabled = false;
-            } else {
-                termDateInput.disabled = true;
-                informedTermDateInput.disabled = true;
-            }
+            document.getElementById('termDate').disabled = !this.checked;
+            document.getElementById('informedTermDate').disabled = !this.checked;
         });
 
-        // Function to add a new row to the table
-        function addRow() {
-            const table = document.getElementById('editableTable').getElementsByTagName('tbody')[0];
-            const newRow = table.insertRow();
-    
-            // Insert cells with input fields and delete button
-            const cell1 = newRow.insertCell(0);
-            cell1.innerHTML = '<input type="text" name="dependentName">';
-    
-            const cell2 = newRow.insertCell(1);
-            cell2.innerHTML = '<input type="text" name="dependentRelationship">';
-    
-            const cell3 = newRow.insertCell(2);
-            cell3.innerHTML = '<input type="date" name="dependentDOB">';
+        document.getElementById('addDependentRow').addEventListener('click', () => addRow());
+        document.getElementById('cancelButton').addEventListener('click', () => goBackToCompany());
 
-            const cell4 = newRow.insertCell(3);
-            cell4.innerHTML = '<input type="date" name="StartDate">';
-
-            const cell5 = newRow.insertCell(4);
-            cell5.innerHTML = '<input type="date" name="InformStartDate">';
-
-            const cell6 = newRow.insertCell(5);
-            cell6.innerHTML = '<input type="date" name="EndDate">';
-
-            const cell7 = newRow.insertCell(6);
-            cell7.innerHTML = '<input type="date" name="InformEndDate">';
-        }
-    
-        // Function to delete a row from the table
-        function deleteRow(button) {
-            const row = button.parentNode.parentNode;
-            row.parentNode.removeChild(row);
-        }
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            const year = date.getFullYear();
-            const month = (date.getMonth() + 1).toString().padStart(2, '0'); // Month is 0-indexed
-            const day = date.getDate().toString().padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        }
-        // Function to populate the form with employee data
-        function populateForm(employee, dependents) {
-            document.getElementById('employeeFullName').value = employee.EmployeeFullName;
-            document.getElementById('joinDate').value = formatDate(employee.StartDate);
-            document.getElementById('informJoinDate').value = formatDate(employee.InformStartDate);
-            document.getElementById('dob').value = formatDate(employee.DOB);
-            document.getElementById('notes').value = employee.Notes;
-
-            // Populate company information if available
-            if (employee.GL !== null) {
-                addCompanyInput('GL', employee.GL);
-            }
-            if (employee.Division !== null) {
-                addCompanyInput('Division', employee.Division);
-            }
-            if (employee.Location !== null) {
-                addCompanyInput('Location', employee.Location);
-            }
-            if (employee.Title !== null) {
-                addCompanyInput('Title', employee.Title);
-            }
-            if (employee.COBRA !== null) {
-                addCompanyInput('COBRA', employee.COBRA);
-            }
-            // Populate dependents
-            dependents.forEach(dependent => {
-                const table = document.getElementById('editableTable').getElementsByTagName('tbody')[0];
-                const newRow = table.insertRow();
-                const cell1 = newRow.insertCell(0);
-                cell1.innerHTML = `<input type="text" name="dependentName" value="${dependent.DependentName}">`;
-                const cell2 = newRow.insertCell(1);
-                cell2.innerHTML = `<input type="text" name="dependentRelationship" value="${dependent.Relationship}">`;
-                const cell3 = newRow.insertCell(2);
-                cell3.innerHTML = `<input type="date" name="dependentDOB" value="${formatDate(dependent.DOB)}">`;
-                const cell4 = newRow.insertCell(3);
-                cell4.innerHTML = `<input type="date" name="StartDate" value="${formatDate(dependent.StartDate)}">`;
-                const cell5 = newRow.insertCell(4);
-                cell5.innerHTML = `<input type="date" name="InformStartDate" value="${formatDate(dependent.InformStartDate)}">`;
-                const cell6 = newRow.insertCell(5);
-                cell6.innerHTML = `<input type="date" name="EndDate" value="${formatDate(dependent.EndDate)}">`;
-                const cell7 = newRow.insertCell(6);
-                cell7.innerHTML = `<input type="date" name="InformEndDate" value="${formatDate(dependent.InformEndDate)}">`;
-
-            });
-        }
-
-        // Function to add company information input dynamically
-        function addCompanyInput(labelText, value) {
-            const companyInfoInputs = document.getElementById('companyInfoInputs');
-            const label = document.createElement('label');
-            label.textContent = `${labelText}:`;
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.name = labelText;
-            input.value = value || ''; // Set value if available
-            label.appendChild(input);
-            companyInfoInputs.appendChild(label);
-            companyInfoInputs.appendChild(document.createElement('br'));
-        }
-
-        // Function to submit the form
         document.getElementById('employeeForm').addEventListener('submit', async (event) => {
             event.preventDefault();
 
-            const formData = new FormData(event.target);
-            const employeeJson = Object.fromEntries(formData);
+            const employeeJson = buildEmployeeUpdateJson();
 
             try {
-                // Submit updated employee data
-                await changeEmployee(employeeJson.EmployeeID, employeeJson);
-                alert('Employee information updated successfully!');
-                // Redirect or handle success as needed
+                await changeEmployee(employeeId, employeeJson);
+                await saveDependentRows();
+
+                if (document.getElementById('terminationCheckbox').checked) {
+                    const endDate = document.getElementById('termDate').value;
+                    const informEndDate = document.getElementById('informedTermDate').value || endDate;
+                    if (!endDate) {
+                        alert('Termination date is required when Termination is checked.');
+                        return;
+                    }
+                    await terminateEmployee(employeeId, {
+                        EndDate: endDate,
+                        InformEndDate: informEndDate
+                    });
+                }
+
+                alert('Employee information updated successfully.');
+                goBackToCompany();
             } catch (error) {
                 console.error('Error updating employee information:', error);
-                alert('Failed to update employee information.');
+                alert(`Failed to update employee information. ${error.message || ''}`);
             }
         });
 
-        
-
-        
-    </script>
-
-    <script>
-        // Function to add a new row to the table
-        function addRow() {
-            const table = document.getElementById('editableTable').getElementsByTagName('tbody')[0];
-            const newRow = table.insertRow();
-    
-            // Insert cells with input fields and delete button
-            const cell1 = newRow.insertCell(0);
-            cell1.innerHTML = '<input type="text" name="dependentName">';
-    
-            const cell2 = newRow.insertCell(1);
-            cell2.innerHTML = '<input type="text" name="dependentRelationship">';
-    
-            const cell3 = newRow.insertCell(2);
-            cell3.innerHTML = '<input type="date" name="dependentDOB">';
-
-            const cell4 = newRow.insertCell(3);
-            cell4.innerHTML = '<input type="date" name="StartDate">';
-
-            const cell5 = newRow.insertCell(4);
-            cell5.innerHTML = '<input type="date" name="InformStartDate">';
-
-            const cell6 = newRow.insertCell(5);
-            cell6.innerHTML = '<input type="date" name="EndDate">';
-
-            const cell7 = newRow.insertCell(6);
-            cell7.innerHTML = '<input type="date" name="InformEndDate">';
+        function buildEmployeeUpdateJson() {
+            const formData = new FormData(document.getElementById('employeeForm'));
+            return {
+                EmployeeFullName: formData.get('EmployeeFullName') || null,
+                StartDate: formData.get('StartDate') || null,
+                InformStartDate: formData.get('InformStartDate') || null,
+                DOB: formData.get('DOB') || null,
+                Notes: formData.get('Notes') || null,
+                GlCode: formData.get('GlCode') || null,
+                Division: formData.get('Division') || null,
+                Location: formData.get('Location') || null,
+                Title: formData.get('Title') || null,
+                CobraStatus: document.getElementById('CobraStatus')?.checked || false
+            };
         }
+
+        async function saveDependentRows() {
+            const rows = Array.from(document.querySelectorAll('#editableTable tbody tr'));
+            for (const row of rows) {
+                const dependent = dependentFromRow(row);
+                if (!dependent) continue;
+
+                if (dependent.DependentID) {
+                    const id = dependent.DependentID;
+                    delete dependent.DependentID;
+                    await changeDependent(id, dependent);
+                } else {
+                    await addDependent(dependent);
+                }
+            }
+        }
+
+        function dependentFromRow(row) {
+            const dependentName = row.querySelector('[name="dependentName"]').value.trim();
+            const relationship = row.querySelector('[name="dependentRelationship"]').value.trim();
+            const dob = row.querySelector('[name="dependentDOB"]').value;
+            if (!dependentName && !relationship && !dob) return null;
+
+            return {
+                DependentID: row.dataset.dependentId || null,
+                EmployeeID: Number(employeeId),
+                DependentName: dependentName,
+                Relationship: relationship,
+                DOB: dob,
+                StartDate: row.querySelector('[name="StartDate"]').value || document.getElementById('joinDate').value,
+                InformStartDate: row.querySelector('[name="InformStartDate"]').value || document.getElementById('informJoinDate').value,
+                EndDate: row.querySelector('[name="EndDate"]').value || null,
+                InformEndDate: row.querySelector('[name="InformEndDate"]').value || null
+            };
+        }
+
+        function populateForm(employee, dependents) {
+            document.getElementById('employeeFullName').value = employee.EmployeeFullName || '';
+            document.getElementById('joinDate').value = formatDate(employee.StartDate);
+            document.getElementById('informJoinDate').value = formatDate(employee.InformStartDate);
+            document.getElementById('dob').value = formatDate(employee.DOB);
+            document.getElementById('notes').value = employee.Notes || '';
+
+            addCompanyInput('GlCode', 'GL Code', employee.GlCode);
+            addCompanyInput('Division', 'Division', employee.Division);
+            addCompanyInput('Location', 'Location', employee.Location);
+            addCompanyInput('Title', 'Title', employee.Title);
+            addCheckboxInput('CobraStatus', 'COBRA Status', Boolean(employee.CobraStatus));
+
+            dependents.forEach(addDependentRow);
+            if (dependents.length === 0) addRow();
+        }
+
+        function addCompanyInput(name, labelText, value) {
+            const container = document.getElementById('companyInfoInputs');
+            const label = document.createElement('label');
+            label.htmlFor = name;
+            label.textContent = labelText;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = name;
+            input.name = name;
+            input.value = value || '';
+            container.appendChild(label);
+            container.appendChild(input);
+        }
+
+        function addCheckboxInput(name, labelText, checked) {
+            const container = document.getElementById('companyInfoInputs');
+            const label = document.createElement('label');
+            label.htmlFor = name;
+            label.textContent = labelText;
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.id = name;
+            input.name = name;
+            input.checked = checked;
+            input.style.width = 'auto';
+            container.appendChild(label);
+            container.appendChild(input);
+        }
+
+        function addDependentRow(dependent) {
+            const table = document.getElementById('editableTable').querySelector('tbody');
+            const row = table.insertRow();
+            row.dataset.dependentId = dependent.DependentID || '';
+            row.innerHTML = `
+                <td><input type="text" name="dependentName" value="${escapeHtml(dependent.DependentName || '')}"></td>
+                <td><input type="text" name="dependentRelationship" value="${escapeHtml(dependent.Relationship || '')}"></td>
+                <td><input type="date" name="dependentDOB" value="${formatDate(dependent.DOB)}"></td>
+                <td><input type="date" name="StartDate" value="${formatDate(dependent.StartDate)}"></td>
+                <td><input type="date" name="InformStartDate" value="${formatDate(dependent.InformStartDate)}"></td>
+                <td><input type="date" name="EndDate" value="${formatDate(dependent.EndDate)}"></td>
+                <td><input type="date" name="InformEndDate" value="${formatDate(dependent.InformEndDate)}"></td>
+                <td><button type="button" onclick="deleteRow(this)">Delete</button></td>
+            `;
+        }
+
+        function addRow() {
+            addDependentRow({});
+        }
+
+        function deleteRow(button) {
+            button.closest('tr').remove();
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            return String(dateString).slice(0, 10);
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function goBackToCompany() {
+            const employerId = loadedEmployee?.EmployerID;
+            window.location.href = employerId ? `company1.html?id=${encodeURIComponent(employerId)}` : 'index.html';
+        }
+
+        window.addRow = addRow;
+        window.deleteRow = deleteRow;
     </script>
+    <script src="app-shell.js" defer></script>
 </body>
 </html>
-//make termination button stop active plan
-//make choosing plan and tier easy get active employee plan get tier id to get name of tier and use carrier id to get name of carrier if tier is set to null use min and max age as name in form "0-100"

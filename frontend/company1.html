@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Company Details</title>
+    <title>Company Details - Billing Database</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -118,10 +118,12 @@
         }
 
     </style>
+    <link rel="stylesheet" href="app.css">
 </head>
 <body>
     <div class="container">
         <h1 id="companyName"></h1>
+        <p class="app-page-intro">Review employees, current plans, and monthly billing reports for this company.</p>
 
         <div class="search-container">
             <input type="text" id="employeeSearchInput" placeholder="Search employees...">
@@ -139,10 +141,11 @@
                 <input type="number" id="year" name="year" min="1000" max="4000" placeholder="YYYY">
             </div>
             <div class="buttons-container">
-                <button id="genReport" class="button">Generate Report</button>
+                <button id="genReport" class="button">Generate Monthly Report</button>
             </div>
         </div>
 
+        <p id="employeeStatus" class="app-message">Loading employees...</p>
         <ul id="employeeList"></ul>
 
         <div id="tableContainer"></div>
@@ -168,10 +171,12 @@
             const urlParams = new URLSearchParams(window.location.search);
             const companyId = urlParams.get('id');
             const myButton = document.getElementById("addemployeeButton");
+            const employeeStatus = document.getElementById('employeeStatus');
             myButton.href = "addemployee.html?id=" + companyId;
 
             if (!companyId) {
                 console.error('No company ID found in URL parameters');
+                employeeStatus.textContent = 'No company was selected. Return to Companies and choose a company.';
                 return;
             }
 
@@ -213,6 +218,7 @@
                 addTable(plans, tiers, carriers, companyId);
             } catch (error) {
                 console.error('Error fetching company details:', error);
+                employeeStatus.textContent = 'Could not load company details. Check setup and try again.';
             }
         });
 
@@ -249,11 +255,11 @@
                     // Reset button text and enable it
                     document.getElementById('genReport').textContent = 'Generate Report';
                     document.getElementById('genReport').disabled = false;
-                    alert('Report generated successfully');
+                    alert('Report generated successfully. The file download should start automatically.');
                 })
                 .catch(error => {
                     console.error('Error generating report:', error);
-                    alert('Error generating report: ', error.message);
+                    alert(`Error generating report: ${error.message || ''}`);
                 })
                 .finally(() => {
                     // Ensure interval is cleared and button is reset in case of an error
@@ -340,20 +346,29 @@
                 displayEmployees(employees);
             } catch (error) {
                 console.error('Error searching employees:', error);
+                document.getElementById('employeeStatus').textContent = 'Could not search employees.';
             }
         }
 
         // Function to display employees in the list
         function displayEmployees(employees) {
             const employeeList = document.getElementById('employeeList');
+            const employeeStatus = document.getElementById('employeeStatus');
             employeeList.innerHTML = '';
+            if (!employees || employees.length === 0) {
+                employeeStatus.textContent = 'No employees found. Add an employee to begin enrollment.';
+                return;
+            }
+            employeeStatus.textContent = `${employees.length} employee${employees.length === 1 ? '' : 's'} shown.`;
 
             employees.forEach(employee => {
                 const listItem = document.createElement('li');
 
                 // Active status emoji
-                const statusEmoji = employee.isActive ? '🟢' : '🔴';
-                listItem.textContent = `${statusEmoji} ${employee.EmployeeFullName}`;
+                const statusEmoji = employee.isActive ? 'Active -' : 'Inactive -';
+                const employeeName = document.createElement('strong');
+                employeeName.textContent = `${statusEmoji} ${employee.EmployeeFullName || 'Unnamed Employee'}`;
+                listItem.appendChild(employeeName);
 
                 // Warning symbol
                 if (employee.hasWarning) {
@@ -387,7 +402,7 @@
         const updateEmployeeStatus = (employee, activeIds) => {
             return {
                 ...employee,
-                isActive: activeIds.includes(employee.id)
+                isActive: activeIds.includes(employee.EmployeeID)
             };
         };
 
@@ -423,6 +438,7 @@
         }
     
     </script>
+    <script src="app-shell.js" defer></script>
 </body>
 </html>
 // Loading please wait

@@ -4,9 +4,12 @@ import mysql.connector
 import pandas as pd
 import json
 import datetime
+from decimal import Decimal
 from datetime import datetime, timedelta, date
 from mysql.connector.cursor import MySQLCursor
 import os
+import time
+from io import BytesIO
 from flask_cors import CORS
 
 ####################### Helper Functions #######################
@@ -14,18 +17,33 @@ app = Flask(__name__)
 # CORS(app)
 CORS(app, expose_headers=['Content-Disposition'])
 
+BILLING_TABLES = ["Employer", "Contact", "Carrier", "Tier", "Plan", "Employee", "EmployeePlan", "Dependent"]
 
-def get_db_connection():
-    connection = mysql.connector.connect(
-        host='host.docker.internal',  # This matches the service name defined in docker-compose.yml
-        user='root',
-        password='Root',
-        database='modelBillingDBv1'
-    )
-    return connection
+
+def get_db_connection(database=None, retries=5, delay=2):
+    db_config = {
+        "host": os.getenv("MYSQL_HOST", "localhost"),
+        "port": int(os.getenv("MYSQL_PORT", "3306")),
+        "user": os.getenv("MYSQL_USER", "root"),
+        "password": os.getenv("MYSQL_PASSWORD", "Root"),
+    }
+    selected_database = database if database is not None else os.getenv("MYSQL_DATABASE", "modelBillingDBv1")
+    if selected_database:
+        db_config["database"] = selected_database
+
+    last_error = None
+    for attempt in range(retries):
+        try:
+            return mysql.connector.connect(**db_config)
+        except mysql.connector.Error as error:
+            last_error = error
+            if attempt == retries - 1:
+                break
+            time.sleep(delay)
+    raise last_error
 
 def setup_db():
-    connection = get_db_connection()
+    connection = get_db_connection(database=None)
     cursor = connection.cursor()
 
     # Get the path to init.sql dynamically
@@ -45,6 +63,191 @@ def setup_db():
     connection.close()
     return "Database setup complete"
 
+def serialize_backup_value(value):
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return str(value)
+    return value
+
+def get_table_rows(cursor, table_name):
+    cursor.execute(f"SELECT * FROM {table_name}")
+    column_names = [desc[0] for desc in cursor.description]
+    return [
+        {column_names[index]: serialize_backup_value(value) for index, value in enumerate(row)}
+        for row in cursor.fetchall()
+    ]
+
+def create_backup_payload():
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        return {
+            "app": "Health Insurance Billing Database",
+            "backupVersion": 1,
+            "createdAt": datetime.now().isoformat(timespec="seconds"),
+            "database": os.getenv("MYSQL_DATABASE", "modelBillingDBv1"),
+            "tables": {table_name: get_table_rows(cursor, table_name) for table_name in BILLING_TABLES}
+        }
+    finally:
+        cursor.close()
+        connection.close()
+
+def restore_backup_payload(payload):
+    if not isinstance(payload, dict) or "tables" not in payload:
+        raise ValueError("Backup file is not valid.")
+
+    tables = payload["tables"]
+    missing_tables = [table_name for table_name in BILLING_TABLES if table_name not in tables]
+    if missing_tables:
+        raise ValueError(f"Backup file is missing tables: {', '.join(missing_tables)}")
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
+        for table_name in reversed(BILLING_TABLES):
+            cursor.execute(f"DELETE FROM {table_name}")
+
+        for table_name in BILLING_TABLES:
+            for row in tables.get(table_name, []):
+                if not row:
+                    continue
+                columns = list(row.keys())
+                placeholders = ", ".join(["%s"] * len(columns))
+                column_sql = ", ".join(columns)
+                values = [row[column] for column in columns]
+                cursor.execute(f"INSERT INTO {table_name} ({column_sql}) VALUES ({placeholders})", values)
+
+        cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        try:
+            cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+        except Exception:
+            pass
+        cursor.close()
+        connection.close()
+
+def normalize_money(value):
+    if value in ("", None):
+        return None
+    return value
+
+def row_changed(existing, updates):
+    for key, value in updates.items():
+        if str(existing.get(key, "")) != str(value if value is not None else ""):
+            return True
+    return False
+
+def save_employer_plan_setup(employer_id, payload):
+    effective_date = payload.get("effectiveDate") or datetime.now().strftime("%Y-%m-%d")
+    carriers = payload.get("Carriers", [])
+    tiers = payload.get("Tiers", [])
+    plans = payload.get("Plans", [])
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        carrier_id_map = {}
+        tier_id_map = {}
+
+        for carrier in carriers:
+            carrier_id = carrier.get("CarrierID")
+            carrier_data = {
+                "EmployerID": employer_id,
+                "CarrierName": carrier.get("CarrierName")
+            }
+            if carrier_id and carrier_id != -1:
+                existing = get_element_by_id(cursor, "Carrier", carrier_id)
+                if row_changed(existing, carrier_data):
+                    change_element_by_table_name(cursor, "Carrier", carrier_id, carrier_data)
+                carrier_id_map[str(carrier_id)] = carrier_id
+            else:
+                _warnings, new_id = add_element_by_table_name(cursor, "Carrier", carrier_data)
+                carrier_id_map[str(carrier.get("ClientID", carrier.get("CarrierName")))] = new_id
+                carrier["CarrierID"] = new_id
+
+        for tier in tiers:
+            tier_id = tier.get("TierID")
+            tier_data = {
+                "EmployerID": employer_id,
+                "TierName": tier.get("TierName"),
+                "MaxAge": tier.get("MaxAge") if tier.get("MaxAge") not in ("", None) else None,
+                "MinAge": tier.get("MinAge") if tier.get("MinAge") not in ("", None) else None
+            }
+            if tier_id and tier_id != -1:
+                existing = get_element_by_id(cursor, "Tier", tier_id)
+                if row_changed(existing, tier_data):
+                    change_element_by_table_name(cursor, "Tier", tier_id, tier_data)
+                tier_id_map[str(tier_id)] = tier_id
+            else:
+                _warnings, new_id = add_element_by_table_name(cursor, "Tier", tier_data)
+                tier_id_map[str(tier.get("ClientID", tier.get("TierName")))] = new_id
+                tier["TierID"] = new_id
+
+        saved_plan_ids = set()
+        for plan in plans:
+            carrier_id = carrier_id_map.get(str(plan.get("CarrierID")), plan.get("CarrierID"))
+            tier_id = tier_id_map.get(str(plan.get("TierID")), plan.get("TierID"))
+            plan_data = {
+                "EmployerID": employer_id,
+                "CarrierID": carrier_id,
+                "TierID": tier_id,
+                "FundingAmount": normalize_money(plan.get("FundingAmount")),
+                "GrenzFee": normalize_money(plan.get("GrenzFee")),
+                "GrenzFeeC": normalize_money(plan.get("GrenzFeeC")),
+                "GrenzFeeS": normalize_money(plan.get("GrenzFeeS")),
+                "StartDate": plan.get("StartDate") or effective_date,
+                "EndDate": plan.get("EndDate") or None
+            }
+            plan_id = plan.get("PlanID")
+            if plan_id and plan_id != -1:
+                existing = get_element_by_id(cursor, "Plan", plan_id)
+                if row_changed(existing, plan_data):
+                    change_element_by_table_name(cursor, "Plan", plan_id, plan_data)
+                saved_plan_ids.add(int(plan_id))
+            else:
+                _warnings, new_id = add_element_by_table_name(cursor, "Plan", plan_data)
+                saved_plan_ids.add(int(new_id))
+
+        cursor.execute("SELECT PlanID FROM Plan WHERE EmployerID = %s AND EndDate IS NULL", (employer_id,))
+        active_plan_ids = {row[0] for row in cursor.fetchall()}
+        for plan_id in active_plan_ids - saved_plan_ids:
+            change_element_by_table_name(cursor, "Plan", plan_id, {"EndDate": effective_date})
+
+        # Remove carriers and tiers only when they are not referenced by any plan.
+        kept_carrier_ids = {int(value) for value in carrier_id_map.values() if value}
+        kept_tier_ids = {int(value) for value in tier_id_map.values() if value}
+
+        cursor.execute("SELECT CarrierID FROM Carrier WHERE EmployerID = %s", (employer_id,))
+        for (carrier_id,) in cursor.fetchall():
+            if carrier_id in kept_carrier_ids:
+                continue
+            cursor.execute("SELECT COUNT(*) FROM Plan WHERE CarrierID = %s", (carrier_id,))
+            if cursor.fetchone()[0] == 0:
+                delete_element(cursor, "Carrier", carrier_id)
+
+        cursor.execute("SELECT TierID FROM Tier WHERE EmployerID = %s", (employer_id,))
+        for (tier_id,) in cursor.fetchall():
+            if tier_id in kept_tier_ids:
+                continue
+            cursor.execute("SELECT COUNT(*) FROM Plan WHERE TierID = %s", (tier_id,))
+            if cursor.fetchone()[0] == 0:
+                delete_element(cursor, "Tier", tier_id)
+
+        connection.commit()
+        return {"message": "Plan setup saved.", "PlanCount": len(saved_plan_ids)}
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        cursor.close()
+        connection.close()
+
 @app.route('/setup_db', methods=['GET'])
 def setup_db_route():
     try:
@@ -52,6 +255,41 @@ def setup_db_route():
         return jsonify({'message': message})
     except Exception as e:
         return jsonify({'error': str(e)})
+
+@app.route('/backup', methods=['GET'])
+def backup_database_route():
+    try:
+        payload = create_backup_payload()
+        backup_bytes = json.dumps(payload, indent=2).encode("utf-8")
+        filename = f"billing_database_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        return send_file(
+            BytesIO(backup_bytes),
+            mimetype="application/json",
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 500
+
+@app.route('/restore', methods=['POST'])
+def restore_database_route():
+    try:
+        if "file" in request.files:
+            payload = json.loads(request.files["file"].read().decode("utf-8"))
+        else:
+            payload = request.get_json()
+        restore_backup_payload(payload)
+        return jsonify({"message": "Database restored successfully."})
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
+
+@app.route('/employer/<int:id>/plan_setup', methods=['PATCH'])
+def save_employer_plan_setup_route(id):
+    try:
+        result = save_employer_plan_setup(id, request.get_json())
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"Error": str(e)}), 400
 
 
 @app.route('/')
@@ -71,6 +309,10 @@ def testconection():
             return jsonify({"message": "Connected to MySQL Server version", "version": db_info})
         else:
             return jsonify({"message": "Connection to MySQL Server failed"})
+
+@app.route('/testconnection', methods=['GET'])
+def testconnection():
+    return testconection()
         
 @app.route('/apiFunctions.js', methods=['GET'])
 def get_api_functions():
@@ -272,7 +514,18 @@ def delete_employee(id):
 @app.route('/employee/<int:id>/terminate', methods=['PATCH'])
 def terminate_employee_route(id):
     data = request.get_json()
-    return terminate_employee(id, data["EndDate"], data["InformEndDate"])
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        terminate_employee(cursor, id, data["EndDate"], data.get("InformEndDate"))
+        connection.commit()
+        return jsonify({"message": "Employee terminated", "EmployeeID": id})
+    except Exception as e:
+        connection.rollback()
+        return jsonify({"Error": str(e)}), 400
+    finally:
+        cursor.close()
+        connection.close()
 
 ### EmployeePlan Methods ###
 
@@ -1004,12 +1257,13 @@ def terminate_employee(cursor, employee_id, end_date=None, inform_end_date=None)
         employee["InformEndDate"] = inform_end_date if inform_end_date else end_date
         change_element_by_table_name(cursor, "Employee", employee_id, employee)
         #end plan and dependents
+        final_inform_end_date = inform_end_date if inform_end_date else end_date
         employee_plans = get_active_depfree(cursor, "EmployeePlan", employee_id, "EndDate", "EmployeeID")
         for employee_plan in employee_plans:
-            change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], {"EndDate": end_date, "InformEndDate": end_date})
+            change_element_by_table_name(cursor, "EmployeePlan", employee_plan["EmployeePlanID"], {"EndDate": end_date, "InformEndDate": final_inform_end_date})
         dependents = get_active_depfree(cursor, "Dependent", employee_id, "EndDate", "EmployeeID")
         for dependent in dependents:
-            change_element_by_table_name(cursor, "Dependent", dependent["DependentID"], {"EndDate": end_date, "InformEndDate": end_date})
+            change_element_by_table_name(cursor, "Dependent", dependent["DependentID"], {"EndDate": end_date, "InformEndDate": final_inform_end_date})
         return True
     except Exception as e:
         raise ValueError(f"Terminate Employee: " + str(e))
@@ -1148,7 +1402,7 @@ def route_add_element(table_name, element_json):
         return jsonify({"Error": str(e)}), 500
     
 def change_element(cursor, table_name, element_id, element_json, required_fields, optional_fields):
-    data_to_change = json.loads(element_json)
+    data_to_change = json.loads(element_json) if isinstance(element_json, str) else element_json
     soft_errors = []
 
     # check to see if the element exists
@@ -1166,6 +1420,8 @@ def change_element(cursor, table_name, element_id, element_json, required_fields
     
     # Filter data to include only valid fields
     filtered_data = {key: value for key, value in data_to_change.items() if key in valid_fields}
+    if not filtered_data:
+        return soft_errors, element_id
 
     update_fields = ", ".join([f"{key} = %s" for key in filtered_data])
     update_values = tuple(filtered_data.values())
@@ -1394,23 +1650,27 @@ def process_dependent(cursor, dependent_id, current_date, plan_id, employee_id):
     query = f"SELECT StartDate, InformStartDate, EndDate, InformEndDate FROM Dependent WHERE DependentID = {dependent_id}"
     start_date, inform_start_date, end_date, inform_end_date = execute_query(cursor, query)[0]
     
-    current_month_start = datetime(current_date.year, current_date.month, 1).date()
+    current_month_start = month_start(current_date)
     dep_fund_amount, dep_grenz_fee = 0, 0
     dep_info = None
     
-    if inform_start_date == current_month_start:
+    if same_billing_month(inform_start_date, current_date):
         dep_info = fetch_and_process_dependent_info(start_date, inform_start_date, dependent_id)
         dep_fund_amount += dep_info['FundingAmount']
         dep_grenz_fee += dep_info['GrenzFee']
     
-    if inform_end_date == current_month_start:
-        dep_info = fetch_and_process_dependent_info(inform_end_date, end_date, dependent_id)
+    if same_billing_month(inform_end_date, current_date):
+        dep_info = fetch_and_process_dependent_info(end_date, inform_end_date, dependent_id)
         dep_fund_amount -= dep_info['FundingAmount']
         dep_grenz_fee -= dep_info['GrenzFee']
         dep_info = fetch_and_process_dependent_info(current_month_start, current_month_start, dependent_id, False)
         dep_fund_amount += dep_info['FundingAmount']
         dep_grenz_fee += dep_info['GrenzFee']
-    if inform_start_date >= current_month_start or inform_end_date <= current_month_start:
+    inform_start_date_value = as_date(inform_start_date)
+    inform_end_date_value = as_date(inform_end_date)
+    is_start_in_or_after_bill_month = inform_start_date_value and inform_start_date_value >= current_month_start
+    is_end_before_or_in_bill_month = inform_end_date_value and inform_end_date_value <= current_month_start
+    if is_start_in_or_after_bill_month or is_end_before_or_in_bill_month:
         if dep_info is not None:
             dep_info['FundingAmount'] = dep_fund_amount
             dep_info['GrenzFee'] = dep_grenz_fee
@@ -1459,6 +1719,29 @@ def generate_month_range(start, end):
             current = date(current.year, current.month, 1)
     except Exception as e:
         raise ValueError(f"Generate Month Range: " + str(e))
+
+def as_date(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return datetime.strptime(str(value).split(" ")[0], "%Y-%m-%d").date()
+
+def month_start(value):
+    value = as_date(value)
+    return date(value.year, value.month, 1)
+
+def month_end(value):
+    start = month_start(value)
+    return date(start.year, start.month, calendar.monthrange(start.year, start.month)[1])
+
+def same_billing_month(value, billing_date):
+    value = as_date(value)
+    if value is None:
+        return False
+    return month_start(value) == month_start(billing_date)
 
 def update_dependents(dependents, new_entries):
     try:
@@ -1638,6 +1921,8 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
     try:
         current_month = Date.month
         current_year = Date.year
+        billing_month_start = month_start(Date)
+        billing_month_end = month_end(Date)
 
         employer_info = execute_query(cursor, f"SELECT EmployerID, TierStructure, UsesGlCode, UsesDivision, UsesLocation, UsesTitle FROM Employer WHERE EmployerName = '{employer_name}'")[0]
         if not employer_info:
@@ -1662,7 +1947,7 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
     
     
     
-    employees = execute_query(cursor, f"SELECT EmployeeID, EmployeeFullName, StartDate, InformStartDate, EndDate, InformEndDate FROM Employee WHERE EmployerID = {employer_id} AND InformStartDate <= '{Date}' AND (InformEndDate >= '{Date}' OR InformEndDate IS NULL)")
+    employees = execute_query(cursor, f"SELECT EmployeeID, EmployeeFullName, StartDate, InformStartDate, EndDate, InformEndDate FROM Employee WHERE EmployerID = {employer_id} AND InformStartDate <= '{billing_month_end}' AND (InformEndDate >= '{billing_month_start}' OR InformEndDate IS NULL)")
 
     if not employees:
         raise ValueError(f"No employees found for {employer_name} on {Date}")
@@ -1678,7 +1963,7 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
             dependents = []
             #raise ValueError(f"We made it to employee {employee_name}")
             try:
-                employee_plans = execute_query(cursor, f"SELECT PlanID, StartDate, InformStartDate, EndDate, InformEndDate FROM EmployeePlan WHERE EmployeeID = {employee_id} AND InformStartDate <= '{Date}' ")
+                employee_plans = execute_query(cursor, f"SELECT PlanID, StartDate, InformStartDate, EndDate, InformEndDate FROM EmployeePlan WHERE EmployeeID = {employee_id} AND InformStartDate <= '{billing_month_end}' AND (InformEndDate >= '{billing_month_start}' OR InformEndDate IS NULL)")
             except Exception as e:
                 raise ValueError(f"Error getting employee plans for {employee_name}: {e}")
             if not employee_plans:
@@ -1692,10 +1977,10 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                 except Exception as e:
                     raise ValueError(f"Error getting term inform date for {employee_name}: {e}")
                 try:
-                    if term_date and term_inform_date == datetime(current_year, current_month, 1).date():
+                    if term_date and same_billing_month(term_inform_date, Date):
                         notes.append("Terminated " + str(current_month) + "/" +  str(current_year))
                         for back_date in generate_month_range(term_date, term_inform_date):
-                            if(back_date == datetime(current_year, current_month, 1).date()):
+                            if(back_date == billing_month_start):
                                 continue
                             try:
                                 plan_id = get_plan_for_employee(cursor, employee_id, back_date)
@@ -1718,17 +2003,11 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
             except Exception as e:
                 raise ValueError(f"Error handleing term date for {employee_name}: {e}")
             #raise Exception("Join Test Join date:" + str(join_date) + " Join inform Date: " + str(join_inform_date) + " CurrentDate: " + str(current_date))
-            date_format = "%Y-%m-%d"
-            join_inform_date = datetime.strptime(str(join_inform_date), date_format)
-            join_date = datetime.strptime(str(join_date), date_format)
+            join_inform_date = as_date(join_inform_date)
+            join_date = as_date(join_date)
             try:
-                if join_date and join_inform_date.date() == datetime(current_year, current_month, 1).date():
+                if join_date and same_billing_month(join_inform_date, Date):
                     notes.append("Joined " + str(current_month) + "/" +  str(current_year))
-                    #raise ValueError("Join Worked")
-                    print(f"{employee_name} joined")
-                    daterange = generate_month_range(join_date, join_inform_date)
-                    # this is how you properly display the output of a generator as a string
-                    notes.append("Testing generate_month_range: " + ", ".join([str(date) for date in daterange]))
                     for back_date in generate_month_range(join_date, join_inform_date):
                         plan_id = get_plan_for_employee(cursor, employee_id, back_date)
                         f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
@@ -1745,13 +2024,13 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
             try:
                 for plan in employee_plans:
                     plan_id, start_date, inform_start_date, end_date, inform_end_date = plan
-                    if end_date and inform_end_date < date(current_year, current_month, 1):
+                    if end_date and as_date(inform_end_date) and as_date(inform_end_date) < billing_month_start:
                         continue
                     try:
-                        if inform_start_date == date(current_year, current_month, 1):
+                        if same_billing_month(inform_start_date, Date):
                             notes.append("Started Plan " + str(start_date.month) + "/" + str(start_date.year) + " Inform Start Date: " + str(inform_start_date))
                             for back_date in generate_month_range(start_date, inform_start_date):
-                                if(back_date == datetime(current_year, current_month, 1).date()):
+                                if(back_date == billing_month_start):
                                     continue
                                 f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
                                 funding_amount += f_amount
@@ -1764,10 +2043,10 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                         raise ValueError(f"Error in inform startdate == date. Startdate = {inform_start_date}")
 
                     try:
-                        if inform_end_date == date(current_year, current_month, 1):
+                        if same_billing_month(inform_end_date, Date):
                             notes.append("Ended Plan " + str(end_date.month) + "/" +  str(end_date.year))
                             for back_date in generate_month_range(end_date, inform_end_date):
-                                if(back_date == datetime(current_year, current_month, 1).date()):
+                                if(back_date == billing_month_start):
                                     continue
                                 #Update the plan_id incase the end date is less then the start date 
                                 plan_id = get_plan_for_employee(cursor, employee_id, back_date)
@@ -1788,13 +2067,13 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                     if notes:
                         notes.append("Not finding carrier name but has notes.")
                     try:
-                        plan_id = get_plan_for_employee(cursor, employee_id, datetime(current_year, current_month, 1).date())
+                        plan_id = get_plan_for_employee(cursor, employee_id, billing_month_start)
                     except Exception as e:
                         raise ValueError(f"Error getting plan for {employee_name}: {e}")
                     if not plan_id:
-                            raise ValueError(f"No plan found for {employee_name} on {back_date}")
+                        raise ValueError(f"No plan found for {employee_name} on {billing_month_start}")
                     try:
-                        f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, datetime(current_year, current_month, 1).date(), plan_id, employee_id)
+                        f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, billing_month_start, plan_id, employee_id)
                     except Exception as e:
                         raise ValueError(f"Error calculating funding amount for {employee_name}: {e}")
                     try:
@@ -2466,5 +2745,4 @@ def test_execute_command():
 ####### Run on Start #######
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=3000)
-
+    app.run(host='0.0.0.0', port=int(os.getenv("PORT", "3000")))

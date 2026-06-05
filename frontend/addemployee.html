@@ -2,284 +2,297 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Employee</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f4f4f9;
+            color: #222;
+        }
+
+        form {
+            max-width: 980px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        label {
+            display: block;
+            margin-top: 12px;
+            font-weight: 600;
+        }
+
+        input,
+        select {
+            width: 100%;
+            max-width: 420px;
+            padding: 8px;
+            margin-top: 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        button {
+            margin-top: 14px;
+            margin-right: 8px;
+            background: #007bff;
+            color: #fff;
+            border: 0;
+            border-radius: 4px;
+            padding: 10px 16px;
+            cursor: pointer;
+        }
+
+        button.secondary {
+            background: #5f6b77;
+        }
+    </style>
+    <link rel="stylesheet" href="app.css">
 </head>
 <body>
     <h1>Add Employee</h1>
+    <p class="app-page-intro">Enter the employee's enrollment details. Add dependents only when they should be included on the employee's coverage.</p>
 
     <form id="employeeForm">
-        <label for="employeeFullName">Full Name:</label><br>
-        <input type="text" id="employeeFullName" name="EmployeeFullName" required><br>
-        <label for="joinDate">Join Date:</label><br>
-        <input type="date" id="joinDate" name="JoinDate" required><br>
-        <label for="informJoinDate">Inform Join Date:</label><br>
-        <input type="date" id="informJoinDate" name="InformJoinDate" required><br>
-        <label for="dob">Date of Birth:</label><br>
-        <input type="date" id="dob" name="DOB" required><br>
-        <label for="notes">Notes:</label><br>
-        <input type="text" id="notes" name="Notes"><br>
+        <label for="employeeFullName">Full Name</label>
+        <input type="text" id="employeeFullName" name="EmployeeFullName" required>
 
-        <label for="carrier">carrier:</label>
-        <select id="carrier" name="carrier">
-            <option value="">Select a category</option>
+        <label for="joinDate">Start Date</label>
+        <input type="date" id="joinDate" name="StartDate" required>
+
+        <label for="informJoinDate">Inform Start Date</label>
+        <input type="date" id="informJoinDate" name="InformStartDate" required>
+
+        <label for="dob">Date of Birth</label>
+        <input type="date" id="dob" name="DOB">
+
+        <label for="notes">Notes</label>
+        <input type="text" id="notes" name="Notes">
+
+        <label for="carrier">Carrier</label>
+        <select id="carrier" name="Carrier" required>
+            <option value="">Select a carrier</option>
         </select>
 
-        <label for="tier">tier:</label>
-        <select id="tier" name="tier">
-            <option value="">Select an item</option>
+        <label for="tier">Tier</label>
+        <select id="tier" name="Tier">
+            <option value="">Select a tier</option>
         </select>
 
-        <!-- Inputs for GL, Division, Location, Title, and COBRA -->
-        <div id="companyInfoInputs">
-            <!-- These inputs will be dynamically added based on company data -->
-        </div>
+        <div id="companyInfoInputs"></div>
 
-        <!-- Table structure with header and initial rows -->
+        <h2>Dependents</h2>
+        <p class="app-page-intro">Leave the dependent row blank if this employee has no dependents.</p>
         <table id="editableTable">
             <thead>
                 <tr>
                     <th>Dependent Name</th>
-                    <th>Dependent Relationship</th>
-                    <th>Dependent DOB</th>
+                    <th>Relationship</th>
+                    <th>Date of Birth</th>
+                    <th>Start Date</th>
+                    <th>Inform Start Date</th>
                     <th>Action</th>
                 </tr>
             </thead>
-            <tbody>
-                <!-- Initial row with inputs and delete button -->
-                <tr>
-                    <td><input type="text" name="dependentName"></td>
-                    <td><input type="text" name="dependentRelationship"></td>
-                    <td><input type="date" name="dependentDOB"></td>
-                    <td><button onclick="deleteRow(this)">Delete</button></td>
-                </tr>
-            </tbody>
+            <tbody></tbody>
         </table>
 
-        <button type="button" onclick="addRow()">Add Row</button>
+        <button type="button" id="addDependentRow" class="secondary">Add Dependent</button>
         <button type="submit">Submit</button>
+        <button type="button" id="cancelButton" class="secondary">Cancel</button>
     </form>
 
     <script type="module">
         import {
             addEmployee,
-            getFullTable,
-            searchEmployerById,
-            searchEmployeeByJson,
-            searchEmployeePlanByJson,
-            searchActiveEmployees,
-            searchActivePlans,
-            searchCarrierByJson,
-            searchTierByJson,
-            searchPlanByJson,
-            searchEmployeeByName,
-            generateReport
-            
-        } from './apiFunctions.js'
+            getFullTable
+        } from './apiFunctions.js';
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const companyId = urlParams.get('id');
+        let company = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const companyId = urlParams.get('id');
-
             if (!companyId) {
-                console.error('No company ID found in URL parameters');
+                alert('No company ID was provided.');
+                window.location.href = 'index.html';
                 return;
             }
 
             try {
-                const companyResponse = await getFullTable("Employer", companyId);
-                const company = companyResponse.Element;
+                const companyResponse = await getFullTable('Employer', companyId);
+                company = companyResponse.Element;
                 displayCompanyInfoInputs(company);
-                createTierCarrierDropdown(company);
-
+                populatePlanDropdowns(company);
+                addRow();
             } catch (error) {
                 console.error('Error fetching company details:', error);
+                alert('Could not load company details.');
             }
         });
 
-        function displayCompanyInfoInputs(company) {
-            const companyInfoInputs = document.getElementById('companyInfoInputs');
-            const companyData = JSON.parse(company);
-            
-            if (companyData.UsesGlCode !== 0) {
-                const glInput = createInputField('GL', company.GL);
-                companyInfoInputs.appendChild(glInput);
-                console.log(companyData.UsesGlCode);
-            } else {
-                const glInput = createInputField('GL');
-                companyInfoInputs.appendChild(glInput);
+        document.getElementById('addDependentRow').addEventListener('click', () => addRow());
+        document.getElementById('cancelButton').addEventListener('click', () => {
+            window.location.href = `company1.html?id=${encodeURIComponent(companyId)}`;
+        });
+
+        document.getElementById('employeeForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const employee = buildEmployeeJson();
+            if (!employee.EmployeeFullName || !employee.StartDate || !employee.InformStartDate) {
+                alert('Full name, start date, and inform start date are required.');
+                return;
             }
 
-            if (companyData.UsesDivision !== 0){
-                const divisionInput = createInputField('Division', company.Division);
-                companyInfoInputs.appendChild(divisionInput);
-            } else {
-                const divisionInput = createInputField('Division');
-                companyInfoInputs.appendChild(divisionInput);
+            try {
+                await addEmployee(employee);
+                alert('Employee added successfully.');
+                window.location.href = `company1.html?id=${encodeURIComponent(companyId)}`;
+            } catch (error) {
+                console.error('Error adding employee:', error);
+                alert(`Failed to add employee. ${error.message || ''}`);
             }
+        });
 
-            if (companyData.UsesLocation !== 0) {
-                const locationInput = createInputField('Location', company.Location);
-                companyInfoInputs.appendChild(locationInput);
-            } else {
-                const locationInput = createInputField('Location');
-                companyInfoInputs.appendChild(locationInput);
-            }
+        function displayCompanyInfoInputs(companyData) {
+            const container = document.getElementById('companyInfoInputs');
+            container.innerHTML = '';
 
-            if (companyData.UsesTitle !== 0) {
-                const titleInput = createInputField('Title', company.Title);
-                companyInfoInputs.appendChild(titleInput);
-            } else {
-                const titleInput = createInputField('Title');
-                companyInfoInputs.appendChild(titleInput);
-            }
+            [
+                ['GlCode', 'GL Code', companyData.UsesGlCode],
+                ['Division', 'Division', companyData.UsesDivision],
+                ['Location', 'Location', companyData.UsesLocation],
+                ['Title', 'Title', companyData.UsesTitle]
+            ].forEach(([name, label, enabled]) => {
+                if (enabled === 0 || enabled === false) return;
+                const labelElement = document.createElement('label');
+                labelElement.htmlFor = name;
+                labelElement.textContent = label;
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.id = name;
+                input.name = name;
+                container.appendChild(labelElement);
+                container.appendChild(input);
+            });
 
-            /*if (company.COBRA !== 0) {
-                const cobraInput = createInputField('COBRA', company.COBRA);
-                companyInfoInputs.appendChild(cobraInput);
-            } else {
-                const cobraInput = createInputField('COBRA');
-                companyInfoInputs.appendChild(cobraInput);
-            }*/
+            const cobraLabel = document.createElement('label');
+            cobraLabel.htmlFor = 'CobraStatus';
+            cobraLabel.textContent = 'COBRA Status';
+            const cobraInput = document.createElement('input');
+            cobraInput.type = 'checkbox';
+            cobraInput.id = 'CobraStatus';
+            cobraInput.name = 'CobraStatus';
+            cobraInput.style.width = 'auto';
+            container.appendChild(cobraLabel);
+            container.appendChild(cobraInput);
         }
 
-        function createInputField(labelText, value = '') {
-            const label = document.createElement('label');
-            label.textContent = `${labelText}:`;
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.name = labelText;
-            input.value = value;
-            label.appendChild(input);
-            label.appendChild(document.createElement('br'));
-            return label;
-        }
-
-        function createTierCarrierDropdown(company){
-            const carrier = company.Carriers;
-            const tier = company.Tiers;
-            console.log(company);
-            console.log(carrier);
-            console.log(tier);
-
+        function populatePlanDropdowns(companyData) {
             const carrierSelect = document.getElementById('carrier');
             const tierSelect = document.getElementById('tier');
 
-            // Fetch carrier from an external API
-            // Populate carrier dropdown
-            carrier.forEach(carrier => {
+            (companyData.Carriers || []).forEach(carrier => {
                 const option = document.createElement('option');
-                option.value = carrier.CarrierId;
+                option.value = carrier.CarrierName;
                 option.textContent = carrier.CarrierName;
                 carrierSelect.appendChild(option);
             });
 
-            tier.forEach(tier => {
+            (companyData.Tiers || []).forEach(tier => {
                 const option = document.createElement('option');
-                option.value = tier.TierId;
+                option.value = tier.TierName;
                 option.textContent = tier.TierName;
                 tierSelect.appendChild(option);
             });
-
         }
 
-        // Function to add a new row to the table
-        function addRow() {
-            const table = document.getElementById('editableTable').getElementsByTagName('tbody')[0];
-            const newRow = table.insertRow();
-    
-            // Insert cells with input fields and delete button
-            const cell1 = newRow.insertCell(0);
-            cell1.innerHTML = '<input type="text" name="dependentName">';
-    
-            const cell2 = newRow.insertCell(1);
-            cell2.innerHTML = '<input type="text" name="dependentRelationship">';
-    
-            const cell3 = newRow.insertCell(2);
-            cell3.innerHTML = '<input type="date" name="dependentDOB">';
-    
-            const cell4 = newRow.insertCell(3);
-            cell4.innerHTML = '<button onclick="deleteRow(this)">Delete</button>';
+        function buildEmployeeJson() {
+            const formData = new FormData(document.getElementById('employeeForm'));
+            const employee = {
+                EmployerID: Number(companyId),
+                EmployeeFullName: formData.get('EmployeeFullName') || null,
+                StartDate: formData.get('StartDate') || null,
+                InformStartDate: formData.get('InformStartDate') || formData.get('StartDate') || null,
+                DOB: formData.get('DOB') || null,
+                CobraStatus: document.getElementById('CobraStatus')?.checked || false,
+                Notes: formData.get('Notes') || null,
+                GlCode: formData.get('GlCode') || null,
+                Division: formData.get('Division') || null,
+                Location: formData.get('Location') || null,
+                Title: formData.get('Title') || null,
+                Carrier: formData.get('Carrier') || null,
+                Tier: formData.get('Tier') || null,
+                Dependents: gatherDependents(formData.get('StartDate'), formData.get('InformStartDate'))
+            };
+
+            const nameParts = employee.EmployeeFullName.trim().split(/\s+/);
+            employee.EmployeeFirstName = nameParts[0] || null;
+            employee.EmployeeLastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : null;
+
+            return employee;
         }
-    
-        // Function to delete a row from the table
-        function deleteRow(button) {
-            const row = button.parentNode.parentNode;
-            row.parentNode.removeChild(row);
-        }
-    
-        // Function to submit the form
-        document.getElementById('employeeForm').addEventListener('submit', async (event) => {
-            event.preventDefault();
-    
-            const formData = new FormData(event.target);
-            const employeeJson = Object.fromEntries(formData);
-            const companyId = urlParams.get('id');
-            
-    
-            try {
-                await instEmployee(employeeJson, companyId); // Using the API function to add employee
-                alert('Employee added successfully!');
-                // Redirect or handle success as needed
-            } catch (error) {
-                console.error('Error adding employee:', error);
-                alert('Failed to add employee.');
-            }
-        });
-    
-        // API function to add an employee
-        async function instEmployee(employeeData, companyId) {
-            try {
-                // Construct the Employee object
-                const employee = {
-                    EmployerID: companyId, // This should be retrieved from the company data or form
-                    EmployeeFullName: document.getElementById('employeeFullName'),
-                    StartDate: document.getElementById('joinDate'),
-                    EndDate: null,
-                    InformStartDate: document.getElementById('informJoinDate'),
-                    InformEndDate: null,
-                    DOB: document.getElementById('dob'),
-                    CobraStatus: document.getElementById('COBRA') || null,
-                    Notes: document.getElementById('notes') || '',
-                    GlCode: document.getElementById('GL') || null,
-                    Division: document.getElementById('Division') || null,
-                    Location: document.getElementById('Location') || null,
-                    Title: document.getElementById('Title') || null,
-                    Carrier: document.getElementById('carrier'),
-                    Tier: document.getElementById('tier')
+
+        function gatherDependents(defaultStartDate, defaultInformStartDate) {
+            return Array.from(document.querySelectorAll('#editableTable tbody tr')).map(row => {
+                const dependentName = row.querySelector('[name="dependentName"]').value.trim();
+                const relationship = row.querySelector('[name="dependentRelationship"]').value.trim();
+                const dob = row.querySelector('[name="dependentDOB"]').value;
+                const startDate = row.querySelector('[name="dependentStartDate"]').value || defaultStartDate;
+                const informStartDate = row.querySelector('[name="dependentInformStartDate"]').value || defaultInformStartDate || startDate;
+
+                if (!dependentName && !relationship && !dob) return null;
+                if (!dependentName || !relationship || !dob) {
+                    throw new Error('Each dependent needs a name, relationship, and date of birth.');
+                }
+
+                return {
+                    DependentName: dependentName,
+                    Relationship: relationship,
+                    DOB: dob,
+                    StartDate: startDate,
+                    InformStartDate: informStartDate
                 };
-                console.log(employee);
+            }).filter(Boolean);
+        }
 
-                // Add dependents to the employee object if any
-                employee.Dependents = [];
-                const rows = document.querySelectorAll('#editableTable tbody tr');
-                rows.forEach(row => {
-                    const dependentName = row.querySelector('input[name="dependentName"]').value;
-                    const dependentRelationship = row.querySelector('input[name="dependentRelationship"]').value;
-                    const dependentDOB = row.querySelector('input[name="dependentDOB"]').value;
+        function addRow() {
+            const table = document.getElementById('editableTable').querySelector('tbody');
+            const row = table.insertRow();
+            row.innerHTML = `
+                <td><input type="text" name="dependentName"></td>
+                <td><input type="text" name="dependentRelationship"></td>
+                <td><input type="date" name="dependentDOB"></td>
+                <td><input type="date" name="dependentStartDate"></td>
+                <td><input type="date" name="dependentInformStartDate"></td>
+                <td><button type="button" onclick="deleteRow(this)">Delete</button></td>
+            `;
+        }
 
-                    if (dependentName && dependentRelationship && dependentDOB) {
-                        employee.Dependents.push({
-                            DependentName: dependentName,
-                            DependentRelationship: dependentRelationship,
-                            DependentDOB: dependentDOB
-                        });
-                    }
-                });
+        function deleteRow(button) {
+            button.closest('tr').remove();
+        }
 
-                // Now, call the API function to actually add the employee to the database
-                await addEmployee(employee);
-                alert('Employee added successfully!');
-            } catch (error) {
-                console.error('Error adding employee:', error);
-                alert('Failed to add employee.');
-            }
-}
-
+        window.addRow = addRow;
+        window.deleteRow = deleteRow;
     </script>
+    <script src="app-shell.js" defer></script>
 </body>
 </html>
-// choose carrier
-// choose choose tier
-// first, middle, last names
-//fix add employee functiom
