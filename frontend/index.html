@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Grenz & Co Invoice Generator</title>
+    <title>Companies - Billing Database</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -80,62 +80,76 @@
             background-color: #c82333;
         }
     </style>
+    <link rel="stylesheet" href="app.css">
 </head>
 
 <body>
     <header>
-        <h1>Grenz & Co Invoice Generator</h1>
+        <h1>Billing Database</h1>
     </header>
     <main>
         <h2>Companies</h2>
+        <p class="app-page-intro">Choose a company to review employees, plans, and monthly billing reports. Add a company when starting a new employer setup.</p>
         <div class="search-container">
-            <input type="text" id="searchInput" placeholder="Search.." onkeyup="filterCompanies()">
+            <input type="search" id="searchInput" placeholder="Search companies by name">
+            <a href="addcompany.html" class="add-company-button">Add Company</a>
         </div>
-        <a href="addcompany.html" class="add-company-button">
-            <span>Add Company</span>
-        </a>
+        <p id="companyStatus" class="app-message">Loading companies...</p>
         <ul id="companyList"></ul>
     </main>
 
     <script type="module">
         import {
             getAllEmployers,
-            searchEmployerByJson,
             searchTableByName,
             deleteEmployer
         } from './apiFunctions.js';
     
         document.addEventListener('DOMContentLoaded', () => {
+            const companyStatus = document.getElementById('companyStatus');
+
             async function fetchAndDisplayCompanies() {
                 try {
+                    companyStatus.textContent = 'Loading companies...';
                     const companies = await getAllEmployers();
                     displayCompanies(companies);
                 } catch (error) {
                     console.error('Error fetching companies:', error);
+                    companyStatus.textContent = 'Could not load companies. Check the setup page and make sure the app is running.';
                 }
             }
     
             function displayCompanies(companies) {
                 const companyList = document.getElementById('companyList');
                 companyList.innerHTML = '';
+                if (!companies || companies.length === 0) {
+                    companyStatus.textContent = 'No companies yet. Add a company to begin setup.';
+                    return;
+                }
+                companyStatus.textContent = `${companies.length} compan${companies.length === 1 ? 'y' : 'ies'} found.`;
                 companies.forEach(company => {
                     const listItem = document.createElement('li');
-                    listItem.textContent = company.EmployerName;
-                    listItem.dataset.name = company.EmployerName.toLowerCase();
+                    const companyName = document.createElement('strong');
+                    companyName.textContent = company.EmployerName || 'Unnamed Company';
+                    listItem.appendChild(companyName);
+                    listItem.dataset.name = (company.EmployerName || '').toLowerCase();
                     listItem.dataset.id = company.EmployerID;
                     listItem.addEventListener('click', () => {
                         navigateToCompany(company.EmployerID);
                     });
                     const deleteButton = document.createElement('button');
                     deleteButton.textContent = 'Delete';
-                    deleteButton.addEventListener('click', () => {
+                    deleteButton.dataset.danger = 'true';
+                    deleteButton.addEventListener('click', (event) => {
                         event.stopPropagation(); // Prevent the click event from propagating to the list item
-                        const confirmed = confirm('Are you sure you want to delete this company?');
+                        const confirmed = confirm(`Delete ${company.EmployerName}? This will remove related records from the database.`);
                         if (confirmed) {
-                            deleteEmployer(company.EmployerID);
-                            console.log(`Company with ID ${company.EmployerID} has been deleted.`);
-                            deleteButton.remove();
-                            listItem.remove();
+                            deleteEmployer(company.EmployerID)
+                                .then(() => fetchAndDisplayCompanies())
+                                .catch(error => {
+                                    console.error('Error deleting company:', error);
+                                    alert('Could not delete the company.');
+                                });
                         }
                     });
                     listItem.appendChild(deleteButton);
@@ -160,6 +174,11 @@
             async function filterCompanies() {
                 const searchInput = document.getElementById('searchInput').value.toLowerCase();
                 try {
+                    if (!searchInput) {
+                        await fetchAndDisplayCompanies();
+                        return;
+                    }
+                    companyStatus.textContent = 'Searching companies...';
                     const companies = await searchTableByName("employer", searchInput);
                     displayCompanies(companies);
                 } catch (error) {
@@ -175,5 +194,6 @@
         });
     </script>
     
+    <script src="app-shell.js" defer></script>
 </body>
 </html>

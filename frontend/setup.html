@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Billing Database Setup</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f6f7f9;
+            --panel: #ffffff;
+            --ink: #17202a;
+            --muted: #5d6875;
+            --line: #d8dde4;
+            --accent: #126f82;
+            --accent-dark: #0d5361;
+            --ok: #1b7f4c;
+            --warn: #9a6100;
+            --bad: #b42318;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            color: var(--ink);
+            background: var(--bg);
+        }
+
+        header {
+            padding: 22px 28px;
+            background: #25313d;
+            color: #fff;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        header p {
+            margin: 6px 0 0;
+            color: #dbe2ea;
+            font-size: 14px;
+        }
+
+        main {
+            width: min(960px, calc(100% - 32px));
+            margin: 28px auto;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 22px;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin: 18px 0 22px;
+        }
+
+        .status {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 14px;
+            min-height: 92px;
+        }
+
+        .status strong {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .status span {
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.35;
+        }
+
+        .ok {
+            border-color: rgba(27, 127, 76, .45);
+            background: #f1fbf5;
+        }
+
+        .warn {
+            border-color: rgba(154, 97, 0, .45);
+            background: #fff8eb;
+        }
+
+        .bad {
+            border-color: rgba(180, 35, 24, .45);
+            background: #fff4f2;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button,
+        a.button {
+            border: 0;
+            border-radius: 6px;
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            min-height: 40px;
+            padding: 0 16px;
+            text-decoration: none;
+        }
+
+        button:hover,
+        a.button:hover {
+            background: var(--accent-dark);
+        }
+
+        button.secondary {
+            background: #e9edf2;
+            color: var(--ink);
+        }
+
+        button.secondary:hover {
+            background: #d9e0e8;
+        }
+
+        .note {
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.5;
+            margin-top: 18px;
+        }
+
+        @media (max-width: 760px) {
+            header {
+                padding: 18px;
+            }
+
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+
+            main {
+                width: calc(100% - 20px);
+                margin: 18px auto;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="app.css">
+</head>
+<body>
+    <header>
+        <h1>Billing Database Setup</h1>
+        <p>Health insurance billing, enrollment, and monthly report workspace</p>
+    </header>
+
+    <main>
+        <section class="panel">
+            <h2>First Run Check</h2>
+            <p class="note">This page checks that the local API is running and can reach the database before you start entering employer and employee records.</p>
+
+            <div class="status-grid">
+                <div id="apiStatus" class="status warn">
+                    <strong>API</strong>
+                    <span>Waiting to check...</span>
+                </div>
+                <div id="dbStatus" class="status warn">
+                    <strong>Database</strong>
+                    <span>Waiting to check...</span>
+                </div>
+                <div id="appStatus" class="status warn">
+                    <strong>App</strong>
+                    <span>Waiting to check...</span>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button id="runChecks">Run Checks</button>
+                <button id="setupDb" class="secondary">Initialize Database</button>
+                <a class="button" href="index.html">Open App</a>
+            </div>
+
+            <p class="note" id="summary">Run checks to confirm the local services are ready.</p>
+        </section>
+
+        <section class="panel" style="margin-top: 18px;">
+            <h2>Backup And Restore</h2>
+            <p class="note">Backups download a local JSON copy of the billing database. Restore only from a backup file you trust, because restore replaces the current local database.</p>
+
+            <div class="actions">
+                <button id="downloadBackup">Download Backup</button>
+                <label for="restoreFile" class="button secondary">Choose Restore File</label>
+                <input type="file" id="restoreFile" accept="application/json,.json" style="display: none;">
+                <button id="restoreBackup" class="secondary" disabled>Restore Selected Backup</button>
+            </div>
+
+            <p class="note" id="backupSummary">No restore file selected.</p>
+        </section>
+    </main>
+
+    <script>
+        const API_BASE = window.BILLING_API_BASE_URL || "http://localhost:3000";
+
+        const apiStatus = document.getElementById("apiStatus");
+        const dbStatus = document.getElementById("dbStatus");
+        const appStatus = document.getElementById("appStatus");
+        const summary = document.getElementById("summary");
+        const backupSummary = document.getElementById("backupSummary");
+        const restoreFileInput = document.getElementById("restoreFile");
+        const restoreBackupButton = document.getElementById("restoreBackup");
+
+        function setStatus(element, state, text) {
+            element.classList.remove("ok", "warn", "bad");
+            element.classList.add(state);
+            element.querySelector("span").textContent = text;
+        }
+
+        async function checkJson(path) {
+            const response = await fetch(`${API_BASE}${path}`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        }
+
+        async function runChecks() {
+            summary.textContent = "Checking local services...";
+            setStatus(apiStatus, "warn", "Checking...");
+            setStatus(dbStatus, "warn", "Checking...");
+            setStatus(appStatus, "warn", "Checking...");
+
+            let apiReady = false;
+            let dbReady = false;
+
+            try {
+                await checkJson("/api");
+                apiReady = true;
+                setStatus(apiStatus, "ok", "API is running.");
+            } catch (error) {
+                setStatus(apiStatus, "bad", "API is not responding.");
+            }
+
+            try {
+                const result = await checkJson("/testconnection");
+                dbReady = Boolean(result.version);
+                setStatus(dbStatus, dbReady ? "ok" : "bad", dbReady ? `Connected to MySQL ${result.version}.` : "Database did not confirm a connection.");
+            } catch (error) {
+                setStatus(dbStatus, "bad", "Database check failed.");
+            }
+
+            if (apiReady && dbReady) {
+                setStatus(appStatus, "ok", "Ready to use.");
+                summary.textContent = "Setup looks good. Open the app to start managing billing records.";
+            } else {
+                setStatus(appStatus, "bad", "Setup needs attention.");
+                summary.textContent = "If the wizard just started Docker, wait a minute and run checks again.";
+            }
+        }
+
+        async function setupDatabase() {
+            summary.textContent = "Initializing database tables...";
+            try {
+                const result = await checkJson("/setup_db");
+                summary.textContent = result.message || "Database initialization finished.";
+                await runChecks();
+            } catch (error) {
+                summary.textContent = "Database initialization failed. Check Docker container logs.";
+            }
+        }
+
+        async function downloadBackup() {
+            backupSummary.textContent = "Preparing backup...";
+            try {
+                const response = await fetch(`${API_BASE}/backup`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                const disposition = response.headers.get("content-disposition") || "";
+                const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+                link.href = url;
+                link.download = filenameMatch ? filenameMatch[1] : "billing_database_backup.json";
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+                backupSummary.textContent = "Backup downloaded.";
+            } catch (error) {
+                backupSummary.textContent = "Backup failed. Check that the app is running.";
+            }
+        }
+
+        async function restoreBackup() {
+            const file = restoreFileInput.files[0];
+            if (!file) return;
+
+            const confirmed = confirm("Restore this backup? This will replace the current local database.");
+            if (!confirmed) return;
+
+            backupSummary.textContent = "Restoring backup...";
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const response = await fetch(`${API_BASE}/restore`, {
+                    method: "POST",
+                    body: formData
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.Error || `HTTP ${response.status}`);
+                }
+                backupSummary.textContent = result.message || "Backup restored.";
+                await runChecks();
+            } catch (error) {
+                backupSummary.textContent = `Restore failed. ${error.message || ""}`;
+            }
+        }
+
+        document.getElementById("runChecks").addEventListener("click", runChecks);
+        document.getElementById("setupDb").addEventListener("click", setupDatabase);
+        document.getElementById("downloadBackup").addEventListener("click", downloadBackup);
+        restoreFileInput.addEventListener("change", () => {
+            const file = restoreFileInput.files[0];
+            restoreBackupButton.disabled = !file;
+            backupSummary.textContent = file ? `Selected: ${file.name}` : "No restore file selected.";
+        });
+        restoreBackupButton.addEventListener("click", restoreBackup);
+        runChecks();
+    </script>
+    <script src="app-shell.js" defer></script>
+</body>
+</html>

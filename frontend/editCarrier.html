@@ -3,510 +3,395 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Make 3 Tier Table</title>
+    <title>Edit Plans - Billing Database</title>
+    <link rel="stylesheet" href="app.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
+        .maintenance-header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: end;
+            justify-content: space-between;
+            margin-bottom: 18px;
         }
-        .button-container {
-            margin-bottom: 20px;
+
+        .maintenance-header label {
+            display: block;
+            margin-bottom: 4px;
         }
-        button {
-            background: #007BFF;
-            color: #fff;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #0056b3;
-        }
-        .tableWrapper {
-            margin-bottom: 20px;
-        }
-        .tableWrapper input[type="text"] {
+
+        .tableWrapper input[type="text"],
+        .tableWrapper input[type="number"],
+        .tableWrapper input[type="date"] {
             width: 100%;
-            padding: 5px;
-            box-sizing: border-box;
+            min-width: 110px;
         }
-        .tableWrapper table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        .tableWrapper th,
-        .tableWrapper td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-        }
-        .tableWrapper th {
-            background-color: #f2f2f2;
-        }
-        .tableWrapper tr:hover {
-            background-color: #f1f1f1;
-        }
-        .carrier-input {
-            font-size: 18px;
-            font-weight: bold;
-            width: calc(100% - 10px);
+
+        .carrier-heading {
+            display: flex;
+            gap: 10px;
+            align-items: center;
             margin-bottom: 10px;
+        }
+
+        .carrier-heading input {
+            max-width: 420px;
+            font-size: 17px;
+            font-weight: 700;
         }
     </style>
 </head>
 <body>
+    <main>
+        <h1>Edit Carriers, Tiers, And Plans</h1>
+        <p class="app-page-intro">Update the plan setup for this company. Saving will update current plans and end active plans that are removed from the grid.</p>
 
-<div class="button-container">
-    <button id="addCarrierButton">Add Carrier</button>
-    <button id="addTierButton">Add Tier</button>
-    <button id="deleteCarrierButton">Delete Carrier</button>
-    <button id="deleteTierButton">Delete Tier</button>
-    <button id="submitButton">Submit</button>
-</div>
-<div id="tableContainer"></div>
+        <section class="app-card" style="padding: 22px;">
+            <div class="maintenance-header">
+                <div>
+                    <label for="effectiveDate">Effective date for new or removed plans</label>
+                    <input type="date" id="effectiveDate">
+                </div>
+                <div class="actions">
+                    <button id="addCarrierButton">Add Carrier</button>
+                    <button id="addTierButton">Add Tier</button>
+                    <button id="submitButton">Save Plan Setup</button>
+                    <a id="backButton" class="button secondary" href="index.html">Back To Company</a>
+                </div>
+            </div>
+            <p id="statusMessage" class="app-message">Loading plan setup...</p>
+            <div id="tableContainer"></div>
+        </section>
+    </main>
 
-<script type="module">
-    import {
-        changeCarrier,
-        changeTier,
-        modifyPlan,
-        addCarrier,
-        addTier,
-        addPlan,
-        deleteCarrier,
-        deleteTier,
-        endPlan,
-        searchActivePlans,
-        getFullTable
-    } from './apiFunctions.js';
+    <script type="module">
+        import {
+            getFullTable,
+            searchActivePlans,
+            saveEmployerPlanSetup
+        } from './apiFunctions.js';
 
-    // TO DO: Rework this so instead it checks for changes and uses change plan
-    async function submitTable(gatheredData) {
-        // Retrieve the stored company data from localStorage
-        const companyDataString = localStorage.getItem('companyData');
-        console.log(companyDataString);
-        if (!companyDataString) {
-            console.error('No company data found in localStorage');
-            return;
-        }
-
-        // Get the company data from localStorage
-        const companyData = JSON.parse(companyDataString);
-
-        function compareData(oldData, newData){
-            let changes = {};
-            for (let key in oldData){
-                if (oldData[key] !== newData[key]){
-                    changes[key] = newData[key];
-                }
-            }
-            //Check if there are any changes and if not return false
-            if (Object.keys(changes).length === 0){
-                return false;
-            }
-            return changes;
-            
-        }
-        // Look for any ID that has the value -1 and add if it is return true
-        function checkIfAdditions(newData, IDName){
-            if (newData[IDName] === -1){
-                return true;
-            }
-        }
-
-            
-
-        // TO DO: Check for changes additions and deletions
-        // Carrier changes
-        for (let carrier of companyData.Carriers){
-            // for each of the old carriers find the carrier with the same ID and compare the data and if it has change the data
-            const oldCarrier = gatheredData.Carriers.find(c => c.CarrierID === carrier.CarrierID);
-            if (oldCarrier){
-                const changes = compareData(oldCarrier, carrier);
-                if (changes){
-                    // TO DO: Change the carrier data
-                    console.log('Carrier Changes:', changes);
-                }
-            } else {
-                // TO DO: Delete the carrier
-                console.log('Carrier Deleted:', carrier);
-            }
-        }
-
-        // Tier changes
-        for (let tier of companyData.Tiers){
-            // for each of the old tiers find the tier with the same ID and compare the data and if it has change the data
-            const oldTier = gatheredData.Tiers.find(t => t.TierID === tier.TierID);
-            if (oldTier){
-                const changes = compareData(oldTier, tier);
-                if (changes){
-                    // TO DO: Change the tier data
-                    console.log('Tier Changes:', changes);
-                }
-            } else {
-                // TO DO: Delete the tier
-                console.log('Tier Deleted:', tier);
-            }
-        }
-
-        // Plan changes
-        for (let plan of companyData.Plans){
-            // for each of the old plans find the plan with the same ID and compare the data and if it has change the data
-            const oldPlan = gatheredData.Plans.find(p => p.PlanID === plan.PlanID);
-            if (oldPlan){
-                const changes = compareData(oldPlan, plan);
-                if (changes){
-                    // TO DO: Change the plan data
-                    console.log('Plan Changes:', changes);
-                }
-            } else {
-                // TO DO: Delete the plan
-                console.log('Plan Deleted:', plan);
-            }
-        }
-
-        // New Carrier
-        const newCarriers = gatheredData.Carriers.filter(c => checkIfAdditions(c, 'CarrierID'));
-        if (newCarriers.length > 0){
-            // TO DO: Add the new carriers
-            console.log('New Carriers:', newCarriers);
-        }
-
-        // New Tier
-        const newTiers = gatheredData.Tiers.filter(t => checkIfAdditions(t, 'TierID'));
-        if (newTiers.length > 0){
-            // TO DO: Add the new tiers
-            console.log('New Tiers:', newTiers);
-        }
-
-        // New Plan
-        const newPlans = gatheredData.Plans.filter(p => checkIfAdditions(p, 'PlanID'));
-        if (newPlans.length > 0){
-            // TO DO: Add the new plans
-            console.log('New Plans:', newPlans);
-        }
-    }
-    //on load
-    document.addEventListener('DOMContentLoaded', async () => {
         const urlParams = new URLSearchParams(window.location.search);
         const employerID = urlParams.get('id');
-        // TO DO: Write some code here to get the carrier, tier, and plan data from the server and format it for the table
-        // get the id from local storage
-        // const employerID = localStorage.getItem('employerID');
-        // get the data from the server
-        const fullD = await getFullTable('Employer', employerID);
-
-        const fullData = fullD.Element
-
-        console.log(fullData)
-        console.log(fullD)
-        // format the data for the table
-        const carriers = fullData.Carriers.map(carrier => {
-            return {
-                CarrierName: carrier.CarrierName,
-                CarrierID: carrier.CarrierID
-            };
-        });
-        const tiers = fullData.Tiers.map(tier => {
-            return {
-                TierName: tier.TierName,
-                MaxAge: tier.MaxAge,
-                MinAge: tier.MinAge,
-                TierID: tier.TierID
-            };
-        });
-        // loop through the plans and add them to the data object
-        // for each carrier add a new object with the tier name as the key and the plan data as the value
-        // get the active plans
-        const activePlans = await searchActivePlans(employerID);
-        // only keep the active plans
-        // MARKER
-        fullData.Plans = fullData.Plans.filter(plan => activePlans.includes(plan.PlanID));
-
-        const data = {};
-        fullData.Plans.forEach(plan => {
-            if (!data[plan.CarrierName]) {
-                data[plan.CarrierName] = {};
-            }
-            data[plan.CarrierName][plan.TierName] = {
-                'Funding Amount': plan.FundingAmount || '',
-                'Grenz Fee': plan.GrenzFee || '',
-                'Grenz Fee C': plan.GrenzFeeC || '',
-                'Grenz Fee S': plan.GrenzFeeS || '',
-                'PlanID': plan.PlanID || -1
-            };
-        });
-
-        // save tier, carrier, and plan data to local storage
-        localStorage.setItem('companyData', JSON.stringify(fullData));
-
-
-
-        
-        addTable(tiers, carriers, data);
-
-        document.getElementById('addCarrierButton').addEventListener('click', () => {
-            const newCarrierName = `Carrier ${carriers.length + 1}`;
-            carriers.push({ CarrierName: newCarrierName });
-            data[newCarrierName] = {};
-            tiers.forEach(tier => {
-                data[newCarrierName][tier.TierName] = { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' };
-            });
-            updateTables(tiers, carriers, data);
-        });
-
-        document.getElementById('addTierButton').addEventListener('click', () => {
-            const newTierName = `New Tier ${tiers.length + 1}`;
-            tiers.push({ TierName: newTierName, MaxAge: '', MinAge: '' });
-            carriers.forEach(carrier => {
-                data[carrier.CarrierName][newTierName] = { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' };
-            });
-            updateTables(tiers, carriers, data);
-        });
-
-        document.getElementById('deleteCarrierButton').addEventListener('click', () => {
-            if (carriers.length > 0) {
-                const carrierToDelete = carriers.pop();
-                delete data[carrierToDelete.CarrierName];
-                updateTables(tiers, carriers, data);
-            }
-        });
-
-        document.getElementById('deleteTierButton').addEventListener('click', () => {
-            if (tiers.length > 0) {
-                const tierToDelete = tiers.pop().TierName;
-                carriers.forEach(carrier => {
-                    delete data[carrier.CarrierName][tierToDelete];
-                });
-                updateTables(tiers, carriers, data);
-            }
-        });
-
-        document.getElementById('submitButton').addEventListener('click', () => {
-            const gatheredData = gatherData(tiers, carriers, data);
-            submitTable(gatheredData);
-        });
-    });
-
-    function countWarnings(warnings){
-        let count = 0;
-        for (let warning in warnings){
-            if (warnings[warning].hasOwnProperty('toString')){
-                count += countWarnings(warning[warning]);
-            } else {
-                count++;
-            } 
-        }
-        return count;
-    }
-    function gatherData(tiers, carriers, data) {
-        const gatheredData = {
-            Carriers: carriers.map(carrier => ({"CarrierName": carrier.CarrierName, "CarrierID": carrier.CarrierID || -1})),
-            Tiers: tiers.map(tier => ({
-                TierName: tier.TierName,
-                MaxAge: tier.MaxAge || null,
-                MinAge: tier.MinAge || null,
-                TierID: tier.TierID || -1
-            })),
-            Plans: []
-        };
-
-        carriers.forEach(carrier => {
-            tiers.forEach(tier => {
-                const planData = data[carrier.CarrierName][tier.TierName];
-                gatheredData.Plans.push({
-                    CarrierName: carrier.CarrierName,
-                    TierName: tier.TierName,
-                    FundingAmount: planData['Funding Amount'] || null,
-                    GrenzFee: planData['Grenz Fee'] || null,
-                    GrenzFeeC: planData['Grenz Fee C'] || null,
-                    GrenzFeeS: planData['Grenz Fee S'] || null,
-                    PlanID: planData.PlanID || -1
-                });
-            });
-        });
-
-        return gatheredData;
-    }
-
-    function updateTables(tiers, carriers, data) {
+        const statusMessage = document.getElementById('statusMessage');
         const tableContainer = document.getElementById('tableContainer');
-        tableContainer.innerHTML = '';
-        addTable(tiers, carriers, data);
-    }
+        const effectiveDateInput = document.getElementById('effectiveDate');
+        const backButton = document.getElementById('backButton');
 
-    function addTable(tiers, carriers, data) {
-        const tableContainer = document.getElementById('tableContainer');
+        let carriers = [];
+        let tiers = [];
+        let planCells = new Map();
 
-        const updateTierNames = () => {
-            document.querySelectorAll('.tier-input').forEach((input) => {
-                // Check if the new name is the same as any of the old names except the one being edited
-                // const newName = input.value;
-                // if (tiers.filter((tier, index) => index !== parseInt(input.dataset.index) && tier.TierName === newName).length > 0){
-                //     input.value = tiers[input.dataset.index].TierName;
-                //     //warn user that the name is already in use
-                //     alert('Tier name already in use: ' + newName + '. \nPlease change before changing anything else or submitting.');
-                //     return;
-                // }
-                input.value = tiers[input.dataset.index].TierName;
-            });
-        };
+        document.addEventListener('DOMContentLoaded', async () => {
+            effectiveDateInput.value = new Date().toISOString().slice(0, 10);
 
-        const updateCarrierNames = () => {
-            document.querySelectorAll('.carrier-input').forEach((input) => {
-                const oldName = input.dataset.oldName || input.defaultValue;
-                const newName = input.value;
-                if (newName === '' || carriers.filter(carrier => carrier.CarrierName === newName).length > 1) {
-                    return;
-                }
-                if (oldName !== newName) {
-                    carriers.find(carrier => carrier.CarrierName === oldName).CarrierName = newName;
-                    Object.defineProperty(data, newName, Object.getOwnPropertyDescriptor(data, oldName));
-                    delete data[oldName];
-                    input.dataset.oldName = newName;
+            if (!employerID) {
+                statusMessage.textContent = 'No company was selected. Return to Companies and choose a company.';
+                return;
+            }
 
-                    // Update all data-input fields to reflect new carrier name
-                    document.querySelectorAll('.data-input').forEach(dataInput => {
-                        if (dataInput.dataset.carrier === oldName) {
-                            dataInput.dataset.carrier = newName;
-                        }
+            backButton.href = `company1.html?id=${encodeURIComponent(employerID)}`;
+
+            document.getElementById('addCarrierButton').addEventListener('click', addCarrier);
+            document.getElementById('addTierButton').addEventListener('click', addTier);
+            document.getElementById('submitButton').addEventListener('click', submitTable);
+
+            await loadPlanSetup();
+        });
+
+        async function loadPlanSetup() {
+            try {
+                statusMessage.textContent = 'Loading plan setup...';
+                const fullResponse = await getFullTable('Employer', employerID);
+                const fullData = fullResponse.Element;
+                const activePlansResponse = await searchActivePlans(employerID);
+                const activePlanIds = new Set(activePlansResponse.map(plan => typeof plan === 'object' ? plan.PlanID : plan));
+
+                carriers = (fullData.Carriers || []).map(carrier => ({
+                    id: carrier.CarrierID,
+                    clientId: `carrier-${carrier.CarrierID}`,
+                    name: carrier.CarrierName
+                }));
+
+                tiers = (fullData.Tiers || []).map(tier => ({
+                    id: tier.TierID,
+                    clientId: `tier-${tier.TierID}`,
+                    name: tier.TierName,
+                    maxAge: tier.MaxAge ?? '',
+                    minAge: tier.MinAge ?? ''
+                }));
+
+                planCells = new Map();
+                (fullData.Plans || [])
+                    .filter(plan => activePlanIds.has(plan.PlanID))
+                    .forEach(plan => {
+                        const carrier = carriers.find(item => item.id === plan.CarrierID);
+                        const tier = tiers.find(item => item.id === plan.TierID);
+                        if (!carrier || !tier) return;
+                        planCells.set(cellKey(carrier.clientId, tier.clientId), {
+                            planId: plan.PlanID,
+                            fundingAmount: plan.FundingAmount ?? '',
+                            grenzFee: plan.GrenzFee ?? '',
+                            grenzFeeC: plan.GrenzFeeC ?? '',
+                            grenzFeeS: plan.GrenzFeeS ?? '',
+                            startDate: formatDate(plan.StartDate) || effectiveDateInput.value
+                        });
                     });
-                }
-            });
-        };
 
-        const updateTierAges = (index, field, value) => {
-            tiers[index][field] = value;
-            document.querySelectorAll(`.tier-age-input[data-index="${index}"][data-field="${field}"]`).forEach(input => {
-                input.value = value;
-            });
-        };
+                ensureAllCells();
+                renderTables();
+                statusMessage.textContent = 'Review plan amounts, then save when finished.';
+            } catch (error) {
+                console.error('Error loading plan setup:', error);
+                statusMessage.textContent = 'Could not load plan setup.';
+            }
+        }
 
-        carriers.forEach(carrier => {
-            const newTableWrapper = document.createElement('div');
-            newTableWrapper.className = 'tableWrapper';
-            newTableWrapper.innerHTML = `
-                <input type="text" class="carrier-input" value="${carrier.CarrierName}" data-old-name="${carrier.CarrierName}">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            ${tiers.map((tier, index) => `
-                                <th>
-                                    <input type="text" class="tier-input" data-index="${index}" value="${tier.TierName}">
-                                </th>
-                            `).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${['Funding Amount', 'Grenz Fee', 'Grenz Fee C', 'Grenz Fee S'].map(dataType => `
+        function addCarrier() {
+            const index = carriers.length + 1;
+            const carrier = {
+                id: -1,
+                clientId: `new-carrier-${Date.now()}`,
+                name: `New Carrier ${index}`
+            };
+            carriers.push(carrier);
+            ensureAllCells();
+            renderTables();
+        }
+
+        function addTier() {
+            const index = tiers.length + 1;
+            const tier = {
+                id: -1,
+                clientId: `new-tier-${Date.now()}`,
+                name: `New Tier ${index}`,
+                maxAge: '',
+                minAge: ''
+            };
+            tiers.push(tier);
+            ensureAllCells();
+            renderTables();
+        }
+
+        function removeCarrier(clientId) {
+            const carrier = carriers.find(item => item.clientId === clientId);
+            if (!carrier) return;
+            const confirmed = confirm(`Remove ${carrier.name} from the active plan setup? Historical plan records will be preserved.`);
+            if (!confirmed) return;
+            carriers = carriers.filter(item => item.clientId !== clientId);
+            renderTables();
+        }
+
+        function removeTier(clientId) {
+            const tier = tiers.find(item => item.clientId === clientId);
+            if (!tier) return;
+            const confirmed = confirm(`Remove ${tier.name} from the active plan setup? Historical plan records will be preserved.`);
+            if (!confirmed) return;
+            tiers = tiers.filter(item => item.clientId !== clientId);
+            renderTables();
+        }
+
+        function ensureAllCells() {
+            carriers.forEach(carrier => {
+                tiers.forEach(tier => {
+                    const key = cellKey(carrier.clientId, tier.clientId);
+                    if (!planCells.has(key)) {
+                        planCells.set(key, {
+                            planId: -1,
+                            fundingAmount: '',
+                            grenzFee: '',
+                            grenzFeeC: '',
+                            grenzFeeS: '',
+                            startDate: effectiveDateInput.value
+                        });
+                    }
+                });
+            });
+        }
+
+        function renderTables() {
+            tableContainer.innerHTML = '';
+
+            if (carriers.length === 0 || tiers.length === 0) {
+                tableContainer.innerHTML = '<p class="app-message">Add at least one carrier and one tier to build plans.</p>';
+                return;
+            }
+
+            carriers.forEach(carrier => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'tableWrapper';
+                wrapper.innerHTML = `
+                    <div class="carrier-heading">
+                        <input type="text" value="${escapeHtml(carrier.name)}" data-carrier-name="${carrier.clientId}">
+                        <button type="button" data-remove-carrier="${carrier.clientId}" data-danger="true">Remove Carrier</button>
+                    </div>
+                    <table>
+                        <thead>
                             <tr>
-                                <td>${dataType}</td>
+                                <th>Plan Field</th>
                                 ${tiers.map(tier => `
-                                    <td>
-                                        <input type="text" class="data-input" data-carrier="${carrier.CarrierName}" data-tier="${tier.TierName}" data-type="${dataType}" value="${data[carrier.CarrierName][tier.TierName][dataType] || ''}">
-                                    </td>
+                                    <th>
+                                        <input type="text" value="${escapeHtml(tier.name)}" data-tier-name="${tier.clientId}">
+                                        <button type="button" data-remove-tier="${tier.clientId}" data-danger="true">Remove Tier</button>
+                                    </th>
                                 `).join('')}
                             </tr>
-                        `).join('')}
-                        <tr>
-                            <td>Max Age</td>
-                            ${tiers.map((tier, index) => `
-                                <td>
-                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MaxAge" value="${tier.MaxAge}">
-                                </td>
-                            `).join('')}
-                        </tr>
-                        <tr>
-                            <td>Min Age</td>
-                            ${tiers.map((tier, index) => `
-                                <td>
-                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MinAge" value="${tier.MinAge}">
-                                </td>
-                            `).join('')}
-                        </tr>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            ${renderPlanRow(carrier, 'Funding Amount', 'fundingAmount')}
+                            ${renderPlanRow(carrier, 'Grenz Fee', 'grenzFee')}
+                            ${renderPlanRow(carrier, 'Grenz Fee C', 'grenzFeeC')}
+                            ${renderPlanRow(carrier, 'Grenz Fee S', 'grenzFeeS')}
+                            ${renderPlanRow(carrier, 'Plan Start Date', 'startDate', 'date')}
+                            <tr>
+                                <td>Tier Max Age</td>
+                                ${tiers.map(tier => `<td><input type="number" value="${escapeHtml(tier.maxAge)}" data-tier-age="${tier.clientId}" data-field="maxAge"></td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td>Tier Min Age</td>
+                                ${tiers.map(tier => `<td><input type="number" value="${escapeHtml(tier.minAge)}" data-tier-age="${tier.clientId}" data-field="minAge"></td>`).join('')}
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+                tableContainer.appendChild(wrapper);
+            });
+
+            bindTableInputs();
+        }
+
+        function renderPlanRow(carrier, label, field, type = 'number') {
+            return `
+                <tr>
+                    <td>${label}</td>
+                    ${tiers.map(tier => {
+                        const cell = planCells.get(cellKey(carrier.clientId, tier.clientId));
+                        return `<td><input type="${type}" step="0.01" value="${escapeHtml(cell?.[field] ?? '')}" data-plan-field="${field}" data-carrier="${carrier.clientId}" data-tier="${tier.clientId}"></td>`;
+                    }).join('')}
+                </tr>
             `;
-            tableContainer.appendChild(newTableWrapper);
-        });
+        }
 
-        document.querySelectorAll('.tier-input').forEach(input => {
-            input.addEventListener('input', (event) => {
-                const index = event.target.dataset.index;
-                // Make sure the new name is not the same as any of the old names except the one being edited
-                if (tiers.filter((tier, i) => i !== parseInt(index) && tier.TierName === event.target.value).length > 0){
-                    //warn user that the name is already in use
-                    alert('Tier name already in use: ' + event.target.value + '. \nPlease change before changing anything else or submitting.');
-                    // event.target.value = tiers[index].TierName;
-                    return;
-                }
-                if (event.target.value === '') {
-                    //event.target.value = tiers[index].TierName;
-                    return;
-                }
-                tiers[index].TierName = event.target.value;
-                // update carriers data
-                carriers.forEach(carrier => {
-                    const oldTierName = event.target.dataset.oldName || event.target.defaultValue;
-                    data[carrier.CarrierName][event.target.value] = data[carrier.CarrierName][oldTierName];
-                    delete data[carrier.CarrierName][oldTierName];
+        function bindTableInputs() {
+            document.querySelectorAll('[data-carrier-name]').forEach(input => {
+                input.addEventListener('input', event => {
+                    const carrier = carriers.find(item => item.clientId === event.target.dataset.carrierName);
+                    if (carrier) carrier.name = event.target.value;
                 });
-                updateTierNames();
-                event.target.dataset.oldName = event.target.value;
             });
-        });
 
-        document.querySelectorAll('.carrier-input').forEach(input => {
-            input.addEventListener('input', () => {
-                updateCarrierNames();
+            document.querySelectorAll('[data-tier-name]').forEach(input => {
+                input.addEventListener('input', event => {
+                    const tier = tiers.find(item => item.clientId === event.target.dataset.tierName);
+                    if (tier) tier.name = event.target.value;
+                });
             });
-        });
 
-        document.querySelectorAll('.data-input').forEach(input => {
-            input.addEventListener('input', (event) => {
-                const { carrier, tier, type } = event.target.dataset;
-
-                // Convert NodeList to an array and find the current input elements
-                const carrierInputs = Array.from(document.querySelectorAll('.carrier-input'));
-                const tierInputs = Array.from(document.querySelectorAll('.tier-input'));
-
-                // Get the current carrier and tier names or fallback to the dataset values
-                const currentCarriername = carrierInputs.find(c => c.defaultValue === carrier)?.dataset.oldName || carrier;
-                const currentTiername = tierInputs.find(t => t.defaultValue === tier)?.dataset.oldName || tier;
-
-                // If the old names have changed, update the data object accordingly
-                if (data[currentCarriername] && data[currentCarriername][currentTiername]) {
-                    // Update the existing data
-                    data[currentCarriername][currentTiername][type] = event.target.value;
-                } else {
-                    // If the names have changed, update the data structure to reflect the changes
-                    if (!data[carrier]) data[carrier] = {};
-                    if (!data[carrier][tier]) data[carrier][tier] = {};
-                    data[carrier][tier][type] = event.target.value;
-
-                    // Update the old names to reflect the new names
-                    const carrierInput = carrierInputs.find(c => c.defaultValue === carrier);
-                    if (carrierInput) carrierInput.dataset.oldName = carrier;
-                    
-                    const tierInput = tierInputs.find(t => t.defaultValue === tier);
-                    if (tierInput) tierInput.dataset.oldName = tier;
-                }
+            document.querySelectorAll('[data-tier-age]').forEach(input => {
+                input.addEventListener('input', event => {
+                    const tier = tiers.find(item => item.clientId === event.target.dataset.tierAge);
+                    if (tier) tier[event.target.dataset.field] = event.target.value;
+                });
             });
-        });
 
-        document.querySelectorAll('.tier-age-input').forEach(input => {
-            input.addEventListener('input', (event) => {
-                const index = event.target.dataset.index;
-                const field = event.target.dataset.field;
-                updateTierAges(index, field, event.target.value);
+            document.querySelectorAll('[data-plan-field]').forEach(input => {
+                input.addEventListener('input', event => {
+                    const key = cellKey(event.target.dataset.carrier, event.target.dataset.tier);
+                    const cell = planCells.get(key);
+                    if (cell) cell[event.target.dataset.planField] = event.target.value;
+                });
             });
-        });
-    }
-    
-</script>
 
+            document.querySelectorAll('[data-remove-carrier]').forEach(button => {
+                button.addEventListener('click', event => removeCarrier(event.target.dataset.removeCarrier));
+            });
+
+            document.querySelectorAll('[data-remove-tier]').forEach(button => {
+                button.addEventListener('click', event => removeTier(event.target.dataset.removeTier));
+            });
+        }
+
+        async function submitTable() {
+            const payload = buildPayload();
+            if (!payload.Carriers.length || !payload.Tiers.length || !payload.Plans.length) {
+                alert('Add at least one carrier, one tier, and one plan before saving.');
+                return;
+            }
+
+            document.getElementById('submitButton').disabled = true;
+            statusMessage.textContent = 'Saving plan setup...';
+
+            try {
+                const result = await saveEmployerPlanSetup(employerID, payload);
+                statusMessage.textContent = result.message || 'Plan setup saved.';
+                alert('Plan setup saved.');
+                await loadPlanSetup();
+            } catch (error) {
+                console.error('Error saving plan setup:', error);
+                statusMessage.textContent = 'Could not save plan setup.';
+                alert(`Could not save plan setup. ${error.message || ''}`);
+            } finally {
+                document.getElementById('submitButton').disabled = false;
+            }
+        }
+
+        function buildPayload() {
+            return {
+                effectiveDate: effectiveDateInput.value || new Date().toISOString().slice(0, 10),
+                Carriers: carriers.map(carrier => ({
+                    CarrierID: carrier.id,
+                    ClientID: carrier.clientId,
+                    CarrierName: carrier.name.trim()
+                })).filter(carrier => carrier.CarrierName),
+                Tiers: tiers.map(tier => ({
+                    TierID: tier.id,
+                    ClientID: tier.clientId,
+                    TierName: tier.name.trim(),
+                    MaxAge: tier.maxAge,
+                    MinAge: tier.minAge
+                })).filter(tier => tier.TierName),
+                Plans: buildPlanPayload()
+            };
+        }
+
+        function buildPlanPayload() {
+            const plans = [];
+            carriers.forEach(carrier => {
+                tiers.forEach(tier => {
+                    const cell = planCells.get(cellKey(carrier.clientId, tier.clientId));
+                    if (!cell) return;
+                    plans.push({
+                        PlanID: cell.planId,
+                        CarrierID: carrier.id !== -1 ? carrier.id : carrier.clientId,
+                        TierID: tier.id !== -1 ? tier.id : tier.clientId,
+                        FundingAmount: cell.fundingAmount,
+                        GrenzFee: cell.grenzFee,
+                        GrenzFeeC: cell.grenzFeeC,
+                        GrenzFeeS: cell.grenzFeeS,
+                        StartDate: cell.startDate || effectiveDateInput.value
+                    });
+                });
+            });
+            return plans;
+        }
+
+        function cellKey(carrierClientId, tierClientId) {
+            return `${carrierClientId}::${tierClientId}`;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            return String(dateString).slice(0, 10);
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+    </script>
+    <script src="app-shell.js" defer></script>
 </body>
 </html>

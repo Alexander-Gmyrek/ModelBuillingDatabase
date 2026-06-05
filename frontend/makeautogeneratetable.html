@@ -55,6 +55,7 @@
             margin-bottom: 10px;
         }
     </style>
+    <link rel="stylesheet" href="app.css">
 </head>
 <body>
 
@@ -239,9 +240,9 @@
         const carriersFromLocal = JSON.parse(localStorage.getItem('carriers'));
         const dataFromLocal = JSON.parse(localStorage.getItem('carrierData'));
 
-        const tiers = tierFromLocal;
-        const carriers = carriersFromLocal;
-        const data = dataFromLocal;
+        let tiers = tierFromLocal;
+        let carriers = carriersFromLocal;
+        let data = dataFromLocal;
         // Check if the data is in the local storage make sure to remember this uses consts
         if (!tiers) {
             tiers = defultTiers;
@@ -521,6 +522,7 @@
     
 </script>
 
+    <script src="app-shell.js" defer></script>
 </body>
 </html>
 // do imports

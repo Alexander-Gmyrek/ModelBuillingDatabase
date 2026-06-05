@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
-<!DOCTYPE html>
-<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add Company</title>
+    <title>New Company - Billing Database</title>
     <!-- Include the xlsx library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.3/xlsx.full.min.js"></script>
     <style>
@@ -58,23 +56,35 @@
             background: #0056b3;
         }
     </style>
+    <link rel="stylesheet" href="app.css">
 </head>
 <body>
     <h1>New Company</h1>
+    <p class="app-page-intro">Start by entering the employer details and uploading the employee template. The next screen will help you review carriers, tiers, and plan amounts before saving.</p>
     <form id="companyForm">
-        <label for="EmployerName">Name:</label>
-        <input type="text" id="EmployerName" name="EmployerName" placeholder="ACME">
+        <div class="app-form-grid">
+        <div>
+        <label for="EmployerName">Company name</label>
+        <input type="text" id="EmployerName" name="EmployerName" placeholder="ACME Benefits Group">
+        </div>
         
-        <label for="file">Upload employee template file:</label>
+        <div>
+        <label for="file">Employee template file</label>
         <input type="file" id="file" name="file">
+        </div>
         
-        <label for="RenewalDate">Renewal Date:</label>
+        <div>
+        <label for="RenewalDate">Renewal date</label>
         <input type="date" id="RenewalDate" name="RenewalDate">
+        </div>
         
-        <label for="BillingDate">Preferred Billing Date:</label>
+        <div>
+        <label for="BillingDate">Preferred billing date</label>
         <input type="date" id="BillingDate" name="BillingDate">
+        </div>
         
-        <h4>Choose tier:</h4>
+        <div class="app-full-row">
+        <h4>Tier structure</h4>
         <div class="radio-group">
             <input type="radio" id="tier3" name="TierStructure" value="3 Tier">
             <label for="tier3" class="radio-label">3 Tier</label>
@@ -91,11 +101,18 @@
             <input type="radio" id="ageBandedTiered" name="TierStructure" value="Age Banded Tiered">
             <label for="ageBandedTiered" class="radio-label">Age Banded Tiered</label>
         </div>
+        </div>
 
+        <div class="app-full-row">
         <input type="checkbox" id="autogenerate" name="autogenerate" value="autogenerate">
-        <label for="autogenerate">Auto-generate tiers and carriers</label>
+        <label for="autogenerate">Auto-build carrier and tier tables from the uploaded employee file</label>
+        </div>
         
-        <button type="submit">Next</button>
+        <div class="app-full-row">
+            <button type="submit">Continue To Plan Setup</button>
+            <a class="button secondary" href="index.html">Cancel</a>
+        </div>
+        </div>
     </form>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -169,13 +186,13 @@
                     alert('Not all employees have a Carrier. Continue?');
                     //return;
                 }
-                renewalDate = new Date(data["RenewalDate"]);
+                const renewalDate = new Date(data["RenewalDate"]);
                 if (renewalDate >= new Date()) {
                     alert('Renewal Date should be in the past. Preferably when the company joined as this will serve as the defult for backdating');
                     //return;
                 }
                 // parse the year from perfered billing date
-                PerferedBillingYear = new Date(data["PerferedBillingDate"]).getFullYear();
+                const PerferedBillingYear = new Date(data["PerferedBillingDate"]).getFullYear();
                 if (PerferedBillingYear > 2400 || PerferedBillingYear < 1900) {
                     alert('Prefered Billing Date should must be a valid date before the year 2400 and after 1900.');
                     return;
@@ -203,16 +220,16 @@
                         nextPage = 'makeagetiertable.html';
                         break;
                     default:
-                        nextPage = 'default_page.html'; // Default page if tier is not specified
+                        alert('Please select a valid tier structure.');
+                        return;
                 }
 
                 // Check if the autogenerate checkbox is checked
                 const autogenerate = formData.get('autogenerate') === 'autogenerate';
 
                 if(autogenerate == true){
-                    tiers = []
-                    carriers = []
-                    basicCarriers = []
+                    const tiers = []
+                    const carriers = []
                     data['Employees'].forEach(employee => {
                         if (!tiers.includes(employee.Tier)) {
                             tiers.push(employee.Tier);
@@ -227,15 +244,15 @@
                         //'T2': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' }
                     // }
                     // Carries should be formated as: [{ CarrierName: 'C1' }]
-                    formatedBasicCarriers = []
+                    const formatedBasicCarriers = []
                     carriers.forEach(carrier => {
                         formatedBasicCarriers.push({ CarrierName: carrier });
                     });
-                    formatedTiers = []
+                    const formatedTiers = []
                     tiers.forEach(tier => {
                         formatedTiers.push({ TierName: tier, MaxAge: '', MinAge: '' });
                     });
-                    formatedCarriers = {}
+                    const formatedCarriers = {}
                     carriers.forEach(carrier => {
                         formatedCarriers[carrier] = {}
                         tiers.forEach(tier => {
@@ -393,7 +410,7 @@
                                 }
                                 
 
-                                empIndex = employees.findIndex(e => dependentsEmployee[dependentsEmployee.length-1] === e);
+                                const empIndex = employees.findIndex(e => dependentsEmployee[dependentsEmployee.length-1] === e);
                                 //console.log("empIndex: " + empIndex);
 
                                 employees[empIndex].Dependents.push(dependent);
@@ -441,6 +458,7 @@
             });
         }
     </script>
+    <script src="app-shell.js" defer></script>
 </body>
 </html>
 // make all dating to look like yyyy-mm dont need day
