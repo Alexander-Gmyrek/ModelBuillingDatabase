@@ -1513,9 +1513,9 @@ def execute_query(cursor: MySQLCursor, query):
     
 def get_only_active_on_date(cursor, table_name, employer_id, date, Identifyer="EmployerID"):
     try:
-        employees = execute_query(cursor, f"SELECT {table_name}ID FROM {table_name} WHERE {Identifyer}={employer_id} AND InformStartDate <= '{date}' AND (InformEndDate >= '{date}' OR InformEndDate IS NULL)")
+        employees = execute_query(cursor, f"SELECT {table_name}ID FROM {table_name} WHERE {Identifyer}={employer_id} AND StartDate <= '{date}' AND (EndDate >= '{date}' OR EndDate IS NULL)")
         if len(employees) > 1:
-            employees = execute_query(cursor, f"SELECT {table_name}ID FROM {table_name} WHERE {Identifyer}={employer_id} AND InformStartDate <= '{date}' AND (InformEndDate > '{date}' OR InformEndDate IS NULL)")
+            employees = execute_query(cursor, f"SELECT {table_name}ID FROM {table_name} WHERE {Identifyer}={employer_id} AND StartDate <= '{date}' AND (EndDate > '{date}' OR EndDate IS NULL)")
         if len(employees) > 1:
             raise ValueError(f"Multiple active {table_name} on {date}")
         return employees[0][0]
@@ -1589,7 +1589,7 @@ def get_plan_for_dependent(cursor, dependent_id, Date=None):
     try:
         if Date is None:
             Date = datetime.now().strftime('%Y-%m-%d')
-        query = f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = (SELECT EmployeeID FROM Dependent WHERE DependentID = {dependent_id}) AND InformStartDate <= '{Date}' AND (InformEndDate IS NULL OR InformEndDate >= '{Date}')"
+        query = f"SELECT PlanID FROM EmployeePlan WHERE EmployeeID = (SELECT EmployeeID FROM Dependent WHERE DependentID = {dependent_id}) AND StartDate <= '{Date}' AND (EndDate IS NULL OR EndDate >= '{Date}')"
         plan_id = execute_query(cursor, query)[0][0]
         if not plan_id:
             raise ValueError(f"Dependent {dependent_id} does not have a plan on {Date}")
@@ -1983,7 +1983,7 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                             if(back_date == billing_month_start):
                                 continue
                             try:
-                                plan_id = get_plan_for_employee(cursor, employee_id, back_date)
+                                plan_id = get_plan_for_employee(cursor, employee_id, term_date)
                             except Exception as e:
                                 raise ValueError(f"Error getting plan for {employee_name}: {e}")
                             if not plan_id:
@@ -2027,7 +2027,7 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                     if end_date and as_date(inform_end_date) and as_date(inform_end_date) < billing_month_start:
                         continue
                     try:
-                        if same_billing_month(inform_start_date, Date):
+                        if same_billing_month(inform_start_date, Date) and not (join_date and same_billing_month(join_inform_date, Date)):
                             notes.append("Started Plan " + str(start_date.month) + "/" + str(start_date.year) + " Inform Start Date: " + str(inform_start_date))
                             for back_date in generate_month_range(start_date, inform_start_date):
                                 if(back_date == billing_month_start):
@@ -2043,13 +2043,11 @@ def generate_report(connection, employer_name, Date, get_format=get_format_norma
                         raise ValueError(f"Error in inform startdate == date. Startdate = {inform_start_date}")
 
                     try:
-                        if same_billing_month(inform_end_date, Date):
+                        if same_billing_month(inform_end_date, Date) and not (term_date and same_billing_month(term_inform_date, Date)):
                             notes.append("Ended Plan " + str(end_date.month) + "/" +  str(end_date.year))
                             for back_date in generate_month_range(end_date, inform_end_date):
                                 if(back_date == billing_month_start):
                                     continue
-                                #Update the plan_id incase the end date is less then the start date 
-                                plan_id = get_plan_for_employee(cursor, employee_id, back_date)
                                 f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
                                 funding_amount -= f_amount
                                 grenz_fee -= g_fee
@@ -2643,6 +2641,9 @@ def test_add_employer():
     cursor = connection.cursor()
     test_json = json.loads(test_json_1)
     for employer in test_json['employers']:
+        for old_key, new_key in (("carriers", "Carriers"), ("tiers", "Tiers"), ("plans", "Plans")):
+            if old_key in employer and new_key not in employer:
+                employer[new_key] = employer.pop(old_key)
         employer_id, warnings = add_element_by_table_name(cursor, "Employer", employer)
         response += employer['EmployerName'] + " " + str(employer_id) + " " + str(warnings) + " | "
     connection.commit()

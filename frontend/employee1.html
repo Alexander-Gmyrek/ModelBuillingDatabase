@@ -316,7 +316,10 @@
 
         function formatDate(dateString) {
             if (!dateString) return '';
-            return String(dateString).slice(0, 10);
+            const value = String(dateString);
+            if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+            const parsed = new Date(value);
+            return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
         }
 
         function escapeHtml(value) {
