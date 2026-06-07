@@ -120,7 +120,7 @@
             // Validate input
             if (!month || !year || isNaN(month) || isNaN(year) || month < 1 || month > 12 || year < 1000 || year > 4000) {
                 alert('Please enter a valid month and year');
-                document.getElementById('genReport').textContent = 'Generate Report';
+                document.getElementById('genReport').textContent = 'Generate Monthly Report';
                 document.getElementById('genReport').disabled = false;
                 return;
             }
@@ -138,7 +138,7 @@
                     // Clear interval to stop animation
                     clearInterval(interval);
                     // Reset button text and enable it
-                    document.getElementById('genReport').textContent = 'Generate Report';
+                    document.getElementById('genReport').textContent = 'Generate Monthly Report';
                     document.getElementById('genReport').disabled = false;
                     alert('Report generated successfully. The file download should start automatically.');
                 })
@@ -149,7 +149,7 @@
                 .finally(() => {
                     // Ensure interval is cleared and button is reset in case of an error
                     clearInterval(interval);
-                    document.getElementById('genReport').textContent = 'Generate Report';
+                    document.getElementById('genReport').textContent = 'Generate Monthly Report';
                     document.getElementById('genReport').disabled = false;
                 });
         });
@@ -326,7 +326,5 @@
     <script src="app-shell.js?v=20260606c" defer></script>
 </body>
 </html>
-// Loading please wait
-// make a depo called claim amount on side of screen with dollar amount and date a parameters and a submit button 
 // make a generate report button
 // make a generate claims balance report button
