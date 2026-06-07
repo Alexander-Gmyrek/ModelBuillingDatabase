@@ -89,24 +89,26 @@ body {
 }
 
 body > header:not(.app-topbar) {
-    background: var(--app-topbar) !important;
-    color: #fff !important;
-    padding: 22px 28px !important;
+    background: transparent !important;
+    color: var(--app-text) !important;
+    margin: 0 auto !important;
+    padding: 28px 0 0 !important;
     text-align: left !important;
+    width: min(1180px, calc(100% - 32px));
 }
 
 body > header:not(.app-topbar) h1 {
-    color: #fff !important;
-    font-size: 24px;
-    margin: 0 auto !important;
-    max-width: 1180px;
+    color: var(--app-text) !important;
+    font-size: 26px;
+    margin: 0 0 6px !important;
 }
 
 body > header:not(.app-topbar) p {
-    color: #dbe2ea;
+    color: var(--app-muted);
     font-size: 14px;
-    margin: 6px auto 0;
-    max-width: 1180px;
+    line-height: 1.5;
+    margin: 0;
+    max-width: 760px;
 }
 
 main,

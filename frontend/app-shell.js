@@ -42,7 +42,6 @@
 
     function addPageHint(page) {
         const hints = {
-            'addcompany.html': 'Step 1 of company setup: enter employer details and upload the employee template.',
             'makeagetable.html': 'Step 2 of company setup: review age-banded tiers, carriers, and plan amounts before saving.',
             'makeagetiertable.html': 'Step 2 of company setup: review age-banded composite tiers, carriers, and plan amounts before saving.',
             'makeautogeneratetable.html': 'Step 2 of company setup: confirm the carrier and tier table built from the employee file.',
