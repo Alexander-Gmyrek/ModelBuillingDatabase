@@ -55,6 +55,7 @@
                 <button id="runChecks">Run Checks</button>
                 <button id="setupDb" class="secondary">Initialize Database</button>
                 <a class="button" href="index.html?v=20260606c">Open App</a>
+                <a class="button secondary" href="assets/employee_upload_template.xlsx" download>Download Employee Template</a>
             </div>
 
             <p class="note" id="summary">Run checks to confirm the local services are ready.</p>
@@ -78,13 +79,15 @@
         </section>
 
         <section class="panel app-section-gap">
-            <h2>Start And Stop</h2>
-            <p class="note">To start the app, double-click the start launcher in the installer folder. To stop the app after use, double-click the matching stop launcher for this device.</p>
+            <h2>App Controls</h2>
+            <p class="note">Use these controls after the desktop starter has opened this setup page. The Quit To Desktop button closes or clears this browser window.</p>
             <div class="actions">
+                <button id="startApp">Start App</button>
                 <a class="button" href="index.html?v=20260606c">Open App</a>
-                <button id="copyStopHelp" class="secondary">Show Stop Steps</button>
+                <a class="button secondary" href="assets/employee_upload_template.xlsx" download>Download Employee Template</a>
+                <button id="quitToDesktop" class="secondary">Quit To Desktop</button>
             </div>
-            <p class="note" id="stopSummary">macOS: installer/stop-macos.command. Windows: installer/stop-windows.bat.</p>
+            <p class="note" id="controlSummary">Start App checks the local services. To fully stop Docker containers, use the desktop stop launcher after closing this browser window.</p>
         </section>
     </main>
 
@@ -96,7 +99,7 @@
         const appStatus = document.getElementById("appStatus");
         const summary = document.getElementById("summary");
         const backupSummary = document.getElementById("backupSummary");
-        const stopSummary = document.getElementById("stopSummary");
+        const controlSummary = document.getElementById("controlSummary");
         const restoreFileInput = document.getElementById("restoreFile");
         const restoreBackupButton = document.getElementById("restoreBackup");
 
@@ -216,8 +219,25 @@
         document.getElementById("runChecks").addEventListener("click", runChecks);
         document.getElementById("setupDb").addEventListener("click", setupDatabase);
         document.getElementById("downloadBackup").addEventListener("click", downloadBackup);
-        document.getElementById("copyStopHelp").addEventListener("click", () => {
-            stopSummary.textContent = "Close the browser tab, then run the stop launcher from the installer folder. The stop launcher shuts down the local app containers without deleting database data.";
+        document.getElementById("startApp").addEventListener("click", async () => {
+            controlSummary.textContent = "Checking app services...";
+            await runChecks();
+            controlSummary.textContent = "If the checks are green, click Open App. If not, confirm Docker Desktop is running.";
+        });
+        document.getElementById("quitToDesktop").addEventListener("click", () => {
+            controlSummary.textContent = "Closing this app window...";
+            window.open("", "_self");
+            window.close();
+            setTimeout(() => {
+                document.body.innerHTML = `
+                    <main>
+                        <section class="panel">
+                            <h1>Billing Database Closed</h1>
+                            <p class="note">You can close this browser window. To fully stop the local app containers, use the desktop stop launcher.</p>
+                        </section>
+                    </main>
+                `;
+            }, 300);
         });
         restoreFileInput.addEventListener("change", () => {
             const file = restoreFileInput.files[0];
