@@ -96,7 +96,14 @@
         document.getElementById('employeeForm').addEventListener('submit', async (event) => {
             event.preventDefault();
 
-            const employee = buildEmployeeJson();
+            let employee;
+            try {
+                employee = buildEmployeeJson();
+            } catch (error) {
+                alert(error.message || 'Could not prepare employee information.');
+                return;
+            }
+
             if (!employee.EmployeeFullName || !employee.StartDate || !employee.InformStartDate) {
                 alert('Full name, start date, and inform start date are required.');
                 return;
@@ -167,9 +174,10 @@
 
         function buildEmployeeJson() {
             const formData = new FormData(document.getElementById('employeeForm'));
+            const fullName = (formData.get('EmployeeFullName') || '').trim();
             const employee = {
                 EmployerID: Number(companyId),
-                EmployeeFullName: formData.get('EmployeeFullName') || null,
+                EmployeeFullName: fullName || null,
                 StartDate: formData.get('StartDate') || null,
                 InformStartDate: formData.get('InformStartDate') || formData.get('StartDate') || null,
                 DOB: formData.get('DOB') || null,
@@ -184,7 +192,7 @@
                 Dependents: gatherDependents(formData.get('StartDate'), formData.get('InformStartDate'))
             };
 
-            const nameParts = employee.EmployeeFullName.trim().split(/\s+/);
+            const nameParts = fullName ? fullName.split(/\s+/) : [];
             employee.EmployeeFirstName = nameParts[0] || null;
             employee.EmployeeLastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : null;
 

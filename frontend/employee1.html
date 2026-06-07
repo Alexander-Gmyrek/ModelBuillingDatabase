@@ -71,12 +71,14 @@
             terminateEmployee,
             searchDependentByJson,
             addDependent,
-            changeDependent
+            changeDependent,
+            deleteDependent
         } from './apiFunctions.js';
 
         const urlParams = new URLSearchParams(window.location.search);
         const employeeId = urlParams.get('id');
         let loadedEmployee = null;
+        const deletedDependentIds = new Set();
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!employeeId) {
@@ -109,16 +111,17 @@
             const employeeJson = buildEmployeeUpdateJson();
 
             try {
+                if (document.getElementById('terminationCheckbox').checked && !document.getElementById('termDate').value) {
+                    alert('Termination date is required when Termination is checked.');
+                    return;
+                }
+
                 await changeEmployee(employeeId, employeeJson);
                 await saveDependentRows();
 
                 if (document.getElementById('terminationCheckbox').checked) {
                     const endDate = document.getElementById('termDate').value;
                     const informEndDate = document.getElementById('informedTermDate').value || endDate;
-                    if (!endDate) {
-                        alert('Termination date is required when Termination is checked.');
-                        return;
-                    }
                     await terminateEmployee(employeeId, {
                         EndDate: endDate,
                         InformEndDate: informEndDate
@@ -150,6 +153,11 @@
         }
 
         async function saveDependentRows() {
+            for (const dependentId of deletedDependentIds) {
+                await deleteDependent(dependentId);
+            }
+            deletedDependentIds.clear();
+
             const rows = Array.from(document.querySelectorAll('#editableTable tbody tr'));
             for (const row of rows) {
                 const dependent = dependentFromRow(row);
@@ -170,6 +178,9 @@
             const relationship = row.querySelector('[name="dependentRelationship"]').value.trim();
             const dob = row.querySelector('[name="dependentDOB"]').value;
             if (!dependentName && !relationship && !dob) return null;
+            if (!dependentName || !relationship || !dob) {
+                throw new Error('Each dependent needs a name, relationship, and date of birth.');
+            }
 
             return {
                 DependentID: row.dataset.dependentId || null,
@@ -251,7 +262,11 @@
         }
 
         function deleteRow(button) {
-            button.closest('tr').remove();
+            const row = button.closest('tr');
+            if (row.dataset.dependentId) {
+                deletedDependentIds.add(row.dataset.dependentId);
+            }
+            row.remove();
         }
 
         function formatDate(dateString) {
