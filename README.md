@@ -132,6 +132,8 @@ http://localhost:8080/setup.html
 
 On the setup page, run the checks and initialize the database if needed. Then click `Open App`.
 
+The setup page also includes backup and restore controls. Download a fresh backup before restoring a backup, resetting sample data, moving devices, or making a major billing update.
+
 ## Manual Start
 
 From the project folder, run:
@@ -148,6 +150,13 @@ Then open:
 - Database check: `http://localhost:3000/testconnection`
 
 ## Stop The App
+
+Use the launcher for your device:
+
+- macOS: double-click `installer/stop-macos.command`
+- Windows: double-click `installer/stop-windows.bat`
+
+Or run:
 
 ```bash
 docker compose down
@@ -166,6 +175,19 @@ docker compose down -v
 - MySQL: `3307` on the host
 
 If one of these ports is already being used, stop the other app or update `docker-compose.yml`.
+
+## Troubleshooting
+
+- If Docker is missing, install Docker Desktop and run the start launcher again.
+- If Docker is installed but not running, open Docker Desktop and wait for it to finish starting.
+- If the setup page opens but checks fail, wait one minute and click `Run Checks`.
+- If the API still does not respond, open Docker Desktop and confirm `billing-db`, `backend`, and `frontend` are running.
+- If another app is using ports `8080`, `3000`, or `3307`, stop that app or update `docker-compose.yml`.
+- If restore fails, make sure the file is a JSON backup downloaded from this app.
+
+## Optional Signed Installer
+
+This app does not need a commercial installer to be useful on an approved device. If you later want the launchers to feel more official, package the same Docker-based start and stop scripts as a signed macOS `.app`/`.pkg` or Windows `.exe`/`.msi`.
 
 ## Notes
 

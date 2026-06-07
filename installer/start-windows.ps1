@@ -61,7 +61,11 @@ for ($i = 1; $i -le 60; $i++) {
 
 Write-Host ""
 Write-Host "The containers started, but the API did not respond yet."
-Write-Host "Open Docker Desktop to check container status, then try:"
+Write-Host "Try these steps:"
+Write-Host "1. Wait one more minute, then refresh the setup page."
+Write-Host "2. Open Docker Desktop and check that billing-db, backend, and frontend are running."
+Write-Host "3. Make sure ports 8080, 3000, and 3307 are not being used by another app."
+Write-Host ""
+Write-Host "Setup page:"
 Write-Host $FrontendUrl
 Read-Host "Press Enter to close"
-

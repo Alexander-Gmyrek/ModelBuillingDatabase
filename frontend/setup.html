@@ -145,12 +145,54 @@
             margin-top: 18px;
         }
 
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin: 18px 0 22px;
+        }
+
+        .step {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcfd;
+            padding: 14px;
+            min-height: 112px;
+        }
+
+        .step strong {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .step span {
+            color: var(--muted);
+            display: block;
+            font-size: 14px;
+            line-height: 1.35;
+        }
+
+        .warning-box {
+            background: #fff8eb;
+            border: 1px solid rgba(154, 97, 0, .45);
+            border-radius: 8px;
+            color: #5e3b00;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 14px 0;
+            padding: 12px 14px;
+        }
+
         @media (max-width: 760px) {
             header {
                 padding: 18px;
             }
 
             .status-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .steps {
                 grid-template-columns: 1fr;
             }
 
@@ -172,6 +214,25 @@
         <section class="panel">
             <h2>First Run Check</h2>
             <p class="note">This page checks that the local API is running and can reach the database before you start entering employer and employee records.</p>
+
+            <div class="steps">
+                <div class="step">
+                    <strong>1. Start App</strong>
+                    <span>Use the desktop launcher in the installer folder. This page opens when the app is ready.</span>
+                </div>
+                <div class="step">
+                    <strong>2. Check Services</strong>
+                    <span>Confirm the API and database are both responding before entering records.</span>
+                </div>
+                <div class="step">
+                    <strong>3. Back Up Often</strong>
+                    <span>Download a backup before restore, reset, device changes, or major billing updates.</span>
+                </div>
+                <div class="step">
+                    <strong>4. Stop App</strong>
+                    <span>Use the stop launcher when finished so the local containers shut down cleanly.</span>
+                </div>
+            </div>
 
             <div class="status-grid">
                 <div id="apiStatus" class="status warn">
@@ -200,6 +261,9 @@
         <section class="panel" style="margin-top: 18px;">
             <h2>Backup And Restore</h2>
             <p class="note">Backups download a local JSON copy of the billing database. Restore only from a backup file you trust, because restore replaces the current local database.</p>
+            <div class="warning-box">
+                Before restoring a backup, download a fresh backup of the current database. Restore replaces the current local database and cannot be undone from this screen.
+            </div>
 
             <div class="actions">
                 <button id="downloadBackup">Download Backup</button>
@@ -209,6 +273,16 @@
             </div>
 
             <p class="note" id="backupSummary">No restore file selected.</p>
+        </section>
+
+        <section class="panel" style="margin-top: 18px;">
+            <h2>Start And Stop</h2>
+            <p class="note">To start the app, double-click the start launcher in the installer folder. To stop the app after use, double-click the matching stop launcher for this device.</p>
+            <div class="actions">
+                <a class="button" href="index.html">Open App</a>
+                <button id="copyStopHelp" class="secondary">Show Stop Steps</button>
+            </div>
+            <p class="note" id="stopSummary">macOS: installer/stop-macos.command. Windows: installer/stop-windows.bat.</p>
         </section>
     </main>
 
@@ -220,6 +294,7 @@
         const appStatus = document.getElementById("appStatus");
         const summary = document.getElementById("summary");
         const backupSummary = document.getElementById("backupSummary");
+        const stopSummary = document.getElementById("stopSummary");
         const restoreFileInput = document.getElementById("restoreFile");
         const restoreBackupButton = document.getElementById("restoreBackup");
 
@@ -272,6 +347,8 @@
         }
 
         async function setupDatabase() {
+            const confirmed = confirm("Initialize database tables? This is safe for normal first setup, but download a backup first if this device already has billing data.");
+            if (!confirmed) return;
             summary.textContent = "Initializing database tables...";
             try {
                 const result = await checkJson("/setup_db");
@@ -316,6 +393,7 @@
             backupSummary.textContent = "Restoring backup...";
             const formData = new FormData();
             formData.append("file", file);
+            formData.append("confirmRestore", "true");
 
             try {
                 const response = await fetch(`${API_BASE}/restore`, {
@@ -336,6 +414,9 @@
         document.getElementById("runChecks").addEventListener("click", runChecks);
         document.getElementById("setupDb").addEventListener("click", setupDatabase);
         document.getElementById("downloadBackup").addEventListener("click", downloadBackup);
+        document.getElementById("copyStopHelp").addEventListener("click", () => {
+            stopSummary.textContent = "Close the browser tab, then run the stop launcher from the installer folder. The stop launcher shuts down the local app containers without deleting database data.";
+        });
         restoreFileInput.addEventListener("change", () => {
             const file = restoreFileInput.files[0];
             restoreBackupButton.disabled = !file;

@@ -274,10 +274,16 @@ def backup_database_route():
 @app.route('/restore', methods=['POST'])
 def restore_database_route():
     try:
+        json_payload = None
         if "file" in request.files:
             payload = json.loads(request.files["file"].read().decode("utf-8"))
+            confirmed = request.form.get("confirmRestore") == "true"
         else:
-            payload = request.get_json()
+            json_payload = request.get_json()
+            payload = json_payload
+            confirmed = bool(json_payload and json_payload.get("confirmRestore") is True)
+        if not confirmed:
+            return jsonify({"Error": "Restore requires confirmation because it replaces the current local database."}), 400
         restore_backup_payload(payload)
         return jsonify({"message": "Database restored successfully."})
     except Exception as e:
@@ -2682,6 +2688,8 @@ def clear_database():
 
 @app.route('/test/resetdb', methods=['GET'])
 def reset_database():
+    if request.args.get("confirmReset") != "true":
+        return jsonify({"Error": "Database reset requires confirmReset=true because it deletes current local data."}), 400
     clear_database()
     employers = test_add_employer()
     return jsonify("Database reset! Employers: " + str(employers))
