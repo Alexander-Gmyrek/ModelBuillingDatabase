@@ -1,15 +1,18 @@
 :root {
     color-scheme: light;
-    --app-bg: #f5f7f8;
+    --app-bg: #f6f7f9;
     --app-surface: #ffffff;
     --app-surface-soft: #eef3f5;
-    --app-border: #d7dee2;
-    --app-text: #16222a;
-    --app-muted: #5f6f7a;
-    --app-primary: #0f6b7a;
-    --app-primary-dark: #0a4e59;
+    --app-border: #d8dde4;
+    --app-text: #17202a;
+    --app-muted: #5d6875;
+    --app-primary: #126f82;
+    --app-primary-dark: #0d5361;
+    --app-topbar: #25313d;
     --app-danger: #b42318;
     --app-danger-dark: #8f1d14;
+    --app-warning: #9a6100;
+    --app-ok: #1b7f4c;
     --app-focus: #2f8ea0;
     --app-radius: 8px;
     --app-shadow: 0 1px 2px rgba(18, 33, 41, .08);
@@ -43,7 +46,7 @@ body {
     justify-content: space-between;
     gap: 18px;
     padding: 12px 24px;
-    background: #26343c;
+    background: var(--app-topbar);
     color: #fff;
     border-bottom: 1px solid #1e2a31;
 }
@@ -86,15 +89,24 @@ body {
 }
 
 body > header:not(.app-topbar) {
-    background: transparent !important;
-    color: var(--app-text) !important;
+    background: var(--app-topbar) !important;
+    color: #fff !important;
+    padding: 22px 28px !important;
     text-align: left !important;
-    padding: 24px 24px 0 !important;
 }
 
 body > header:not(.app-topbar) h1 {
-    max-width: 1180px;
+    color: #fff !important;
+    font-size: 24px;
     margin: 0 auto !important;
+    max-width: 1180px;
+}
+
+body > header:not(.app-topbar) p {
+    color: #dbe2ea;
+    font-size: 14px;
+    margin: 6px auto 0;
+    max-width: 1180px;
 }
 
 main,
@@ -152,10 +164,15 @@ form,
     box-shadow: var(--app-shadow) !important;
 }
 
+.app-card,
 form,
 .panel,
 .container {
     padding: 22px !important;
+}
+
+.app-section-gap {
+    margin-top: 18px !important;
 }
 
 .app-page-intro {
@@ -164,9 +181,18 @@ form,
     max-width: 760px;
 }
 
+.note {
+    color: var(--app-muted);
+    font-size: 14px;
+    line-height: 1.5;
+    margin-top: 18px;
+}
+
 label {
+    display: block;
     color: var(--app-text) !important;
     font-weight: 600;
+    margin: 12px 0 6px;
 }
 
 input,
@@ -177,6 +203,8 @@ textarea {
     color: var(--app-text);
     font-size: 15px;
     min-height: 38px;
+    padding: 8px 10px;
+    width: 100%;
 }
 
 input:focus,
@@ -190,6 +218,34 @@ textarea:focus {
 input[type="checkbox"],
 input[type="radio"] {
     min-height: auto;
+    width: auto;
+}
+
+input[type="file"] {
+    background: #fff;
+    padding: 8px;
+}
+
+.app-hidden {
+    display: none !important;
+}
+
+.radio-group {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    margin-top: 8px;
+}
+
+.radio-group label,
+.radio-label {
+    display: inline-flex;
+    margin: 0;
+}
+
+.radio-group input {
+    margin: 0 6px 0 0;
 }
 
 button,
@@ -206,7 +262,7 @@ a.button {
     background: var(--app-primary) !important;
     color: #fff !important;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     line-height: 1.2;
     padding: 9px 14px !important;
@@ -223,12 +279,13 @@ a.button:hover {
 
 button.secondary,
 .secondary {
-    background: #637381 !important;
+    background: #e9edf2 !important;
+    color: var(--app-text) !important;
 }
 
 button.secondary:hover,
 .secondary:hover {
-    background: #4d5b66 !important;
+    background: #d9e0e8 !important;
 }
 
 button:disabled {
@@ -257,6 +314,16 @@ button[data-danger="true"]:hover,
     margin-bottom: 18px !important;
 }
 
+.report-container label {
+    display: inline-flex;
+    margin: 0 6px 0 0;
+}
+
+.report-container input {
+    margin-right: 10px;
+    width: 90px;
+}
+
 .search-container input,
 #searchInput,
 #employeeSearchInput {
@@ -271,6 +338,12 @@ table {
     border: 1px solid var(--app-border) !important;
     border-radius: var(--app-radius);
     overflow: hidden;
+}
+
+#editableTable {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
 }
 
 th {
@@ -321,6 +394,79 @@ td {
     padding: 18px;
 }
 
+body > .app-message {
+    margin: 18px auto 0;
+    width: min(1180px, calc(100% - 32px));
+}
+
+.warning-box {
+    background: #fff8eb;
+    border: 1px solid rgba(154, 97, 0, .45);
+    border-radius: var(--app-radius);
+    color: #5e3b00;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 14px 0;
+    padding: 12px 14px;
+}
+
+.status-grid,
+.steps {
+    display: grid;
+    gap: 14px;
+    margin: 18px 0 22px;
+}
+
+.status-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.status,
+.step {
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius);
+    min-height: 92px;
+    padding: 14px;
+}
+
+.step {
+    background: #fbfcfd;
+    min-height: 112px;
+}
+
+.status strong,
+.step strong {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.status span,
+.step span {
+    color: var(--app-muted);
+    display: block;
+    font-size: 14px;
+    line-height: 1.35;
+}
+
+.ok {
+    background: #f1fbf5;
+    border-color: rgba(27, 127, 76, .45) !important;
+}
+
+.warn {
+    background: #fff8eb;
+    border-color: rgba(154, 97, 0, .45) !important;
+}
+
+.bad {
+    background: #fff4f2;
+    border-color: rgba(180, 35, 24, .45) !important;
+}
+
 .app-form-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -333,6 +479,50 @@ td {
 
 .app-full-row {
     grid-column: 1 / -1;
+}
+
+.maintenance-header {
+    align-items: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 18px;
+}
+
+.tableWrapper {
+    margin-bottom: 20px;
+    overflow-x: auto;
+}
+
+.tableWrapper input[type="text"],
+.tableWrapper input[type="number"],
+.tableWrapper input[type="date"],
+.carrier-input,
+.data-input,
+.min-age-input,
+.max-age-input {
+    min-width: 110px;
+    width: 100%;
+}
+
+.carrier-heading {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.carrier-heading input,
+.carrier-input {
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.buttons-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 @media (max-width: 760px) {
@@ -357,7 +547,9 @@ td {
         width: calc(100% - 20px);
     }
 
-    .app-form-grid {
+    .app-form-grid,
+    .status-grid,
+    .steps {
         grid-template-columns: 1fr;
     }
 
@@ -367,4 +559,3 @@ td {
         white-space: nowrap;
     }
 }
-

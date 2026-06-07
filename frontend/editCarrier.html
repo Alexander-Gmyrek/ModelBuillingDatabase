@@ -4,49 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Plans - Billing Database</title>
-    <link rel="stylesheet" href="app.css">
-    <style>
-        .maintenance-header {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            align-items: end;
-            justify-content: space-between;
-            margin-bottom: 18px;
-        }
-
-        .maintenance-header label {
-            display: block;
-            margin-bottom: 4px;
-        }
-
-        .tableWrapper input[type="text"],
-        .tableWrapper input[type="number"],
-        .tableWrapper input[type="date"] {
-            width: 100%;
-            min-width: 110px;
-        }
-
-        .carrier-heading {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .carrier-heading input {
-            max-width: 420px;
-            font-size: 17px;
-            font-weight: 700;
-        }
-    </style>
+    <link rel="stylesheet" href="app.css?v=20260606c">
 </head>
 <body>
     <main>
         <h1>Edit Carriers, Tiers, And Plans</h1>
         <p class="app-page-intro">Update the plan setup for this company. Saving will update current plans and end active plans that are removed from the grid.</p>
 
-        <section class="app-card" style="padding: 22px;">
+        <section class="app-card">
             <div class="maintenance-header">
                 <div>
                     <label for="effectiveDate">Effective date for new or removed plans</label>

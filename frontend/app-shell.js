@@ -33,8 +33,6 @@
         if (hiddenPages.has(page)) {
             const notice = document.createElement('div');
             notice.className = 'app-message';
-            notice.style.width = 'min(1180px, calc(100% - 32px))';
-            notice.style.margin = '18px auto 0';
             notice.textContent = 'This page is a prototype or test page. Use the main navigation for normal billing work.';
             topbar.insertAdjacentElement('afterend', notice);
         }
@@ -60,8 +58,6 @@
 
         const hint = document.createElement('div');
         hint.className = 'app-message app-workflow-hint';
-        hint.style.width = 'min(1180px, calc(100% - 32px))';
-        hint.style.margin = '18px auto 0';
         hint.textContent = hints[page];
 
         const topbar = document.querySelector('.app-topbar');

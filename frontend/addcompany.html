@@ -4,59 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Company - Billing Database</title>
-    <!-- Include the xlsx library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.3/xlsx.full.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f4f9;
-        }
-        h1 {
-            color: #333;
-        }
-        form {
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #555;
-        }
-        input[type="text"],
-        input[type="file"],
-        input[type="date"],
-        input[type="radio"] {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 20px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        input[type="radio"] {
-            width: auto;
-            margin-right: 10px;
-        }
-        .radio-label {
-            display: inline-block;
-            margin-right: 20px;
-        }
-        button {
-            background: #007BFF;
-            color: #fff;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #0056b3;
-        }
-    </style>
-    <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=20260606c">
 </head>
 <body>
     <h1>New Company</h1>
@@ -75,12 +24,12 @@
         
         <div>
         <label for="RenewalDate">Renewal date</label>
-        <input type="date" id="RenewalDate" name="RenewalDate">
+        <input type="month" id="RenewalDate" name="RenewalDate">
         </div>
         
         <div>
         <label for="BillingDate">Preferred billing date</label>
-        <input type="date" id="BillingDate" name="BillingDate">
+        <input type="month" id="BillingDate" name="BillingDate">
         </div>
         
         <div class="app-full-row">
@@ -128,10 +77,10 @@
                 data['EmployerName'] = formData.get('EmployerName');
 
                 // Extract renewal date
-                data['RenewalDate'] = formData.get('RenewalDate');
+                data['RenewalDate'] = monthToDate(formData.get('RenewalDate'));
 
                 // Extract preferred billing date
-                data['PerferedBillingDate'] = formData.get('BillingDate');
+                data['PerferedBillingDate'] = monthToDate(formData.get('BillingDate'));
 
                 // Extract tier
                 let tier = formData.get('TierStructure');
@@ -446,6 +395,10 @@
             return `${year}-${month}-${day}`;
         }
 
+        function monthToDate(value) {
+            return value ? `${value}-01` : '';
+        }
+
         function findDependentsEmployee(employee, employees) {
             // Look for the employee that matches all values except the dependents and notes
             return employees.filter(e => {
@@ -461,4 +414,3 @@
     <script src="app-shell.js" defer></script>
 </body>
 </html>
-// make all dating to look like yyyy-mm dont need day
