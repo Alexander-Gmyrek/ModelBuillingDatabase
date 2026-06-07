@@ -1,4 +1,5 @@
 (function () {
+    const appVersion = '20260606b';
     const hiddenPages = new Set([
         'TestInputTable.html',
         'test.html',
@@ -9,6 +10,10 @@
     function currentPage() {
         const page = window.location.pathname.split('/').pop();
         return page || 'index.html';
+    }
+
+    function versioned(path) {
+        return `${path}?v=${appVersion}`;
     }
 
     function addShell() {
@@ -23,9 +28,9 @@
                 <span>Health insurance billing workspace</span>
             </div>
             <nav class="app-nav" aria-label="Primary">
-                <a href="setup.html">Setup</a>
-                <a href="index.html">Companies</a>
-                <a href="addcompany.html">New Company</a>
+                <a href="${versioned('setup.html')}">Setup</a>
+                <a href="${versioned('index.html')}">Companies</a>
+                <a href="${versioned('addcompany.html')}">New Company</a>
             </nav>
         `;
         document.body.insertBefore(topbar, document.body.firstChild);
