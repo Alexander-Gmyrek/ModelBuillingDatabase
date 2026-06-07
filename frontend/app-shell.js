@@ -1,5 +1,5 @@
 (function () {
-    const appVersion = '20260606b';
+    const appVersion = '20260606c';
     const hiddenPages = new Set([
         'TestInputTable.html',
         'test.html',
@@ -13,7 +13,29 @@
     }
 
     function versioned(path) {
-        return `${path}?v=${appVersion}`;
+        const url = new URL(path, window.location.href);
+        if (url.origin !== window.location.origin || !url.pathname.endsWith('.html')) {
+            return path;
+        }
+        url.searchParams.set('v', appVersion);
+        return `${url.pathname.split('/').pop()}${url.search}${url.hash}`;
+    }
+
+    function versionLinks() {
+        document.querySelectorAll('a[href$=".html"], a[href*=".html?"]').forEach(link => {
+            link.href = versioned(link.getAttribute('href'));
+        });
+    }
+
+    function handleNavigationClick(event) {
+        const link = event.target.closest('a[href]');
+        if (!link) return;
+        const href = link.getAttribute('href');
+        if (!href || !href.includes('.html')) return;
+        const nextHref = versioned(href);
+        if (nextHref === href) return;
+        event.preventDefault();
+        window.location.href = nextHref;
     }
 
     function addShell() {
@@ -43,6 +65,7 @@
         }
 
         addPageHint(page);
+        versionLinks();
     }
 
     function addPageHint(page) {
@@ -68,5 +91,7 @@
         topbar.insertAdjacentElement('afterend', hint);
     }
 
+    window.billingPageUrl = versioned;
+    document.addEventListener('click', handleNavigationClick);
     document.addEventListener('DOMContentLoaded', addShell);
 })();

@@ -21,7 +21,7 @@
                     <button id="addCarrierButton">Add Carrier</button>
                     <button id="addTierButton">Add Tier</button>
                     <button id="submitButton">Save Plan Setup</button>
-                    <a id="backButton" class="button secondary" href="index.html">Back To Company</a>
+                    <a id="backButton" class="button secondary" href="index.html?v=20260606c">Back To Company</a>
                 </div>
             </div>
             <p id="statusMessage" class="app-message">Loading plan setup...</p>
@@ -55,7 +55,7 @@
                 return;
             }
 
-            backButton.href = `company1.html?id=${encodeURIComponent(employerID)}`;
+            backButton.href = window.billingPageUrl(`company1.html?id=${encodeURIComponent(employerID)}`);
 
             document.getElementById('addCarrierButton').addEventListener('click', addCarrier);
             document.getElementById('addTierButton').addEventListener('click', addTier);
@@ -360,6 +360,6 @@
                 .replace(/>/g, '&gt;');
         }
     </script>
-    <script src="app-shell.js?v=20260606b" defer></script>
+    <script src="app-shell.js?v=20260606c" defer></script>
 </body>
 </html>

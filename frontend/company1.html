@@ -57,7 +57,7 @@
             const companyId = urlParams.get('id');
             const myButton = document.getElementById("addemployeeButton");
             const employeeStatus = document.getElementById('employeeStatus');
-            myButton.href = "addemployee.html?id=" + companyId;
+            myButton.href = window.billingPageUrl("addemployee.html?id=" + companyId);
 
             if (!companyId) {
                 console.error('No company ID found in URL parameters');
@@ -171,7 +171,7 @@
                 newTableWrapper.className = 'tableWrapper';
                 newTableWrapper.innerHTML = `
                     <h2>${carrier.CarrierName}</h2>
-                    <a href="editCarrier.html?id=${companyId}" class="button">
+                    <a href="${window.billingPageUrl(`editCarrier.html?id=${companyId}`)}" class="button">
                         <span>Edit Plan</span>
                     </a>
                     <table>
@@ -281,7 +281,7 @@
         }
 
         async function navigateToEmployee(companyId) {
-            window.location.href = `employee1.html?id=${companyId}`;
+            window.location.href = window.billingPageUrl(`employee1.html?id=${companyId}`);
         }
 
         const updateEmployeeStatus = (employee, activeIds) => {
@@ -323,7 +323,7 @@
         }
     
     </script>
-    <script src="app-shell.js?v=20260606b" defer></script>
+    <script src="app-shell.js?v=20260606c" defer></script>
 </body>
 </html>
 // Loading please wait

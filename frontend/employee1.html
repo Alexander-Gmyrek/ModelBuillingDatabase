@@ -81,7 +81,7 @@
         document.addEventListener('DOMContentLoaded', async () => {
             if (!employeeId) {
                 alert('No employee ID was provided.');
-                window.location.href = 'index.html';
+                window.location.href = window.billingPageUrl('index.html');
                 return;
             }
 
@@ -272,12 +272,12 @@
 
         function goBackToCompany() {
             const employerId = loadedEmployee?.EmployerID;
-            window.location.href = employerId ? `company1.html?id=${encodeURIComponent(employerId)}` : 'index.html';
+            window.location.href = employerId ? window.billingPageUrl(`company1.html?id=${encodeURIComponent(employerId)}`) : window.billingPageUrl('index.html');
         }
 
         window.addRow = addRow;
         window.deleteRow = deleteRow;
     </script>
-    <script src="app-shell.js?v=20260606b" defer></script>
+    <script src="app-shell.js?v=20260606c" defer></script>
 </body>
 </html>

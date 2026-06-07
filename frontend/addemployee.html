@@ -72,7 +72,7 @@
         document.addEventListener('DOMContentLoaded', async () => {
             if (!companyId) {
                 alert('No company ID was provided.');
-                window.location.href = 'index.html';
+                window.location.href = window.billingPageUrl('index.html');
                 return;
             }
 
@@ -90,7 +90,7 @@
 
         document.getElementById('addDependentRow').addEventListener('click', () => addRow());
         document.getElementById('cancelButton').addEventListener('click', () => {
-            window.location.href = `company1.html?id=${encodeURIComponent(companyId)}`;
+            window.location.href = window.billingPageUrl(`company1.html?id=${encodeURIComponent(companyId)}`);
         });
 
         document.getElementById('employeeForm').addEventListener('submit', async (event) => {
@@ -105,7 +105,7 @@
             try {
                 await addEmployee(employee);
                 alert('Employee added successfully.');
-                window.location.href = `company1.html?id=${encodeURIComponent(companyId)}`;
+                window.location.href = window.billingPageUrl(`company1.html?id=${encodeURIComponent(companyId)}`);
             } catch (error) {
                 console.error('Error adding employee:', error);
                 alert(`Failed to add employee. ${error.message || ''}`);
@@ -234,6 +234,6 @@
         window.addRow = addRow;
         window.deleteRow = deleteRow;
     </script>
-    <script src="app-shell.js?v=20260606b" defer></script>
+    <script src="app-shell.js?v=20260606c" defer></script>
 </body>
 </html>
