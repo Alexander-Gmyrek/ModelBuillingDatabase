@@ -257,6 +257,12 @@
             document.getElementById('informJoinDate').value = formatDate(employee.InformStartDate);
             document.getElementById('dob').value = formatDate(employee.DOB);
             document.getElementById('notes').value = employee.Notes || '';
+            const terminated = Boolean(employee.EndDate);
+            document.getElementById('terminationCheckbox').checked = terminated;
+            document.getElementById('termDate').value = formatDate(employee.EndDate);
+            document.getElementById('informedTermDate').value = formatDate(employee.InformEndDate || employee.EndDate);
+            document.getElementById('termDate').disabled = !terminated;
+            document.getElementById('informedTermDate').disabled = !terminated;
 
             addCompanyInput('GlCode', 'GL Code', employee.GlCode);
             addCompanyInput('Division', 'Division', employee.Division);
