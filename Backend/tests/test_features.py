@@ -180,36 +180,6 @@ class FeatureTests(unittest.TestCase):
         self.assertEqual({line["Month"] for line in result["Adjustments"]},
                          {"2026-03-01", "2026-04-01", "2026-05-01", "2026-06-01"})
 
-    def test_workbook_contains_monthly_adjustment_breakdown(self):
-        current = (1, "Current", date(2026, 1, 1), date(2026, 1, 1), None, None)
-        late_add = (2, "Late add", date(2026, 3, 1), date(2026, 6, 15), None, None)
-        late_term = (3, "Late term", date(2026, 1, 1), date(2026, 1, 1),
-                     date(2026, 3, 1), date(2026, 6, 15))
-        connection = Mock()
-        connection.cursor.return_value.fetchone.return_value = (1, "4 Tier", 0, 0, 0, 0)
-        def query(cursor, sql):
-            if "EmployeeFullName" in sql:
-                return [current, late_add, late_term]
-            if "FROM EmployeePlan" in sql:
-                return [(1, date(2026, 1, 1), date(2026, 1, 1), None, None)]
-            if "SELECT DOB" in sql:
-                return [(date(1990, 1, 1),)]
-            raise AssertionError(sql)
-        with (
-            patch.object(billing, "execute_query", side_effect=query),
-            patch.object(billing, "get_plan_for_employee", return_value=1),
-            patch.object(billing, "calculate_funding_amount_normal",
-                         return_value=(Decimal("100"), Decimal("10"), "Carrier", "Employee", [])),
-        ):
-            output = io.BytesIO()
-            billing.generate_report(connection, "Example", date(2026, 6, 1), output=output)
-        workbook = load_workbook(io.BytesIO(output.getvalue()), data_only=True)
-        self.assertEqual(workbook.sheetnames, ["Monthly Bill", "Adjustment Details"])
-        rows = list(workbook["Adjustment Details"].values)
-        self.assertEqual(len(rows), 9)
-        self.assertEqual(sum(Decimal(str(row[-1])) for row in rows[1:]), Decimal("220"))
-        credits = [row for row in rows[1:] if row[3] == "Late termination credit"]
-        self.assertEqual([row[2] for row in credits], ["2026-03", "2026-04", "2026-05"])
 
 
 class BillingWorkflowTests(unittest.TestCase):
@@ -265,7 +235,7 @@ class BillingWorkflowTests(unittest.TestCase):
         result = self.client.patch(f"/employee/{self.employee_id}/terminate",
                                    json={"EndDate": "2026-03-01", "InformEndDate": "2026-03-01"})
         self.assertEqual(result.status_code, 200, result.json)
-        self.assertEqual(self.bill(3)[0], 0)
+        self.assertEqual(self.bill(3)[0], Decimal("110"))
         self.assertEqual(self.bill(4)[0], 0)
         self.assertEqual(self.db.database.execute("SELECT EndDate FROM EmployeePlan").fetchone()[0], "2026-03-01")
 
@@ -273,8 +243,77 @@ class BillingWorkflowTests(unittest.TestCase):
         result = self.client.patch(f"/employee/{self.employee_id}/terminate",
                                    json={"EndDate": "2026-03-01", "InformEndDate": "2026-06-15"})
         self.assertEqual(result.status_code, 200, result.json)
-        self.assertEqual(self.bill(6)[0], Decimal("-330"))
+        self.assertEqual(self.bill(6)[0], Decimal("-220"))
         self.assertEqual(self.bill(7)[0], 0)
+
+    def employee_bill_rows(self, month):
+        _, content = self.bill(month)
+        sheet = load_workbook(io.BytesIO(content), data_only=True)["Monthly Bill"]
+        values = list(sheet.values)
+        return [dict(zip(values[0], row)) for row in values[1:] if row[0] != "Total:"]
+
+    def test_midmonth_termination_notes_and_saved_dates_on_real_report(self):
+        result = self.client.patch(f"/employee/{self.employee_id}/terminate",
+                                   json={"EndDate": "2026-03-15", "InformEndDate": "2026-06-20"})
+        self.assertEqual(result.status_code, 200, result.json)
+        saved = self.client.get(f"/employee/{self.employee_id}").json
+        self.assertEqual(saved["EndDate"], "2026-03-15")
+        self.assertEqual(saved["InformEndDate"], "2026-06-20")
+        self.assertIsNone(self.employee_bill_rows(2)[0]["Notes"])
+        for month in (3, 4, 5):
+            row = self.employee_bill_rows(month)[0]
+            self.assertEqual(row["Notes"], "Term (15-03-2026)")
+            self.assertEqual(row["Total Amount"], 110)
+        row = self.employee_bill_rows(6)[0]
+        self.assertEqual(row["Notes"], "Term (15-03-2026)")
+        self.assertEqual(row["Total Amount"], -220)
+        self.assertEqual(self.employee_bill_rows(7), [])
+
+    def test_late_hire_rows_and_notes_on_real_report(self):
+        result = self.client.post("/employee", json={
+            "EmployerID": 1, "EmployeeFullName": "Late Synthetic Hire",
+            "StartDate": "2026-03-15", "InformStartDate": "2026-06-20",
+            "Carrier": "Carrier A", "Tier": "Employee", "Dependents": []
+        })
+        self.assertEqual(result.status_code, 201, result.json)
+        self.assertNotIn("Late Synthetic Hire", [row["Employee Name"] for row in self.employee_bill_rows(2)])
+        for month in (3, 4, 5, 6):
+            row = next(row for row in self.employee_bill_rows(month) if row["Employee Name"] == "Late Synthetic Hire")
+            self.assertEqual(row["Notes"], "Hire (15-03-2026)")
+            self.assertEqual(row["Total Amount"], 440 if month == 6 else 0)
+        row = next(row for row in self.employee_bill_rows(7) if row["Employee Name"] == "Late Synthetic Hire")
+        self.assertIsNone(row["Notes"])
+        self.assertEqual(row["Total Amount"], 110)
+
+    def test_correcting_termination_dates_updates_linked_history(self):
+        for term_date in ("2026-03-15", "2026-04-15"):
+            result = self.client.patch(f"/employee/{self.employee_id}/terminate",
+                                       json={"EndDate": term_date, "InformEndDate": "2026-06-20"})
+            self.assertEqual(result.status_code, 200, result.json)
+        self.assertEqual(self.db.database.execute("SELECT EndDate FROM EmployeePlan").fetchone()[0], "2026-04-15")
+        self.assertEqual(self.bill(4)[0], Decimal("110"))
+        self.assertEqual(self.bill(6)[0], Decimal("-110"))
+        self.assertEqual(self.employee_bill_rows(6)[0]["Notes"], "Term (15-04-2026)")
+
+    def test_late_plan_change_notes_and_old_rate_on_real_report(self):
+        result = self.client.patch(f"/employee/{self.employee_id}/details", json={
+            "Employee": {"EmployeeFullName": "Synthetic Employee", "StartDate": "2026-01-01"},
+            "Dependents": [], "PlanChange": {
+                "PlanID": 2, "StartDate": "2026-03-15", "InformStartDate": "2026-06-20"}
+        })
+        self.assertEqual(result.status_code, 200, result.json)
+        self.assertIsNone(self.employee_bill_rows(2)[0]["Notes"])
+        for month in (3, 4, 5):
+            row = self.employee_bill_rows(month)[0]
+            self.assertEqual(row["Notes"], "Plan change (15-03-2026)")
+            self.assertEqual(row["Carrier"], "Carrier A")
+            self.assertEqual(row["Total Amount"], 110)
+        row = self.employee_bill_rows(6)[0]
+        self.assertEqual(row["Notes"], "Plan change (15-03-2026)")
+        self.assertEqual(row["Total Amount"], 550)
+        row = self.employee_bill_rows(7)[0]
+        self.assertIsNone(row["Notes"])
+        self.assertEqual(row["Total Amount"], 220)
 
     def test_plan_and_carrier_change_preserves_history_and_bills(self):
         result = self.client.patch(f"/employee/{self.employee_id}/details", json={
@@ -417,7 +456,7 @@ class BillingWorkflowTests(unittest.TestCase):
         result = self.client.patch(f"/employee/{self.employee_id}/terminate",
                                    json={"EndDate": "2026-04-01", "InformEndDate": "2026-06-15"})
         self.assertEqual(result.status_code, 200, result.json)
-        self.assertEqual(self.bill(6)[0], Decimal("-440"))
+        self.assertEqual(self.bill(6)[0], Decimal("-220"))
         self.assertEqual(self.bill(7)[0], 0)
 
 

@@ -24,7 +24,9 @@ async function testPage(failingSection) {
     view.searchEmployeeById = async () => ({
         EmployeeID: 1, EmployerID: 1, EmployeeFullName: 'Synthetic Employee',
         StartDate: '2026-01-01', InformStartDate: 'Thu, 15 Jan 2026 00:00:00 GMT',
-        CobraStatus: true
+        CobraStatus: true,
+        EndDate: failingSection === 'terminated' ? '2026-03-15' : null,
+        InformEndDate: failingSection === 'terminated' ? '2026-06-20' : null
     });
     view.searchDependentByJson = async () => {
         if (failingSection === 'dependents') throw new Error('Synthetic dependent error');
@@ -42,6 +44,11 @@ async function testPage(failingSection) {
     assert.equal(view.document.getElementById('joinDate').value, '2026-01-01');
     assert.equal(view.document.getElementById('informJoinDate').value, '2026-01-15');
     assert.equal(view.document.getElementById('CobraStatus').checked, true);
+    if (failingSection === 'terminated') {
+        assert.equal(view.document.getElementById('termDate').value, '2026-03-15');
+        assert.equal(view.document.getElementById('informedTermDate').value, '2026-06-20');
+        assert.equal(view.document.getElementById('terminationCheckbox').checked, true);
+    }
     assert.equal(view.document.querySelectorAll('#editableTable tbody tr').length, 1);
     assert.equal(view.document.querySelector('input[type="submit"]').disabled, failingSection === 'dependents');
     assert.equal(view.document.getElementById('changePlan').disabled, failingSection === 'enrollment');
@@ -61,5 +68,6 @@ async function testPage(failingSection) {
     await testPage(null);
     await testPage('dependents');
     await testPage('enrollment');
+    await testPage('terminated');
     console.log('Employee page checks passed: profile, dates, COBRA, dependents, enrollment, and partial loading failures.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

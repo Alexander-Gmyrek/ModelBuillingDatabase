@@ -14,6 +14,7 @@ from flask_cors import CORS
 import base64
 from history import ensure_schema, record_change, register_routes, HISTORY_TABLES
 from enrollment import change_enrollment
+from monthly_billing import MonthlyBilling
 
 ####################### Helper Functions #######################
 app = Flask(__name__)
@@ -1398,9 +1399,21 @@ def terminate_employee(cursor, employee_id, end_date=None, inform_end_date=None)
         #end plan and dependents
         final_inform_end_date = inform_end_date if inform_end_date else end_date
         employee_plans = get_active_depfree(cursor, "EmployeePlan", employee_id, "EndDate", "EmployeeID")
+        if before_termination.get("EndDate"):
+            cursor.execute("""SELECT * FROM EmployeePlan WHERE EmployeeID = %s
+                AND EndDate = %s AND COALESCE(InformEndDate, EndDate) = %s""",
+                           (employee_id, before_termination["EndDate"],
+                            before_termination.get("InformEndDate") or before_termination["EndDate"]))
+            employee_plans = list(employee_plans) + cursor.fetchall()
         for employee_plan in employee_plans:
             change_element_by_table_name(cursor, "EmployeePlan", employee_plan[0], {"EndDate": end_date, "InformEndDate": final_inform_end_date})
         dependents = get_active_depfree(cursor, "Dependent", employee_id, "EndDate", "EmployeeID")
+        if before_termination.get("EndDate"):
+            cursor.execute("""SELECT * FROM Dependent WHERE EmployeeID = %s
+                AND EndDate = %s AND COALESCE(InformEndDate, EndDate) = %s""",
+                           (employee_id, before_termination["EndDate"],
+                            before_termination.get("InformEndDate") or before_termination["EndDate"]))
+            dependents = list(dependents) + cursor.fetchall()
         for dependent in dependents:
             change_element_by_table_name(cursor, "Dependent", dependent[0], {"EndDate": end_date, "InformEndDate": final_inform_end_date})
         record_change(cursor, "Terminate", "Employee", employee_id, before_termination, employee)
@@ -2058,267 +2071,69 @@ def add_data_age_banded(df, notes, employee_name, plan, tier, funding_amount, gr
         new_df = new_df._append(new_row, ignore_index=True)
     return new_df
 
-def generate_report(connection, employer_name, Date, get_format=get_format_normal, output=None):
+def generate_report(connection, employer_name, Date, get_format=get_format_normal, output=None, employer_id=None):
     if not connection:
         raise ValueError("No connection to the database")
-
     cursor = connection.cursor()
     try:
-        current_month = Date.month
-        current_year = Date.year
-        billing_month_start = month_start(Date)
-        billing_month_end = month_end(Date)
-
-        cursor.execute("SELECT EmployerID, TierStructure, UsesGlCode, UsesDivision, UsesLocation, UsesTitle FROM Employer WHERE EmployerName = %s", (employer_name,))
-        employer_info = cursor.fetchone()
-        if not employer_info:
-            raise ValueError(f"Employer {employer_name} not found")
-        
-        add_data, columns = get_format(employer_info)
-    except Exception as e:
-        raise ValueError(f"Error getting employer info: {e}")
-
-    try:
-        employer_id, tier_structure, uses_gl_code, uses_division, uses_location, uses_title = employer_info
-        calculate_funding_amount = calculate_funding_amount_normal
-        if tier_structure.replace(" ", "").casefold() == "agebanded":
-            calculate_funding_amount = calculate_funding_amount_age_banded
-            add_data = add_data_age_banded
-        if tier_structure.replace(" ", "").casefold() in ("agebandedcomposite", "agebandedtiered"):
-            calculate_funding_amount = calculate_funding_amount_composite  
-    except Exception as e:
-        raise ValueError(f"Error setting up funding calculation: {e}")
-    
-    df = pd.DataFrame(columns=columns)
-    details = []
-
-    def record_line(employee_name, coverage_month, reason, sign, funding, fee, carrier, tier, dependents):
-        details.append({"Employee Name": employee_name, "Dependent": "",
-                        "Coverage Month": month_start(coverage_month).strftime("%Y-%m"),
-                        "Reason": reason, "Carrier": carrier, "Tier": tier,
-                        "Funding Amount": sign * funding, "Admin Fee": sign * fee,
-                        "Total Amount": sign * (funding + fee)})
-        for dependent in dependents or []:
-            if not dependent:
-                continue
-            for line in dependent.get("Adjustments", [{
-                "Month": month_start(coverage_month).isoformat(),
-                "FundingAmount": dependent["FundingAmount"], "GrenzFee": dependent["GrenzFee"],
-                "Tier": dependent["Tier"]
-            }]):
-                details.append({"Employee Name": employee_name, "Dependent": dependent["DependentName"],
-                                "Coverage Month": line["Month"][:7], "Reason": reason + " / dependent",
-                                "Carrier": carrier, "Tier": line["Tier"],
-                                "Funding Amount": sign * line["FundingAmount"],
-                                "Admin Fee": sign * line["GrenzFee"],
-                                "Total Amount": sign * (line["FundingAmount"] + line["GrenzFee"])})
-    
-    
-    
-    employees = execute_query(cursor, f"SELECT EmployeeID, EmployeeFullName, StartDate, InformStartDate, EndDate, InformEndDate FROM Employee WHERE EmployerID = {employer_id} AND InformStartDate <= '{billing_month_end}' AND (InformEndDate >= '{billing_month_start}' OR InformEndDate IS NULL)")
-
-        
-    try:
-        for employee in employees:
-            employee_id, employee_name, join_date, join_inform_date, term_date, term_inform_date = employee
-            notes = []
-            funding_amount = 0
-            grenz_fee = 0
-            carrier_names = []
-            tier_names = []
-            dependents = []
-            #raise ValueError(f"We made it to employee {employee_name}")
-            try:
-                employee_plans = execute_query(cursor, f"SELECT PlanID, StartDate, InformStartDate, EndDate, InformEndDate FROM EmployeePlan WHERE EmployeeID = {employee_id} AND InformStartDate <= '{billing_month_end}' AND (InformEndDate >= '{billing_month_start}' OR InformEndDate IS NULL)")
-            except Exception as e:
-                raise ValueError(f"Error getting employee plans for {employee_name}: {e}")
-            if not employee_plans:
-                raise ValueError(f"No plans found for {employee_name} on {Date}")
-                continue
-            try:
-                try:
-                    if not isinstance(term_inform_date, date):
-                        if term_inform_date != None:
-                            term_inform_date = datetime.strptime(str(term_inform_date), "%Y-%m-%d").date()
-                except Exception as e:
-                    raise ValueError(f"Error getting term inform date for {employee_name}: {e}")
-                try:
-                    if term_date and same_billing_month(term_inform_date, Date):
-                        notes.append("Terminated " + str(current_month) + "/" +  str(current_year))
-                        for back_date in generate_month_range(term_date, term_inform_date):
-                            if(back_date == billing_month_start):
-                                continue
-                            try:
-                                plan_id = get_plan_for_employee(cursor, employee_id, term_date)
-                            except Exception as e:
-                                raise ValueError(f"Error getting plan for {employee_name}: {e}")
-                            if not plan_id:
-                                raise ValueError(f"Backedate, No plan found for {employee_name} on {back_date}")
-                            try:
-                                f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
-                                record_line(employee_name, back_date, "Late termination credit", -1, f_amount, g_fee, carrier_name, tier_name, new_dependents)
-                            except Exception as e:
-                                raise ValueError(f"Error calculating funding amount for {employee_name}: {e}")
-                            funding_amount -= f_amount
-                            grenz_fee -= g_fee
-                            carrier_names.append(carrier_name)
-                            tier_names.append(tier_name)
-                            new_dependents = flip_funding_amounts(new_dependents)
-                            dependents = update_dependents(dependents, new_dependents)
-                except Exception as e:
-                    raise ValueError(f"Error handling if statement term date for {employee_name}: {e}")
-            except Exception as e:
-                raise ValueError(f"Error handleing term date for {employee_name}: {e}")
-            #raise Exception("Join Test Join date:" + str(join_date) + " Join inform Date: " + str(join_inform_date) + " CurrentDate: " + str(current_date))
-            join_inform_date = as_date(join_inform_date)
-            join_date = as_date(join_date)
-            try:
-                if join_date and same_billing_month(join_inform_date, Date):
-                    notes.append("Joined " + str(current_month) + "/" +  str(current_year))
-                    for back_date in generate_month_range(join_date, join_inform_date):
-                        plan_id = get_plan_for_employee(cursor, employee_id, back_date)
-                        f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
-                        record_line(employee_name, back_date, "Current coverage" if back_date == billing_month_start else "Late addition charge", 1, f_amount, g_fee, carrier_name, tier_name, new_dependents)
-                        funding_amount += f_amount
-                        grenz_fee += g_fee
-                        carrier_names.append(carrier_name)
-                        tier_names.append(tier_name)
-                        dependents = update_dependents(dependents, new_dependents)
-            except Exception as e:
-                raise ValueError(f"Error handeling join inform date for {employee_name}: {e}")
-            
-            # This section handles changes in plans
-            # 
-            try:
-                for plan in employee_plans:
-                    plan_id, start_date, inform_start_date, end_date, inform_end_date = plan
-                    if end_date and as_date(inform_end_date) and as_date(inform_end_date) < billing_month_start:
-                        continue
-                    try:
-                        if same_billing_month(inform_start_date, Date) and not (join_date and same_billing_month(join_inform_date, Date)):
-                            notes.append("Started Plan " + str(start_date.month) + "/" + str(start_date.year) + " Inform Start Date: " + str(inform_start_date))
-                            for back_date in generate_month_range(start_date, inform_start_date):
-                                if back_date == billing_month_start and not same_billing_month(join_inform_date, Date):
-                                    continue
-                                f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
-                                record_line(employee_name, back_date, "Late plan start charge", 1, f_amount, g_fee, carrier_name, tier_name, new_dependents)
-                                funding_amount += f_amount
-                                grenz_fee += g_fee
-                                carrier_names.append(carrier_name)
-                                tier_names.append(tier_name)               
-                                dependents = update_dependents(dependents, new_dependents)
-                    except Exception as e:
-                        # errnotes = ", ".join(notes)
-                        raise ValueError(f"Error in inform startdate == date. Startdate = {inform_start_date}")
-
-                    try:
-                        if same_billing_month(inform_end_date, Date) and not (term_date and same_billing_month(term_inform_date, Date)):
-                            notes.append("Ended Plan " + str(end_date.month) + "/" +  str(end_date.year))
-                            for back_date in generate_month_range(end_date, inform_end_date):
-                                if(back_date == billing_month_start):
-                                    continue
-                                f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, back_date, plan_id, employee_id)
-                                record_line(employee_name, back_date, "Late plan end credit", -1, f_amount, g_fee, carrier_name, tier_name, new_dependents)
-                                funding_amount -= f_amount
-                                grenz_fee -= g_fee
-                                carrier_names.append(carrier_name)
-                                tier_names.append(tier_name)
-                                dependents = update_dependents(dependents, new_dependents)
-                    except Exception as e:
-                        raise ValueError(f"Error in inform enddate == date. Enddate = {inform_end_date}: {e}")
-            except Exception as e:
-                raise ValueError(f"Error handling plans for {employee_name}: {e}")
-                
-            try:
-                if not same_billing_month(join_inform_date, Date) and not (
-                    term_date and as_date(term_date) <= billing_month_end
-                    and as_date(term_inform_date) and as_date(term_inform_date) <= billing_month_end
-                ):
-                    # check if notes are not empty
-                    if notes:
-                        notes.append("Not finding carrier name but has notes.")
-                    try:
-                        plan_id = get_plan_for_employee(cursor, employee_id, billing_month_start)
-                    except Exception as e:
-                        raise ValueError(f"Error getting plan for {employee_name}: {e}")
-                    if not plan_id:
-                        raise ValueError(f"No plan found for {employee_name} on {billing_month_start}")
-                    try:
-                        f_amount, g_fee, carrier_name, tier_name, new_dependents = calculate_funding_amount(cursor, billing_month_start, plan_id, employee_id)
-                        record_line(employee_name, billing_month_start, "Current coverage", 1, f_amount, g_fee, carrier_name, tier_name, new_dependents)
-                    except Exception as e:
-                        raise ValueError(f"Error calculating funding amount for {employee_name}: {e}")
-                    try:
-                        funding_amount += f_amount
-                        grenz_fee += g_fee
-                        carrier_names.append(carrier_name)
-                        tier_names.append(tier_name)
-                        dependents = update_dependents(dependents, new_dependents)
-                    except Exception as e:
-                        raise ValueError(f"Error summing data for {employee_name}: {e}")
-            except Exception as e:
-                raise ValueError(f"Error getting defult funding amount for {employee_name}: {e}")
-            try:
-                carrier_name = "/ ".join(set(carrier_names))
-                tier_name = "/ ".join(set(tier_names))
-                try:
-                    empDOB = execute_query(cursor, f"SELECT DOB FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
-                    # format dob
-                    empDOB = empDOB.strftime("%m/%d/%Y")
-                except Exception as e:
-                    empDOB = None
-
-                if(uses_gl_code):
-                    gl_code = execute_query(cursor, f"SELECT GlCode FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
-                else:
-                    gl_code = None
-                if(uses_division):
-                    division = execute_query(cursor, f"SELECT Division FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
-                else:
-                    division = None
-                if(uses_location):
-                    location = execute_query(cursor, f"SELECT Location FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
-                else:
-                    location = None
-                if(uses_title):
-                    title = execute_query(cursor, f"SELECT Title FROM Employee WHERE EmployeeID = {employee_id}")[0][0]
-                else:
-                    title = None
-                try:
-                    total = funding_amount + grenz_fee
-                    df = add_data(df, str(notes).strip("[]"), employee_name, carrier_name, tier_name, funding_amount, grenz_fee, total, gl_code, division, location, title, dependents, empDOB)
-                except Exception as e:
-                    raise ValueError(f"Error adding data for {employee_name}: {e}")
-            except Exception as e:
-                raise ValueError(f"Error managing data for {employee_name}: {e}")
-    except Exception as e:
-        raise ValueError(f"Error itorating employees: {e}")
-    try:
-        total_funding = df["Total Amount"].sum()
-        total_admin = df["Admin Fee"].sum()
-        total_funding_amount = df["Funding Amount"].sum()
-        if sum(line["Funding Amount"] for line in details) != total_funding_amount or sum(line["Admin Fee"] for line in details) != total_admin:
-            raise ValueError("Adjustment details do not reconcile with the monthly bill.")
-        df = df._append({"Notes": "Total:", "Funding Amount": total_funding_amount, "Admin Fee": total_admin, "Total Amount": total_funding}, ignore_index=True)
-        filePath = f"{employer_name}_report_{current_year}_{current_month}.xlsx"
-    except Exception as e:
-        raise ValueError(f"Error calculating totals: {e}")
-    try:
-        #filePath = "output.xlsx"
-        with pd.ExcelWriter(output if output is not None else filePath, engine="openpyxl") as writer:
-            df.to_excel(writer, sheet_name="Monthly Bill", index=False)
-            detail_frame = pd.DataFrame(details)
+        def read(sql, params):
+            cursor.execute(sql, params)
+            names = [column[0] for column in cursor.description]
+            return [dict(zip(names, row)) for row in cursor.fetchall()]
+        companies = read("SELECT * FROM Employer WHERE EmployerID = %s", (employer_id,)) if employer_id is not None else read(
+            "SELECT * FROM Employer WHERE EmployerName = %s", (employer_name,))
+        if len(companies) != 1:
+            raise ValueError("Exactly one company must match the report.")
+        company = companies[0]
+        employer_id = company["EmployerID"]
+        employees = read("SELECT * FROM Employee WHERE EmployerID = %s", (employer_id,))
+        enrollments = read("""SELECT ep.* FROM EmployeePlan ep JOIN Employee e
+            ON e.EmployeeID = ep.EmployeeID WHERE e.EmployerID = %s""", (employer_id,))
+        dependents = read("""SELECT d.* FROM Dependent d JOIN Employee e
+            ON e.EmployeeID = d.EmployeeID WHERE e.EmployerID = %s""", (employer_id,))
+        plans = read("SELECT * FROM Plan WHERE EmployerID = %s", (employer_id,))
+        carriers = read("SELECT * FROM Carrier WHERE EmployerID = %s", (employer_id,))
+        tiers = read("SELECT * FROM Tier WHERE EmployerID = %s", (employer_id,))
+        engine = MonthlyBilling(company, employees, enrollments, plans, carriers, tiers, dependents)
+        rows, details = engine.build(Date)
+        columns = ["Notes", "Employee Name"]
+        if engine.age_banded:
+            columns += ["DOB", "Dependent Name"]
+        for flag, label in [("UsesGlCode", "GL Code"), ("UsesDivision", "Division"),
+                            ("UsesLocation", "Location"), ("UsesTitle", "Title")]:
+            if company.get(flag):
+                columns.append(label)
+        columns += ["Carrier", "Tier", "Funding Amount", "Admin Fee", "Total Amount"]
+        totals = {"Notes": "Total:"}
+        for field in ("Funding Amount", "Admin Fee", "Total Amount"):
+            totals[field] = sum((row[field] for row in rows), Decimal("0"))
+            detail_total = sum((line[field] for line in details), Decimal("0"))
+            if totals[field] != detail_total:
+                raise ValueError("Adjustment details do not reconcile with the monthly bill.")
+        frame = pd.DataFrame(rows + [totals], columns=columns)
+        detail_columns = ["Employee Name", "Dependent", "Coverage Month", "Reason", "Carrier", "Tier",
+                          "Funding Amount", "Admin Fee", "Total Amount"]
+        detail_frame = pd.DataFrame(details, columns=detail_columns)
+        target = output if output is not None else f"company_{employer_id}_bill_{Date.year}_{Date.month:02d}.xlsx"
+        with pd.ExcelWriter(target, engine="openpyxl") as writer:
+            frame.to_excel(writer, sheet_name="Monthly Bill", index=False)
             detail_frame.to_excel(writer, sheet_name="Adjustment Details", index=False)
             for sheet in writer.book.worksheets:
                 sheet.freeze_panes = "A2"
                 sheet.auto_filter.ref = sheet.dimensions
                 for column in sheet.columns:
-                    sheet.column_dimensions[column[0].column_letter].width = min(45, max(16, max(len(str(cell.value or "")) for cell in column) + 2))
-    except Exception as e:
-        raise ValueError(f"Error generating report: {e}")
-
-    cursor.close()
-    return output if output is not None else filePath
+                    sheet.column_dimensions[column[0].column_letter].width = min(
+                        50, max(16, max(len(str(cell.value or "")) for cell in column) + 2))
+                    for cell in column[1:]:
+                        if column[0].value in ("Funding Amount", "Admin Fee", "Total Amount"):
+                            if cell.value is not None:
+                                cell.value = float(cell.value)
+                            cell.number_format = "0.00"
+                        elif isinstance(cell.value, str):
+                            cell.data_type = "s"
+        return target
+    finally:
+        cursor.close()
 
 
 ########### Test Data ############
@@ -2880,7 +2695,7 @@ def test_generate_report(EmployerID, Year, Month):
         billing_date = date(Year, Month, 1)
         employer = get_element_by_id(cursor, "Employer", EmployerID)
         workbook = BytesIO()
-        generate_report(connection, employer["EmployerName"], billing_date, output=workbook)
+        generate_report(connection, employer["EmployerName"], billing_date, output=workbook, employer_id=EmployerID)
         content = workbook.getvalue()
         filename = f"company_{EmployerID}_bill_{Year}_{Month:02d}.xlsx"
         cursor.execute(

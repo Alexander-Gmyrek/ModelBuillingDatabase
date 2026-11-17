@@ -100,6 +100,19 @@ When a monthly bill is generated, the app uses the informed date to decide which
 - Late plan starts or plan ends create matching catch-up charges or credits tied to the affected carrier and tier.
 - The adjustment appears on the next generated bill for the month when the user was informed.
 
+### Monthly Coverage Rules
+
+- Start and termination months are charged in full, including mid-month dates.
+- Before an employee's start month, the employee is absent from newly generated bills.
+- Between the start month and informed-start month, the employee appears at zero with `Hire (dd-mm-yyyy)`.
+- The informed-start bill charges the missed coverage months plus the current month. Later bills use normal monthly charges without the hire note.
+- Through the termination month, normal coverage charges apply. Before the informed-termination month, subsequent bills continue charging coverage and show `Term (dd-mm-yyyy)`.
+- The informed-termination bill credits the months after termination that were previously chargeable. The termination month itself is not credited. The term note remains on this bill.
+- After the termination and notification months have passed, the employee is omitted.
+- A late carrier, plan, or tier switch keeps the old rate on bills before notification. The notification bill charges the new current-month rate and adjusts each earlier affected month by the difference.
+- `Plan change (dd-mm-yyyy)` appears from the effective month through the notification month.
+- Newly generated historical bills follow these rules. Previously saved bill workbooks remain unchanged.
+
 ## Requirements
 
 Before downloading and running the app, install:
