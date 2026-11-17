@@ -361,7 +361,7 @@
                     <tbody>
                         ${['Funding Amount', 'Grenz Fee', 'Grenz Fee C', 'Grenz Fee S'].map(dataType => `
                             <tr>
-                                <td>${dataType}</td>
+                                <td>${dataType.replace('Grenz Fee', 'Admin Fee')}</td>
                                 ${tiers.map(tier => `
                                     <td>
                                         <input type="text" class="data-input" data-carrier="${carrier.CarrierName}" data-tier="${tier.TierName}" data-type="${dataType}" value="${data[carrier.CarrierName][tier.TierName][dataType] || ''}">
