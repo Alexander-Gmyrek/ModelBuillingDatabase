@@ -4,66 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Employee</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background: #f4f4f9;
-            color: #222;
-        }
-
-        form {
-            max-width: 980px;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-        }
-
-        label {
-            display: block;
-            margin-top: 12px;
-            font-weight: 600;
-        }
-
-        input,
-        select {
-            width: 100%;
-            max-width: 420px;
-            padding: 8px;
-            margin-top: 4px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 16px;
-        }
-
-        th,
-        td {
-            border: 1px solid #ddd;
-            padding: 8px;
-        }
-
-        button {
-            margin-top: 14px;
-            margin-right: 8px;
-            background: #007bff;
-            color: #fff;
-            border: 0;
-            border-radius: 4px;
-            padding: 10px 16px;
-            cursor: pointer;
-        }
-
-        button.secondary {
-            background: #5f6b77;
-        }
-    </style>
-    <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=20260606d">
 </head>
 <body>
     <h1>Add Employee</h1>
@@ -131,7 +72,7 @@
         document.addEventListener('DOMContentLoaded', async () => {
             if (!companyId) {
                 alert('No company ID was provided.');
-                window.location.href = 'index.html';
+                window.location.href = window.billingPageUrl('index.html');
                 return;
             }
 
@@ -149,25 +90,37 @@
 
         document.getElementById('addDependentRow').addEventListener('click', () => addRow());
         document.getElementById('cancelButton').addEventListener('click', () => {
-            window.location.href = `company1.html?id=${encodeURIComponent(companyId)}`;
+            window.location.href = window.billingPageUrl(`company1.html?id=${encodeURIComponent(companyId)}`);
         });
 
         document.getElementById('employeeForm').addEventListener('submit', async (event) => {
             event.preventDefault();
 
-            const employee = buildEmployeeJson();
+            let employee;
+            try {
+                employee = buildEmployeeJson();
+            } catch (error) {
+                alert(error.message || 'Could not prepare employee information.');
+                return;
+            }
+
             if (!employee.EmployeeFullName || !employee.StartDate || !employee.InformStartDate) {
                 alert('Full name, start date, and inform start date are required.');
                 return;
             }
 
+            const submitButton = document.querySelector('button[type="submit"]');
+            if (submitButton.disabled) return;
+            submitButton.disabled = true;
             try {
                 await addEmployee(employee);
                 alert('Employee added successfully.');
-                window.location.href = `company1.html?id=${encodeURIComponent(companyId)}`;
+                window.location.href = window.billingPageUrl(`company1.html?id=${encodeURIComponent(companyId)}`);
             } catch (error) {
                 console.error('Error adding employee:', error);
                 alert(`Failed to add employee. ${error.message || ''}`);
+            } finally {
+                submitButton.disabled = false;
             }
         });
 
@@ -226,9 +179,10 @@
 
         function buildEmployeeJson() {
             const formData = new FormData(document.getElementById('employeeForm'));
+            const fullName = (formData.get('EmployeeFullName') || '').trim();
             const employee = {
                 EmployerID: Number(companyId),
-                EmployeeFullName: formData.get('EmployeeFullName') || null,
+                EmployeeFullName: fullName || null,
                 StartDate: formData.get('StartDate') || null,
                 InformStartDate: formData.get('InformStartDate') || formData.get('StartDate') || null,
                 DOB: formData.get('DOB') || null,
@@ -243,7 +197,7 @@
                 Dependents: gatherDependents(formData.get('StartDate'), formData.get('InformStartDate'))
             };
 
-            const nameParts = employee.EmployeeFullName.trim().split(/\s+/);
+            const nameParts = fullName ? fullName.split(/\s+/) : [];
             employee.EmployeeFirstName = nameParts[0] || null;
             employee.EmployeeLastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : null;
 
@@ -293,6 +247,6 @@
         window.addRow = addRow;
         window.deleteRow = deleteRow;
     </script>
-    <script src="app-shell.js" defer></script>
+    <script src="app-shell.js?v=20260606c" defer></script>
 </body>
 </html>

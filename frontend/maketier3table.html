@@ -4,58 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Make 3 Tier Table</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        .button-container {
-            margin-bottom: 20px;
-        }
-        button {
-            background: #007BFF;
-            color: #fff;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #0056b3;
-        }
-        .tableWrapper {
-            margin-bottom: 20px;
-        }
-        .tableWrapper input[type="text"] {
-            width: 100%;
-            padding: 5px;
-            box-sizing: border-box;
-        }
-        .tableWrapper table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        .tableWrapper th,
-        .tableWrapper td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-        }
-        .tableWrapper th {
-            background-color: #f2f2f2;
-        }
-        .tableWrapper tr:hover {
-            background-color: #f1f1f1;
-        }
-        .carrier-input {
-            font-size: 18px;
-            font-weight: bold;
-            width: calc(100% - 10px);
-            margin-bottom: 10px;
-        }
-    </style>
-    <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=20260606d">
 </head>
 <body>
 
@@ -68,79 +17,87 @@
 </div>
 <div id="tableContainer"></div>
 
-<script type="module">
+    <script src="employee-import.js?v=20261117b"></script>
+    <script type="module">
     import {
         addEmployer,
         getFullTable
     } from './apiFunctions.js';
 
-    // Modified submitTable function
-    async function submitTable(gatheredData) {
-        // Retrieve the stored company data from localStorage
-        const companyDataString = localStorage.getItem('companyData');
-        console.log(companyDataString);
-        if (!companyDataString) {
-            console.error('No company data found in localStorage');
-            return;
+    let setupSubmitting = false;
+    let setupCommitted = false;
+
+    function validatePlanCoverage(companyData) {
+        const validDate = value => {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false;
+            const date = new Date(value + 'T00:00:00Z');
+            return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value && value >= '1900-01-01' && value <= '2400-12-31';
+        };
+        for (const [index, employee] of (companyData.Employees || []).entries()) {
+            if (!validDate(employee.StartDate)) throw new Error(`Employee row ${index + 1}: a valid Start Date is required.`);
+            // Age-band eligibility follows backend age rules, not uploaded tier labels.
+            const ageBanded = ['Age Banded', 'Age Banded Composite', 'Age Banded Tiered'].includes(companyData.TierStructure);
+            const covered = companyData.Plans.some(plan =>
+                plan.CarrierName === employee.Carrier && (ageBanded || plan.TierName === employee.Tier) &&
+                validDate(plan.StartDate || companyData.RenewalDate) &&
+                (plan.StartDate || companyData.RenewalDate) <= employee.StartDate &&
+                (!plan.EndDate || (validDate(plan.EndDate) && employee.StartDate < plan.EndDate)));
+            if (!covered) throw new Error(`Employee row ${index + 1}: no plan covers the employee Start Date ${employee.StartDate}. Check carrier, tier, and renewal/plan start dates. Preserve historical rates; do not backdate current rates unless they applied then.`);
         }
+    }
 
-        // Parse the stored JSON string into an object
-        const companyData = JSON.parse(companyDataString);
-
-        //console.log
-
-        // Apend the gathered data to the companyData object
-        companyData.Tiers = gatheredData.Tiers;
-        companyData.Carriers = gatheredData.Carriers;
-        companyData.Plans = gatheredData.Plans;
-
-        // Log the complete data to the console for debugging
-        console.log('Complete Data:', companyData);
-
-        // Send the complete data to the server
+    async function submitTable(gatheredData) {
+        if (setupSubmitting || setupCommitted) return;
+        const button = document.getElementById('submitButton');
+        setupSubmitting = true;
+        button.disabled = true;
+        let postStarted = false;
         try {
+            if (!Array.from(document.querySelectorAll('.carrier-input')).every(input => input.reportValidity())) return;
+            const stored = localStorage.getItem('companyData');
+            if (!stored) throw new Error('No company setup found. Return to New Company.');
+            const companyData = JSON.parse(stored);
+            if (companyData.EmployerID) {
+                setupCommitted = true;
+                alert('This company has already been created. Open the existing company to review it; do not submit again.');
+                return;
+            }
+            companyData.Tiers = gatheredData.Tiers;
+            companyData.Carriers = gatheredData.Carriers;
+            companyData.Plans = gatheredData.Plans;
+            validatePlanCoverage(companyData);
+            if (companyData.Employees?.length && !await showEmployeeImportPreview(companyData.Employees)) return;
+            postStarted = true;
+            delete companyData.PlanSetupDraft;
             const response = await addEmployer(companyData);
-            // update the company id with the new_id from response
+            // Lock immediately after creation, before storage or verification can fail.
+            setupCommitted = true;
             companyData.EmployerID = response.new_id;
-            // update the company data in local storage
             localStorage.setItem('companyData', JSON.stringify(companyData));
-            let userAlert = 'Data submitted successfully!'
-            // Notify of warnings
+            let userAlert = 'Company created successfully!';
             if (response.warnings) {
-                console.warn('Submission warnings:', response.warnings);
-                //add warnings to local storage
                 localStorage.setItem('warnings', JSON.stringify(response.warnings));
-                // add the number of warnings to the user alert
-                userAlert += '\nWarnings ' + countWarnings(response.warnings);
+                userAlert += '\nWarnings: ' + countWarnings(response.warnings);
             }
-
-            // check if there is missing data and alert the user
-            //get the data
-            const employerID = companyData.EmployerID;
-            const missingData = await checkForMissingData(employerID, companyData);
-            //add missing data to local storage
+            const missingData = await checkForMissingData(companyData.EmployerID, companyData);
             localStorage.setItem('missingData', JSON.stringify(missingData));
-            console.log(missingData);
-            if (missingData.length > 0){
-                for (let data of missingData){
-                    for (let key in data){
-                        if(data[key] && data[key].length != 0){
-                            userAlert += '\nFailed to add ' + key + ': '; /*+ JSON.stringify(data[key]).join(', ');*/
-                        }
-                    }
-                }
+            if (missingData.some(item => Object.values(item).some(values => values && values.length))) {
+                userAlert += '\nFollow-up verification found missing data. Review the existing company; do not create it again.';
             }
-
             alert(userAlert);
-
-            // Optionally, clear the localStorage or redirect to another page
-            //localStorage.removeItem('companyData'); // Clear the storage after submission
-
-            //window.location.href = 'reviewcompany.html';
-
         } catch (error) {
-            console.error('Error submitting data:', error);
-            alert('Failed to submit data.');
+            if (setupCommitted) {
+                alert('Company created, but follow-up verification or local storage failed. Review the existing company; do not submit again.');
+            } else if (postStarted && !(error.status >= 400 && error.status < 500)) {
+                // A lost response can hide a committed POST. Require review before retry.
+                setupCommitted = true;
+                alert('Creation could not be confirmed. Check the company list before retrying to avoid a duplicate. Reload setup only after confirming no company was created.');
+            } else {
+                alert(error.message || 'Please correct the setup before submitting.');
+            }
+        } finally {
+            setupSubmitting = false;
+            button.disabled = setupCommitted;
         }
     }
 
@@ -148,7 +105,6 @@
         //get the full table
         const myfullTable = await getFullTable('Employer', employerID);
         const fullTable = myfullTable.Element
-        console.log(fullTable);
         
         let missingData = [];
         //check for missing carriers
@@ -231,6 +187,13 @@
                 'T2': { 'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': '' }
             }
         };
+        const savedDraft = JSON.parse(localStorage.getItem('companyData')).PlanSetupDraft;
+        if (savedDraft) {
+            carriers.splice(0, carriers.length, ...savedDraft.Carriers);
+            tiers.splice(0, tiers.length, ...savedDraft.Tiers);
+            Object.keys(data).forEach(name => delete data[name]);
+            Object.assign(data, savedDraft.Data);
+        }
         addTable(tiers, carriers, data);
 
         document.getElementById('addCarrierButton').addEventListener('click', () => {
@@ -279,7 +242,7 @@
                 return;
             }
             //window.location.href = 'reviewcompany.html';
-            window.location.href = 'index.html';
+            window.location.href = window.billingPageUrl('index.html');
         });
     });
 
@@ -329,6 +292,14 @@
     }
 
     function addTable(tiers, carriers, data) {
+        carriers.forEach(carrier => {
+            data[carrier.CarrierName] = data[carrier.CarrierName] || {};
+            tiers.forEach(tier => {
+                data[carrier.CarrierName][tier.TierName] = data[carrier.CarrierName][tier.TierName] || {
+                    'Funding Amount': '', 'Grenz Fee': '', 'Grenz Fee C': '', 'Grenz Fee S': ''
+                };
+            });
+        });
         const tableContainer = document.getElementById('tableContainer');
 
         const updateTierNames = () => {
@@ -349,10 +320,13 @@
             document.querySelectorAll('.carrier-input').forEach((input) => {
                 const oldName = input.dataset.oldName || input.defaultValue;
                 const newName = input.value;
-                if (newName === '' || carriers.filter(carrier => carrier.CarrierName === newName).length > 1) {
+                const duplicate = carriers.some(carrier => carrier.CarrierName === newName && carrier.CarrierName !== oldName);
+                input.setCustomValidity(!newName.trim() ? 'Enter a carrier name.' : duplicate ? 'Carrier names must be unique.' : '');
+                if (!input.validity.valid) {
                     return;
                 }
                 if (oldName !== newName) {
+                    renameSetupCarrier(oldName, newName, carriers, tiers, data);
                     carriers.find(carrier => carrier.CarrierName === oldName).CarrierName = newName;
                     Object.defineProperty(data, newName, Object.getOwnPropertyDescriptor(data, oldName));
                     delete data[oldName];
@@ -402,7 +376,7 @@
                                 `).join('')}
                             </tr>
                         `).join('')}
-                        <tr>
+${(JSON.parse(localStorage.getItem('companyData') || '{}').TierStructure || '').includes('Age Banded') ? `<tr>
                             <td>Max Age</td>
                             ${tiers.map((tier, index) => `
                                 <td>
@@ -417,7 +391,7 @@
                                     <input type="text" class="tier-age-input" data-index="${index}" data-field="MinAge" value="${tier.MinAge}">
                                 </td>
                             `).join('')}
-                        </tr>
+                        </tr>` : ''}
                     </tbody>
                 </table>
             `;
@@ -499,7 +473,7 @@
     
 </script>
 
-    <script src="app-shell.js" defer></script>
+    <script src="app-shell.js?v=20260606c" defer></script>
 </body>
 </html>
 // do imports

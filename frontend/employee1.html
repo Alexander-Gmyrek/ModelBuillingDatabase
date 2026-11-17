@@ -4,67 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Employee</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background: #f4f4f9;
-            color: #222;
-        }
-
-        form {
-            max-width: 1100px;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-        }
-
-        label {
-            display: block;
-            margin-top: 12px;
-            font-weight: 600;
-        }
-
-        input {
-            width: 100%;
-            max-width: 420px;
-            padding: 8px;
-            margin-top: 4px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 16px;
-        }
-
-        th,
-        td {
-            border: 1px solid #ddd;
-            padding: 8px;
-        }
-
-        button,
-        input[type="submit"] {
-            margin-top: 14px;
-            margin-right: 8px;
-            background: #007bff;
-            color: #fff;
-            border: 0;
-            border-radius: 4px;
-            padding: 10px 16px;
-            cursor: pointer;
-            width: auto;
-        }
-
-        .secondary {
-            background: #5f6b77;
-        }
-    </style>
-    <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=20260606d">
 </head>
 <body>
     <h1>Edit Employee</h1>
@@ -87,6 +27,17 @@
         <input type="text" id="notes" name="Notes">
 
         <div id="companyInfoInputs"></div>
+        <h2>Carrier And Plan</h2>
+        <p id="currentEnrollment" role="status">Loading enrollment...</p>
+        <label><input id="changePlan" type="checkbox"> Change carrier or plan</label>
+        <fieldset id="planChangeFields" disabled hidden>
+            <label for="newPlan">Carrier / plan</label>
+            <select id="newPlan" required><option value="">Select a plan</option></select>
+            <label for="planEffectiveDate">Coverage effective date</label>
+            <input id="planEffectiveDate" type="date" required>
+            <label for="planInformedDate">Informed date</label>
+            <input id="planInformedDate" type="date" required>
+        </fieldset>
 
         <h2>Dependents</h2>
         <table id="editableTable">
@@ -108,7 +59,7 @@
         <button type="button" id="addDependentRow" class="secondary">Add Dependent</button>
 
         <label>
-            <input type="checkbox" id="terminationCheckbox" name="terminationCheckbox" style="width: auto;">
+            <input type="checkbox" id="terminationCheckbox" name="terminationCheckbox">
             Termination
         </label>
 
@@ -127,21 +78,21 @@
     <script type="module">
         import {
             searchEmployeeById,
-            changeEmployee,
-            terminateEmployee,
+            saveEmployeeDetails,
             searchDependentByJson,
-            addDependent,
-            changeDependent
+            getFullTable,
+            searchEmployeePlanByJson
         } from './apiFunctions.js';
 
         const urlParams = new URLSearchParams(window.location.search);
         const employeeId = urlParams.get('id');
         let loadedEmployee = null;
+        const deletedDependentIds = new Set();
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!employeeId) {
                 alert('No employee ID was provided.');
-                window.location.href = 'index.html';
+                window.location.href = window.billingPageUrl('index.html');
                 return;
             }
 
@@ -149,6 +100,7 @@
                 loadedEmployee = await searchEmployeeById(employeeId);
                 const dependents = await searchDependentByJson({ EmployeeID: employeeId });
                 populateForm(loadedEmployee, dependents);
+                await loadEnrollment();
             } catch (error) {
                 console.error('Error loading employee:', error);
                 alert('Could not load employee details.');
@@ -161,6 +113,10 @@
         });
 
         document.getElementById('addDependentRow').addEventListener('click', () => addRow());
+        document.getElementById('changePlan').addEventListener('change', event => {
+            document.getElementById('planChangeFields').disabled = !event.target.checked;
+            document.getElementById('planChangeFields').hidden = !event.target.checked;
+        });
         document.getElementById('cancelButton').addEventListener('click', () => goBackToCompany());
 
         document.getElementById('employeeForm').addEventListener('submit', async (event) => {
@@ -169,33 +125,73 @@
             const employeeJson = buildEmployeeUpdateJson();
 
             try {
-                await changeEmployee(employeeId, employeeJson);
-                await saveDependentRows();
+                if (document.getElementById('terminationCheckbox').checked && !document.getElementById('termDate').value) {
+                    alert('Termination date is required when Termination is checked.');
+                    return;
+                }
 
+                const dependents = Array.from(document.querySelectorAll('#editableTable tbody tr'))
+                    .map(dependentFromRow).filter(Boolean);
+                let termination = null;
                 if (document.getElementById('terminationCheckbox').checked) {
                     const endDate = document.getElementById('termDate').value;
                     const informEndDate = document.getElementById('informedTermDate').value || endDate;
-                    if (!endDate) {
-                        alert('Termination date is required when Termination is checked.');
-                        return;
-                    }
-                    await terminateEmployee(employeeId, {
+                    termination = {
                         EndDate: endDate,
                         InformEndDate: informEndDate
-                    });
+                    };
                 }
-
+                const saveButton = document.querySelector('input[type="submit"]');
+                if (saveButton.disabled) return;
+                saveButton.disabled = true;
+                await saveEmployeeDetails(employeeId, {
+                    Employee: employeeJson,
+                    Dependents: dependents,
+                    DeletedDependentIDs: Array.from(deletedDependentIds),
+                    PlanChange: document.getElementById('changePlan').checked ? {
+                        PlanID: Number(document.getElementById('newPlan').value),
+                        StartDate: document.getElementById('planEffectiveDate').value,
+                        InformStartDate: document.getElementById('planInformedDate').value
+                    } : null,
+                    Termination: termination
+                });
+                deletedDependentIds.clear();
                 alert('Employee information updated successfully.');
                 goBackToCompany();
             } catch (error) {
                 console.error('Error updating employee information:', error);
                 alert(`Failed to update employee information. ${error.message || ''}`);
+            } finally {
+                document.querySelector('input[type="submit"]').disabled = false;
             }
         });
 
+        async function loadEnrollment() {
+            const full = (await getFullTable('Employer', loadedEmployee.EmployerID)).Element;
+            const enrollments = await searchEmployeePlanByJson({ EmployeeID: employeeId });
+            const select = document.getElementById('newPlan');
+            const names = new Map();
+            for (const plan of full.Plans || []) {
+                const carrier = full.Carriers.find(item => item.CarrierID === plan.CarrierID);
+                const tier = full.Tiers.find(item => item.TierID === plan.TierID);
+                const label = `${carrier?.CarrierName || 'Carrier'} / ${tier?.TierName || 'Tier'} (${formatDate(plan.StartDate)} - ${formatDate(plan.EndDate) || 'ongoing'})`;
+                names.set(Number(plan.PlanID), label);
+                const option = document.createElement('option');
+                option.value = plan.PlanID;
+                option.textContent = label;
+                select.appendChild(option);
+            }
+            const today = new Date().toLocaleDateString('en-CA');
+            const active = enrollments.find(item => formatDate(item.StartDate) <= today &&
+                (!item.EndDate || formatDate(item.EndDate) > today));
+            document.getElementById('currentEnrollment').textContent = active ?
+                names.get(Number(active.PlanID)) : 'No current enrollment.';
+            document.getElementById('planInformedDate').value = today;
+        }
+
         function buildEmployeeUpdateJson() {
             const formData = new FormData(document.getElementById('employeeForm'));
-            return {
+            const updates = {
                 EmployeeFullName: formData.get('EmployeeFullName') || null,
                 StartDate: formData.get('StartDate') || null,
                 InformStartDate: formData.get('InformStartDate') || null,
@@ -204,25 +200,13 @@
                 GlCode: formData.get('GlCode') || null,
                 Division: formData.get('Division') || null,
                 Location: formData.get('Location') || null,
-                Title: formData.get('Title') || null,
-                CobraStatus: document.getElementById('CobraStatus')?.checked || false
+                Title: formData.get('Title') || null
             };
-        }
-
-        async function saveDependentRows() {
-            const rows = Array.from(document.querySelectorAll('#editableTable tbody tr'));
-            for (const row of rows) {
-                const dependent = dependentFromRow(row);
-                if (!dependent) continue;
-
-                if (dependent.DependentID) {
-                    const id = dependent.DependentID;
-                    delete dependent.DependentID;
-                    await changeDependent(id, dependent);
-                } else {
-                    await addDependent(dependent);
-                }
+            const cobra = document.getElementById('CobraStatus');
+            if (cobra && cobra.checked !== (cobra.dataset.initialChecked === 'true')) {
+                updates.CobraStatus = cobra.checked;
             }
+            return updates;
         }
 
         function dependentFromRow(row) {
@@ -230,6 +214,9 @@
             const relationship = row.querySelector('[name="dependentRelationship"]').value.trim();
             const dob = row.querySelector('[name="dependentDOB"]').value;
             if (!dependentName && !relationship && !dob) return null;
+            if (!dependentName || !relationship || !dob) {
+                throw new Error('Each dependent needs a name, relationship, and date of birth.');
+            }
 
             return {
                 DependentID: row.dataset.dependentId || null,
@@ -255,7 +242,8 @@
             addCompanyInput('Division', 'Division', employee.Division);
             addCompanyInput('Location', 'Location', employee.Location);
             addCompanyInput('Title', 'Title', employee.Title);
-            addCheckboxInput('CobraStatus', 'COBRA Status', Boolean(employee.CobraStatus));
+            addCheckboxInput('CobraStatus', 'COBRA Status',
+                employee.CobraStatus === true || employee.CobraStatus === 1 || employee.CobraStatus === '1');
 
             dependents.forEach(addDependentRow);
             if (dependents.length === 0) addRow();
@@ -285,6 +273,7 @@
             input.id = name;
             input.name = name;
             input.checked = checked;
+            input.dataset.initialChecked = String(checked);
             input.style.width = 'auto';
             container.appendChild(label);
             container.appendChild(input);
@@ -311,12 +300,19 @@
         }
 
         function deleteRow(button) {
-            button.closest('tr').remove();
+            const row = button.closest('tr');
+            if (row.dataset.dependentId) {
+                deletedDependentIds.add(row.dataset.dependentId);
+            }
+            row.remove();
         }
 
         function formatDate(dateString) {
             if (!dateString) return '';
-            return String(dateString).slice(0, 10);
+            const value = String(dateString);
+            if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+            const parsed = new Date(value);
+            return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
         }
 
         function escapeHtml(value) {
@@ -329,12 +325,12 @@
 
         function goBackToCompany() {
             const employerId = loadedEmployee?.EmployerID;
-            window.location.href = employerId ? `company1.html?id=${encodeURIComponent(employerId)}` : 'index.html';
+            window.location.href = employerId ? window.billingPageUrl(`company1.html?id=${encodeURIComponent(employerId)}`) : window.billingPageUrl('index.html');
         }
 
         window.addRow = addRow;
         window.deleteRow = deleteRow;
     </script>
-    <script src="app-shell.js" defer></script>
+    <script src="app-shell.js?v=20260606c" defer></script>
 </body>
 </html>

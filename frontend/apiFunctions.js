@@ -26,7 +26,9 @@ async function apiRequest(endpoint, method = "GET", body = null) {
             return response.json().then(err => {
                 // Log the detailed JSON error message
                 console.error(`HTTP error! Status: ${response.status} Error: ${err.Error}`);
-                throw new Error(`HTTP error! Status: ${response.status} Error: ${err.Error}`);
+                const error = new Error(`HTTP error! Status: ${response.status} Error: ${err.Error}`);
+                error.status = response.status;
+                throw error;
             });
         }
         // else check if it is a file and auto download it
@@ -38,17 +40,17 @@ async function apiRequest(endpoint, method = "GET", body = null) {
 
             console.log("headers: " + JSON.stringify(headersObj) + " content-type: " + response.headers.get("content-type"));
             return response.blob().then(blob => {
-                console.log("Downloading Excel file: " + response.headers.get("content-disposition").split("filename=")[1]);
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                // Get the filename from Content-Disposition and remove any surrounding quotes
-                let filename = response.headers.get("content-disposition").split("filename=")[1];
-                filename = decodeURIComponent(filename.replace(/^"|"$/g, '')); // Remove any leading/trailing quotes
+                const disposition = response.headers.get("content-disposition") || "";
+                const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+                const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : "monthly_report.xlsx";
                 console.log("filename: " + filename);
                 a.download = filename;
                 document.body.appendChild(a);
                 a.click();
+                a.remove();
                 window.URL.revokeObjectURL(url);
                 console.log("a:" + a);
             });
@@ -176,6 +178,10 @@ async function addEmployee(employeeJson) {
 
 async function changeEmployee(employeeId, partialJson) {
     return await apiRequest(`/employee/${employeeId}`, "PATCH", partialJson);
+}
+
+async function saveEmployeeDetails(employeeId, details) {
+    return await apiRequest(`/employee/${employeeId}/details`, "PATCH", details);
 }
 
 async function deleteEmployee(employeeId) {
@@ -322,6 +328,7 @@ async function generateReport(EmployerID, Year, Month){
 
 // Exporting all functions for use in other files
 export {
+    saveEmployeeDetails,
     getAllEmployers,
     searchEmployerById,
     searchEmployerByName,

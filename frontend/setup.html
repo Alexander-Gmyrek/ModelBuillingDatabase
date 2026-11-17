@@ -4,163 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Billing Database Setup</title>
-    <style>
-        :root {
-            color-scheme: light;
-            --bg: #f6f7f9;
-            --panel: #ffffff;
-            --ink: #17202a;
-            --muted: #5d6875;
-            --line: #d8dde4;
-            --accent: #126f82;
-            --accent-dark: #0d5361;
-            --ok: #1b7f4c;
-            --warn: #9a6100;
-            --bad: #b42318;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            min-height: 100vh;
-            font-family: Arial, sans-serif;
-            color: var(--ink);
-            background: var(--bg);
-        }
-
-        header {
-            padding: 22px 28px;
-            background: #25313d;
-            color: #fff;
-        }
-
-        header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 700;
-        }
-
-        header p {
-            margin: 6px 0 0;
-            color: #dbe2ea;
-            font-size: 14px;
-        }
-
-        main {
-            width: min(960px, calc(100% - 32px));
-            margin: 28px auto;
-        }
-
-        .panel {
-            background: var(--panel);
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            padding: 22px;
-        }
-
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 14px;
-            margin: 18px 0 22px;
-        }
-
-        .status {
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            padding: 14px;
-            min-height: 92px;
-        }
-
-        .status strong {
-            display: block;
-            margin-bottom: 8px;
-        }
-
-        .status span {
-            color: var(--muted);
-            font-size: 14px;
-            line-height: 1.35;
-        }
-
-        .ok {
-            border-color: rgba(27, 127, 76, .45);
-            background: #f1fbf5;
-        }
-
-        .warn {
-            border-color: rgba(154, 97, 0, .45);
-            background: #fff8eb;
-        }
-
-        .bad {
-            border-color: rgba(180, 35, 24, .45);
-            background: #fff4f2;
-        }
-
-        .actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            align-items: center;
-        }
-
-        button,
-        a.button {
-            border: 0;
-            border-radius: 6px;
-            background: var(--accent);
-            color: #fff;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 15px;
-            min-height: 40px;
-            padding: 0 16px;
-            text-decoration: none;
-        }
-
-        button:hover,
-        a.button:hover {
-            background: var(--accent-dark);
-        }
-
-        button.secondary {
-            background: #e9edf2;
-            color: var(--ink);
-        }
-
-        button.secondary:hover {
-            background: #d9e0e8;
-        }
-
-        .note {
-            color: var(--muted);
-            font-size: 14px;
-            line-height: 1.5;
-            margin-top: 18px;
-        }
-
-        @media (max-width: 760px) {
-            header {
-                padding: 18px;
-            }
-
-            .status-grid {
-                grid-template-columns: 1fr;
-            }
-
-            main {
-                width: calc(100% - 20px);
-                margin: 18px auto;
-            }
-        }
-    </style>
-    <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=20260606d">
 </head>
 <body>
     <header>
@@ -172,6 +16,25 @@
         <section class="panel">
             <h2>First Run Check</h2>
             <p class="note">This page checks that the local API is running and can reach the database before you start entering employer and employee records.</p>
+
+            <div class="steps">
+                <div class="step">
+                    <strong>1. Start App</strong>
+                    <span>Use the desktop launcher in the installer folder. This page opens when the app is ready.</span>
+                </div>
+                <div class="step">
+                    <strong>2. Check Services</strong>
+                    <span>Confirm the API and database are both responding before entering records.</span>
+                </div>
+                <div class="step">
+                    <strong>3. Back Up Often</strong>
+                    <span>Download a backup before restore, reset, device changes, or major billing updates.</span>
+                </div>
+                <div class="step">
+                    <strong>4. Stop App</strong>
+                    <span>Use the stop launcher when finished so the local containers shut down cleanly.</span>
+                </div>
+            </div>
 
             <div class="status-grid">
                 <div id="apiStatus" class="status warn">
@@ -191,24 +54,40 @@
             <div class="actions">
                 <button id="runChecks">Run Checks</button>
                 <button id="setupDb" class="secondary">Initialize Database</button>
-                <a class="button" href="index.html">Open App</a>
+                <a class="button" href="index.html?v=20260606c">Open App</a>
+                <a class="button secondary" href="assets/employee_upload_template.xlsx" download>Download Employee Template</a>
             </div>
 
             <p class="note" id="summary">Run checks to confirm the local services are ready.</p>
         </section>
 
-        <section class="panel" style="margin-top: 18px;">
+        <section class="panel app-section-gap">
             <h2>Backup And Restore</h2>
             <p class="note">Backups download a local JSON copy of the billing database. Restore only from a backup file you trust, because restore replaces the current local database.</p>
+            <div class="warning-box">
+                Before restoring a backup, download a fresh backup of the current database. Restore replaces the current local database and cannot be undone from this screen.
+            </div>
 
             <div class="actions">
                 <button id="downloadBackup">Download Backup</button>
                 <label for="restoreFile" class="button secondary">Choose Restore File</label>
-                <input type="file" id="restoreFile" accept="application/json,.json" style="display: none;">
+                <input type="file" id="restoreFile" accept="application/json,.json" class="app-hidden">
                 <button id="restoreBackup" class="secondary" disabled>Restore Selected Backup</button>
             </div>
 
             <p class="note" id="backupSummary">No restore file selected.</p>
+        </section>
+
+        <section class="panel app-section-gap">
+            <h2>App Controls</h2>
+            <p class="note">Use these controls after the desktop starter has opened this setup page. The Quit To Desktop button closes or clears this browser window.</p>
+            <div class="actions">
+                <button id="startApp">Start App</button>
+                <a class="button" href="index.html?v=20260606c">Open App</a>
+                <a class="button secondary" href="assets/employee_upload_template.xlsx" download>Download Employee Template</a>
+                <button id="quitToDesktop" class="secondary">Quit To Desktop</button>
+            </div>
+            <p class="note" id="controlSummary">Start App checks the local services. To fully stop Docker containers, use the desktop stop launcher after closing this browser window.</p>
         </section>
     </main>
 
@@ -220,6 +99,7 @@
         const appStatus = document.getElementById("appStatus");
         const summary = document.getElementById("summary");
         const backupSummary = document.getElementById("backupSummary");
+        const controlSummary = document.getElementById("controlSummary");
         const restoreFileInput = document.getElementById("restoreFile");
         const restoreBackupButton = document.getElementById("restoreBackup");
 
@@ -272,6 +152,8 @@
         }
 
         async function setupDatabase() {
+            const confirmed = confirm("Initialize database tables? This is safe for normal first setup, but download a backup first if this device already has billing data.");
+            if (!confirmed) return;
             summary.textContent = "Initializing database tables...";
             try {
                 const result = await checkJson("/setup_db");
@@ -316,6 +198,7 @@
             backupSummary.textContent = "Restoring backup...";
             const formData = new FormData();
             formData.append("file", file);
+            formData.append("confirmRestore", "true");
 
             try {
                 const response = await fetch(`${API_BASE}/restore`, {
@@ -336,6 +219,26 @@
         document.getElementById("runChecks").addEventListener("click", runChecks);
         document.getElementById("setupDb").addEventListener("click", setupDatabase);
         document.getElementById("downloadBackup").addEventListener("click", downloadBackup);
+        document.getElementById("startApp").addEventListener("click", async () => {
+            controlSummary.textContent = "Checking app services...";
+            await runChecks();
+            controlSummary.textContent = "If the checks are green, click Open App. If not, confirm Docker Desktop is running.";
+        });
+        document.getElementById("quitToDesktop").addEventListener("click", () => {
+            controlSummary.textContent = "Closing this app window...";
+            window.open("", "_self");
+            window.close();
+            setTimeout(() => {
+                document.body.innerHTML = `
+                    <main>
+                        <section class="panel">
+                            <h1>Billing Database Closed</h1>
+                            <p class="note">You can close this browser window. To fully stop the local app containers, use the desktop stop launcher.</p>
+                        </section>
+                    </main>
+                `;
+            }, 300);
+        });
         restoreFileInput.addEventListener("change", () => {
             const file = restoreFileInput.files[0];
             restoreBackupButton.disabled = !file;
@@ -344,6 +247,6 @@
         restoreBackupButton.addEventListener("click", restoreBackup);
         runChecks();
     </script>
-    <script src="app-shell.js" defer></script>
+    <script src="app-shell.js?v=20260606c" defer></script>
 </body>
 </html>

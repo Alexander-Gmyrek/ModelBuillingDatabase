@@ -7,7 +7,7 @@ services:
       MYSQL_ROOT_PASSWORD: Root
       MYSQL_DATABASE: modelBillingDBv1
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
     volumes:
       - billing-db-data:/var/lib/mysql
       - ./Backend/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
@@ -24,7 +24,7 @@ services:
     container_name: frontend
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
     depends_on:
       backend:
         condition: service_started
@@ -39,13 +39,14 @@ services:
     container_name: backend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       db:
         condition: service_healthy
     environment:
       - FLASK_APP=app.py
       - FLASK_ENV=development
+      - CORS_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
       - MYSQL_HOST=db
       - MYSQL_PORT=3306
       - MYSQL_DATABASE=modelBillingDBv1

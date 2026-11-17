@@ -45,16 +45,26 @@ The app runs locally on a person's device using Docker. The current install flow
   - save carrier, tier, and plan setup in one maintenance screen
   - end removed active plans instead of hard-deleting historical records
 - Employee plan tracking:
+  - change an employee's carrier/plan with effective and informed dates while preserving enrollment history
   - assign employees to plans through carrier/tier selection
   - find active employee plans
   - preserve plan history for billing/reporting
 - Monthly billing report generation:
+  - include a month-by-month Adjustment Details worksheet that reconciles to the bill
+  - reopen exact saved bill workbooks from the company page after later record/rate edits
   - generate Excel billing reports by company, year, and month
   - download generated reports from the browser
   - include backdated billing adjustments for late employee, dependent, and plan changes
 - Database backup and restore:
+  - include saved bills and change history in backups, with support for older backup files
   - download a local JSON backup of all billing tables
   - restore the local database from a selected backup file
+- Employee spreadsheet imports:
+  - preview employee counts, carriers, tiers, dates, and validation messages before saving
+  - create a company without a roster, then import employees from the company page
+  - skip matching existing employee names and prevent repeated imports of the same submission
+- Change history:
+  - review timestamped before/after changes, terminations, imports, and restores on the company page
 - API access for all core billing tables:
   - Employer
   - Employee
@@ -132,6 +142,8 @@ http://localhost:8080/setup.html
 
 On the setup page, run the checks and initialize the database if needed. Then click `Open App`.
 
+The setup page also includes backup and restore controls. Download a fresh backup before restoring a backup, resetting sample data, moving devices, or making a major billing update.
+
 ## Manual Start
 
 From the project folder, run:
@@ -148,6 +160,13 @@ Then open:
 - Database check: `http://localhost:3000/testconnection`
 
 ## Stop The App
+
+Use the launcher for your device:
+
+- macOS: double-click `installer/stop-macos.command`
+- Windows: double-click `installer/stop-windows.bat`
+
+Or run:
 
 ```bash
 docker compose down
@@ -166,6 +185,19 @@ docker compose down -v
 - MySQL: `3307` on the host
 
 If one of these ports is already being used, stop the other app or update `docker-compose.yml`.
+
+## Troubleshooting
+
+- If Docker is missing, install Docker Desktop and run the start launcher again.
+- If Docker is installed but not running, open Docker Desktop and wait for it to finish starting.
+- If the setup page opens but checks fail, wait one minute and click `Run Checks`.
+- If the API still does not respond, open Docker Desktop and confirm `billing-db`, `backend`, and `frontend` are running.
+- If another app is using ports `8080`, `3000`, or `3307`, stop that app or update `docker-compose.yml`.
+- If restore fails, make sure the file is a JSON backup downloaded from this app.
+
+## Optional Signed Installer
+
+This app does not need a commercial installer to be useful on an approved device. If you later want the launchers to feel more official, package the same Docker-based start and stop scripts as a signed macOS `.app`/`.pkg` or Windows `.exe`/`.msi`.
 
 ## Notes
 

@@ -59,8 +59,12 @@ done
 
 echo ""
 echo "The containers started, but the API did not respond yet."
-echo "Open Docker Desktop to check container status, then try:"
+echo "Try these steps:"
+echo "1. Wait one more minute, then refresh the setup page."
+echo "2. Open Docker Desktop and check that billing-db, backend, and frontend are running."
+echo "3. Make sure ports 8080, 3000, and 3307 are not being used by another app."
+echo ""
+echo "Setup page:"
 echo "$FRONTEND_URL"
 echo ""
 read "REPLY?Press Enter to close."
-

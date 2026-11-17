@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Employees - Billing Database</title>
+    <link rel="stylesheet" href="app.css?v=20261117b">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.3/xlsx.full.min.js"></script>
+</head>
+<body>
+    <header><h1>Import Employees</h1><p id="companyName"></p></header>
+    <main>
+        <form id="importForm">
+            <label for="roster">Employee spreadsheet</label>
+            <input id="roster" type="file" accept=".xlsx,.xls" required>
+            <p>Existing employees with matching names are skipped. Edit existing records from the company page.</p>
+            <p><a href="assets/employee_upload_template.xlsx" download>Download employee template</a></p>
+            <div class="actions">
+                <button id="previewButton" type="submit">Preview Import</button>
+                <a id="back" class="button secondary" href="index.html">Back To Company</a>
+            </div>
+            <p id="importStatus" role="status"></p>
+        </form>
+    </main>
+    <script src="app-shell.js?v=20261117b"></script>
+    <script src="employee-import.js?v=20261117b"></script>
+    <script type="module">
+        import { searchEmployerById } from './apiFunctions.js';
+        const companyId = Number(new URLSearchParams(location.search).get('id'));
+        const status = document.getElementById('importStatus');
+        const button = document.getElementById('previewButton');
+        const api = window.BILLING_API_BASE_URL || 'http://localhost:3000';
+        let batchKey = crypto.randomUUID();
+        let committed = false;
+        document.getElementById('back').href = window.billingPageUrl(`company1.html?id=${companyId}`);
+        if (!companyId) {
+            button.disabled = true;
+            status.textContent = 'Choose a company before importing.';
+        } else {
+            searchEmployerById(companyId).then(company => {
+                document.getElementById('companyName').textContent = company.EmployerName;
+            }).catch(error => { status.textContent = error.message; });
+        }
+        document.getElementById('roster').addEventListener('change', () => {
+            batchKey = crypto.randomUUID();
+            committed = false;
+            button.disabled = false;
+            status.textContent = '';
+        });
+        async function requestImport(path, payload) {
+            const response = await fetch(`${api}/employer/${companyId}/import${path}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.Error || 'Import failed.');
+            return result;
+        }
+        document.getElementById('importForm').addEventListener('submit', async event => {
+            event.preventDefault();
+            if (button.disabled || committed) return;
+            button.disabled = true;
+            try {
+                status.textContent = 'Checking spreadsheet and plan coverage...';
+                const employees = await readEmployeeSpreadsheet(document.getElementById('roster').files[0]);
+                const payload = { Employees: employees, BatchKey: batchKey };
+                const preview = await requestImport('/preview', payload);
+                status.textContent = preview.Errors.length ? 'Correct the preview errors before importing.' : 'Ready for review.';
+                if (!await showEmployeeImportPreview(employees, preview)) return;
+                status.textContent = 'Importing employees...';
+                const result = await requestImport('', payload);
+                committed = true;
+                status.textContent = `${result.ImportedCount} employees imported. Return to the company to review enrollment.`;
+            } catch (error) {
+                status.textContent = error.message;
+            } finally {
+                button.disabled = committed;
+            }
+        });
+    </script>
+</body>
+</html>

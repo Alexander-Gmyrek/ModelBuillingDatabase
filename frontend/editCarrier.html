@@ -4,59 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Plans - Billing Database</title>
-    <link rel="stylesheet" href="app.css">
-    <style>
-        .maintenance-header {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            align-items: end;
-            justify-content: space-between;
-            margin-bottom: 18px;
-        }
-
-        .maintenance-header label {
-            display: block;
-            margin-bottom: 4px;
-        }
-
-        .tableWrapper input[type="text"],
-        .tableWrapper input[type="number"],
-        .tableWrapper input[type="date"] {
-            width: 100%;
-            min-width: 110px;
-        }
-
-        .carrier-heading {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .carrier-heading input {
-            max-width: 420px;
-            font-size: 17px;
-            font-weight: 700;
-        }
-    </style>
+    <link rel="stylesheet" href="app.css?v=20261117a">
 </head>
-<body>
-    <main>
+<body class="plan-maintenance">
+    <header>
         <h1>Edit Carriers, Tiers, And Plans</h1>
-        <p class="app-page-intro">Update the plan setup for this company. Saving will update current plans and end active plans that are removed from the grid.</p>
+        <p>Update carriers, tiers, and plan amounts for this company.</p>
+    </header>
+    <main>
 
-        <section class="app-card" style="padding: 22px;">
+        <section>
             <div class="maintenance-header">
                 <div>
                     <label for="effectiveDate">Effective date for new or removed plans</label>
                     <input type="date" id="effectiveDate">
                 </div>
                 <div class="actions">
-                    <button id="addCarrierButton">Add Carrier</button>
-                    <button id="addTierButton">Add Tier</button>
+                    <button id="addCarrierButton" class="secondary">Add Carrier</button>
+                    <button id="addTierButton" class="secondary">Add Tier</button>
                     <button id="submitButton">Save Plan Setup</button>
-                    <a id="backButton" class="button secondary" href="index.html">Back To Company</a>
+                    <a id="backButton" class="button secondary" href="index.html?v=20260606c">Back To Company</a>
                 </div>
             </div>
             <p id="statusMessage" class="app-message">Loading plan setup...</p>
@@ -79,6 +46,7 @@
         const backButton = document.getElementById('backButton');
 
         let carriers = [];
+        let usesAgeBands = false;
         let tiers = [];
         let planCells = new Map();
 
@@ -90,7 +58,7 @@
                 return;
             }
 
-            backButton.href = `company1.html?id=${encodeURIComponent(employerID)}`;
+            backButton.href = window.billingPageUrl(`company1.html?id=${encodeURIComponent(employerID)}`);
 
             document.getElementById('addCarrierButton').addEventListener('click', addCarrier);
             document.getElementById('addTierButton').addEventListener('click', addTier);
@@ -104,8 +72,9 @@
                 statusMessage.textContent = 'Loading plan setup...';
                 const fullResponse = await getFullTable('Employer', employerID);
                 const fullData = fullResponse.Element;
+                usesAgeBands = (fullData.TierStructure || '').includes('Age Banded');
                 const activePlansResponse = await searchActivePlans(employerID);
-                const activePlanIds = new Set(activePlansResponse.map(plan => typeof plan === 'object' ? plan.PlanID : plan));
+                const activePlanIds = new Set(activePlansResponse.map(plan => Array.isArray(plan) ? plan[0] : typeof plan === 'object' ? plan.PlanID : plan));
 
                 carriers = (fullData.Carriers || []).map(carrier => ({
                     id: carrier.CarrierID,
@@ -243,14 +212,14 @@
                             ${renderPlanRow(carrier, 'Grenz Fee C', 'grenzFeeC')}
                             ${renderPlanRow(carrier, 'Grenz Fee S', 'grenzFeeS')}
                             ${renderPlanRow(carrier, 'Plan Start Date', 'startDate', 'date')}
-                            <tr>
+                            ${usesAgeBands ? `<tr>
                                 <td>Tier Max Age</td>
                                 ${tiers.map(tier => `<td><input type="number" value="${escapeHtml(tier.maxAge)}" data-tier-age="${tier.clientId}" data-field="maxAge"></td>`).join('')}
                             </tr>
                             <tr>
                                 <td>Tier Min Age</td>
                                 ${tiers.map(tier => `<td><input type="number" value="${escapeHtml(tier.minAge)}" data-tier-age="${tier.clientId}" data-field="minAge"></td>`).join('')}
-                            </tr>
+                            </tr>` : ''}
                         </tbody>
                     </table>
                 `;
@@ -381,7 +350,10 @@
 
         function formatDate(dateString) {
             if (!dateString) return '';
-            return String(dateString).slice(0, 10);
+            const value = String(dateString);
+            if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+            const parsed = new Date(value);
+            return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
         }
 
         function escapeHtml(value) {
@@ -392,6 +364,6 @@
                 .replace(/>/g, '&gt;');
         }
     </script>
-    <script src="app-shell.js" defer></script>
+    <script src="app-shell.js?v=20260606c" defer></script>
 </body>
 </html>

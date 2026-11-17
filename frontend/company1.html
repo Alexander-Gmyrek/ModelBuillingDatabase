@@ -3,122 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Company Details - Billing Database</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f4f9;
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: auto;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-
-        h1 {
-            text-align: center;
-            color: #333;
-        }
-
-        .search-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            
-        }
-
-        .search-container input {
-            width: 70%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .button {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            text-decoration: none;
-            border: 1px solid transparent;
-            border-radius: 4px;
-            text-align: center;
-            transition: background-color 0.3s;
-        }
-
-        .button:hover {
-            background-color: #0056b3;
-        }
-
-        .report-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .report-container label {
-            margin-right: 10px;
-        }
-
-        .report-container input {
-            width: 60px;
-            padding: 5px;
-            margin-right: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .buttons-container {
-            display: flex;
-            gap: 10px;
-        }
-
-        #employeeList {
-            list-style-type: none;
-            padding: 0;
-        }
-
-        #employeeList li {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-            cursor: pointer;
-        }
-
-        #employeeList li:hover {
-            background-color: #f9f9f9;
-        }
-
-        .tableWrapper {
-            margin-bottom: 20px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-
-        table, th, td {
-            border: 1px solid #ddd;
-        }
-
-        th, td {
-            padding: 10px;
-            text-align: left;
-        }
-
-        th {
-            background-color: #f2f2f2;
-        }
-
-    </style>
-    <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=20261117b">
 </head>
 <body>
     <div class="container">
@@ -130,6 +15,7 @@
             <a class="button" id="addemployeeButton">
                 <span>Add Employee</span>
             </a>
+            <a class="button secondary" id="importEmployeesButton">Import Employees</a>
         </div>
 
         <div class="report-container">
@@ -149,6 +35,20 @@
         <ul id="employeeList"></ul>
 
         <div id="tableContainer"></div>
+        <section class="app-section-gap">
+            <h2>Saved Monthly Bills</h2>
+            <p id="savedBillsStatus" role="status">Loading saved bills...</p>
+            <div class="tableWrapper"><table>
+                <thead><tr><th>Billing month</th><th>Generated</th><th>Workbook</th></tr></thead>
+                <tbody id="savedBills"></tbody>
+            </table></div>
+        </section>
+        <section class="app-section-gap">
+            <h2>Change History</h2>
+            <p id="changeHistoryStatus" role="status">Loading history...</p>
+            <div id="changeHistory"></div>
+            <button id="olderChanges" class="secondary" hidden>Load Older Changes</button>
+        </section>
     </div>
     
 
@@ -167,12 +67,15 @@
             
         } from './apiFunctions.js';
 
+        let loadedEmployees = [];
+
         document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const companyId = urlParams.get('id');
             const myButton = document.getElementById("addemployeeButton");
             const employeeStatus = document.getElementById('employeeStatus');
-            myButton.href = "addemployee.html?id=" + companyId;
+            myButton.href = window.billingPageUrl("addemployee.html?id=" + companyId);
+            document.getElementById('importEmployeesButton').href = window.billingPageUrl("importemployees.html?id=" + companyId);
 
             if (!companyId) {
                 console.error('No company ID found in URL parameters');
@@ -192,19 +95,21 @@
 
                 // Fetch active employee IDs
                 let activeEmployeeIds = await searchActiveEmployees(companyId);
-                activeEmployeeIds.sort((a, b) => a.EmployeeID - b.EmployeeID);
-                activeEmployeeIds = activeEmployeeIds.map(emp => emp.EmployeeID);
+                activeEmployeeIds = activeEmployeeIds.map(emp => Number(Array.isArray(emp) ? emp[0] : emp.EmployeeID));
                 const updatedEmployees = employees.map(emp => updateEmployeeStatus(emp, activeEmployeeIds));
                 console.log('Employees:', updatedEmployees);
-                displayEmployees(updatedEmployees.sort((a, b) => a.EmployeeFullName.localeCompare(b.EmployeeFullName)));
+                loadedEmployees = updatedEmployees.sort((a, b) => (a.EmployeeFullName || '').localeCompare(b.EmployeeFullName || ''));
+                filterEmployees();
 
                 // Display plans associated with the company
                 // Fetch all plans associated with the company (plans dont have employer id so we need to fetch all by carrier id)
                 const plans = await searchPlanByJson({ EmployerID: companyId });
                 plans.sort((a, b) => a.PlanID - b.PlanID);
                 const activePlans = await searchActivePlans(companyId);
+                const activePlanIds = new Set(activePlans.map(plan =>
+                    Number(Array.isArray(plan) ? plan[0] : typeof plan === 'object' ? plan.PlanID : plan)));
                 // get the active plan ids then filter the plans by the active plan ids
-                const updatedPlans = plans.filter(plan => binarySearch(activePlans, plan.PlanID));
+                const updatedPlans = plans.filter(plan => activePlanIds.has(Number(plan.PlanID)));
                 const fullPlans = updatedPlans.map(plan => {
                     const tier = tiers.find(tier => tier.TierID === plan.TierID);
                     return {
@@ -215,7 +120,7 @@
                     };
                 });
                 console.log('Plans:', plans);
-                addTable(plans, tiers, carriers, companyId);
+                addTable(updatedPlans, tiers, carriers, companyId);
             } catch (error) {
                 console.error('Error fetching company details:', error);
                 employeeStatus.textContent = 'Could not load company details. Check setup and try again.';
@@ -235,7 +140,7 @@
             // Validate input
             if (!month || !year || isNaN(month) || isNaN(year) || month < 1 || month > 12 || year < 1000 || year > 4000) {
                 alert('Please enter a valid month and year');
-                document.getElementById('genReport').textContent = 'Generate Report';
+                document.getElementById('genReport').textContent = 'Generate Monthly Report';
                 document.getElementById('genReport').disabled = false;
                 return;
             }
@@ -250,10 +155,11 @@
             // Call generateReport and handle completion
             generateReport(companyId, year, month)
                 .then(() => {
+                    document.dispatchEvent(new Event('billing-report-saved'));
                     // Clear interval to stop animation
                     clearInterval(interval);
                     // Reset button text and enable it
-                    document.getElementById('genReport').textContent = 'Generate Report';
+                    document.getElementById('genReport').textContent = 'Generate Monthly Report';
                     document.getElementById('genReport').disabled = false;
                     alert('Report generated successfully. The file download should start automatically.');
                 })
@@ -264,13 +170,13 @@
                 .finally(() => {
                     // Ensure interval is cleared and button is reset in case of an error
                     clearInterval(interval);
-                    document.getElementById('genReport').textContent = 'Generate Report';
+                    document.getElementById('genReport').textContent = 'Generate Monthly Report';
                     document.getElementById('genReport').disabled = false;
                 });
         });
 
         // filter employees listener
-        document.getElementById('employeeSearchInput').addEventListener('keyup', () => {
+        document.getElementById('employeeSearchInput').addEventListener('input', () => {
             filterEmployees();
         });
 
@@ -286,7 +192,7 @@
                 newTableWrapper.className = 'tableWrapper';
                 newTableWrapper.innerHTML = `
                     <h2>${carrier.CarrierName}</h2>
-                    <a href="editCarrier.html?id=${companyId}" class="button">
+                    <a href="${window.billingPageUrl(`editCarrier.html?id=${companyId}`)}" class="button">
                         <span>Edit Plan</span>
                     </a>
                     <table>
@@ -333,21 +239,11 @@
         
 
         // Function to filter employees by name
-        async function filterEmployees() {
-            const searchInput = document.getElementById('employeeSearchInput').value.toLowerCase();
-            const urlParams = new URLSearchParams(window.location.search);
-            const companyId = urlParams.get('id');
-            
-            try {
-                const employees = await searchEmployeeByJson({
-                    EmployerID: companyId,
-                    EmployeeFullName: searchInput
-                });
-                displayEmployees(employees);
-            } catch (error) {
-                console.error('Error searching employees:', error);
-                document.getElementById('employeeStatus').textContent = 'Could not search employees.';
-            }
+        function filterEmployees() {
+            const searchInput = document.getElementById('employeeSearchInput').value.trim().toLowerCase();
+            displayEmployees(loadedEmployees.filter(employee =>
+                (employee.EmployeeFullName || '').toLowerCase().includes(searchInput)
+            ));
         }
 
         // Function to display employees in the list
@@ -396,13 +292,13 @@
         }
 
         async function navigateToEmployee(companyId) {
-            window.location.href = `employee1.html?id=${companyId}`;
+            window.location.href = window.billingPageUrl(`employee1.html?id=${companyId}`);
         }
 
         const updateEmployeeStatus = (employee, activeIds) => {
             return {
                 ...employee,
-                isActive: activeIds.includes(employee.EmployeeID)
+                isActive: activeIds.includes(Number(employee.EmployeeID))
             };
         };
 
@@ -438,10 +334,7 @@
         }
     
     </script>
-    <script src="app-shell.js" defer></script>
+    <script src="app-shell.js?v=20260606c" defer></script>
+    <script src="company-history.js?v=20261117b" type="module"></script>
 </body>
 </html>
-// Loading please wait
-// make a depo called claim amount on side of screen with dollar amount and date a parameters and a submit button 
-// make a generate report button
-// make a generate claims balance report button

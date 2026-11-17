@@ -1,4 +1,5 @@
 (function () {
+    const appVersion = '20260606c';
     const hiddenPages = new Set([
         'TestInputTable.html',
         'test.html',
@@ -9,6 +10,32 @@
     function currentPage() {
         const page = window.location.pathname.split('/').pop();
         return page || 'index.html';
+    }
+
+    function versioned(path) {
+        const url = new URL(path, window.location.href);
+        if (url.origin !== window.location.origin || !url.pathname.endsWith('.html')) {
+            return path;
+        }
+        url.searchParams.set('v', appVersion);
+        return `${url.pathname.split('/').pop()}${url.search}${url.hash}`;
+    }
+
+    function versionLinks() {
+        document.querySelectorAll('a[href$=".html"], a[href*=".html?"]').forEach(link => {
+            link.href = versioned(link.getAttribute('href'));
+        });
+    }
+
+    function handleNavigationClick(event) {
+        const link = event.target.closest('a[href]');
+        if (!link) return;
+        const href = link.getAttribute('href');
+        if (!href || !href.includes('.html')) return;
+        const nextHref = versioned(href);
+        if (nextHref === href) return;
+        event.preventDefault();
+        window.location.href = nextHref;
     }
 
     function addShell() {
@@ -23,9 +50,9 @@
                 <span>Health insurance billing workspace</span>
             </div>
             <nav class="app-nav" aria-label="Primary">
-                <a href="setup.html">Setup</a>
-                <a href="index.html">Companies</a>
-                <a href="addcompany.html">New Company</a>
+                <a href="${versioned('setup.html')}">Setup</a>
+                <a href="${versioned('index.html')}">Companies</a>
+                <a href="${versioned('addcompany.html')}">New Company</a>
             </nav>
         `;
         document.body.insertBefore(topbar, document.body.firstChild);
@@ -33,18 +60,16 @@
         if (hiddenPages.has(page)) {
             const notice = document.createElement('div');
             notice.className = 'app-message';
-            notice.style.width = 'min(1180px, calc(100% - 32px))';
-            notice.style.margin = '18px auto 0';
             notice.textContent = 'This page is a prototype or test page. Use the main navigation for normal billing work.';
             topbar.insertAdjacentElement('afterend', notice);
         }
 
         addPageHint(page);
+        versionLinks();
     }
 
     function addPageHint(page) {
         const hints = {
-            'addcompany.html': 'Step 1 of company setup: enter employer details and upload the employee template.',
             'makeagetable.html': 'Step 2 of company setup: review age-banded tiers, carriers, and plan amounts before saving.',
             'makeagetiertable.html': 'Step 2 of company setup: review age-banded composite tiers, carriers, and plan amounts before saving.',
             'makeautogeneratetable.html': 'Step 2 of company setup: confirm the carrier and tier table built from the employee file.',
@@ -60,13 +85,13 @@
 
         const hint = document.createElement('div');
         hint.className = 'app-message app-workflow-hint';
-        hint.style.width = 'min(1180px, calc(100% - 32px))';
-        hint.style.margin = '18px auto 0';
         hint.textContent = hints[page];
 
         const topbar = document.querySelector('.app-topbar');
         topbar.insertAdjacentElement('afterend', hint);
     }
 
+    window.billingPageUrl = versioned;
+    document.addEventListener('click', handleNavigationClick);
     document.addEventListener('DOMContentLoaded', addShell);
 })();
