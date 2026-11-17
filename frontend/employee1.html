@@ -27,6 +27,17 @@
         <input type="text" id="notes" name="Notes">
 
         <div id="companyInfoInputs"></div>
+        <h2>Carrier And Plan</h2>
+        <p id="currentEnrollment" role="status">Loading enrollment...</p>
+        <label><input id="changePlan" type="checkbox"> Change carrier or plan</label>
+        <fieldset id="planChangeFields" disabled hidden>
+            <label for="newPlan">Carrier / plan</label>
+            <select id="newPlan" required><option value="">Select a plan</option></select>
+            <label for="planEffectiveDate">Coverage effective date</label>
+            <input id="planEffectiveDate" type="date" required>
+            <label for="planInformedDate">Informed date</label>
+            <input id="planInformedDate" type="date" required>
+        </fieldset>
 
         <h2>Dependents</h2>
         <table id="editableTable">
@@ -67,12 +78,10 @@
     <script type="module">
         import {
             searchEmployeeById,
-            changeEmployee,
-            terminateEmployee,
+            saveEmployeeDetails,
             searchDependentByJson,
-            addDependent,
-            changeDependent,
-            deleteDependent
+            getFullTable,
+            searchEmployeePlanByJson
         } from './apiFunctions.js';
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -91,6 +100,7 @@
                 loadedEmployee = await searchEmployeeById(employeeId);
                 const dependents = await searchDependentByJson({ EmployeeID: employeeId });
                 populateForm(loadedEmployee, dependents);
+                await loadEnrollment();
             } catch (error) {
                 console.error('Error loading employee:', error);
                 alert('Could not load employee details.');
@@ -103,6 +113,10 @@
         });
 
         document.getElementById('addDependentRow').addEventListener('click', () => addRow());
+        document.getElementById('changePlan').addEventListener('change', event => {
+            document.getElementById('planChangeFields').disabled = !event.target.checked;
+            document.getElementById('planChangeFields').hidden = !event.target.checked;
+        });
         document.getElementById('cancelButton').addEventListener('click', () => goBackToCompany());
 
         document.getElementById('employeeForm').addEventListener('submit', async (event) => {
@@ -116,29 +130,68 @@
                     return;
                 }
 
-                await changeEmployee(employeeId, employeeJson);
-                await saveDependentRows();
-
+                const dependents = Array.from(document.querySelectorAll('#editableTable tbody tr'))
+                    .map(dependentFromRow).filter(Boolean);
+                let termination = null;
                 if (document.getElementById('terminationCheckbox').checked) {
                     const endDate = document.getElementById('termDate').value;
                     const informEndDate = document.getElementById('informedTermDate').value || endDate;
-                    await terminateEmployee(employeeId, {
+                    termination = {
                         EndDate: endDate,
                         InformEndDate: informEndDate
-                    });
+                    };
                 }
-
+                const saveButton = document.querySelector('input[type="submit"]');
+                if (saveButton.disabled) return;
+                saveButton.disabled = true;
+                await saveEmployeeDetails(employeeId, {
+                    Employee: employeeJson,
+                    Dependents: dependents,
+                    DeletedDependentIDs: Array.from(deletedDependentIds),
+                    PlanChange: document.getElementById('changePlan').checked ? {
+                        PlanID: Number(document.getElementById('newPlan').value),
+                        StartDate: document.getElementById('planEffectiveDate').value,
+                        InformStartDate: document.getElementById('planInformedDate').value
+                    } : null,
+                    Termination: termination
+                });
+                deletedDependentIds.clear();
                 alert('Employee information updated successfully.');
                 goBackToCompany();
             } catch (error) {
                 console.error('Error updating employee information:', error);
                 alert(`Failed to update employee information. ${error.message || ''}`);
+            } finally {
+                document.querySelector('input[type="submit"]').disabled = false;
             }
         });
 
+        async function loadEnrollment() {
+            const full = (await getFullTable('Employer', loadedEmployee.EmployerID)).Element;
+            const enrollments = await searchEmployeePlanByJson({ EmployeeID: employeeId });
+            const select = document.getElementById('newPlan');
+            const names = new Map();
+            for (const plan of full.Plans || []) {
+                const carrier = full.Carriers.find(item => item.CarrierID === plan.CarrierID);
+                const tier = full.Tiers.find(item => item.TierID === plan.TierID);
+                const label = `${carrier?.CarrierName || 'Carrier'} / ${tier?.TierName || 'Tier'} (${formatDate(plan.StartDate)} - ${formatDate(plan.EndDate) || 'ongoing'})`;
+                names.set(Number(plan.PlanID), label);
+                const option = document.createElement('option');
+                option.value = plan.PlanID;
+                option.textContent = label;
+                select.appendChild(option);
+            }
+            const today = new Date().toLocaleDateString('en-CA');
+            const active = enrollments.find(item => formatDate(item.StartDate) <= today &&
+                (!item.EndDate || formatDate(item.EndDate) > today));
+            document.getElementById('currentEnrollment').textContent = active ?
+                names.get(Number(active.PlanID)) : 'No current enrollment.';
+            document.getElementById('planInformedDate').value = today;
+        }
+
         function buildEmployeeUpdateJson() {
             const formData = new FormData(document.getElementById('employeeForm'));
-            return {
+            const updates = {
                 EmployeeFullName: formData.get('EmployeeFullName') || null,
                 StartDate: formData.get('StartDate') || null,
                 InformStartDate: formData.get('InformStartDate') || null,
@@ -147,30 +200,13 @@
                 GlCode: formData.get('GlCode') || null,
                 Division: formData.get('Division') || null,
                 Location: formData.get('Location') || null,
-                Title: formData.get('Title') || null,
-                CobraStatus: document.getElementById('CobraStatus')?.checked || false
+                Title: formData.get('Title') || null
             };
-        }
-
-        async function saveDependentRows() {
-            for (const dependentId of deletedDependentIds) {
-                await deleteDependent(dependentId);
+            const cobra = document.getElementById('CobraStatus');
+            if (cobra && cobra.checked !== (cobra.dataset.initialChecked === 'true')) {
+                updates.CobraStatus = cobra.checked;
             }
-            deletedDependentIds.clear();
-
-            const rows = Array.from(document.querySelectorAll('#editableTable tbody tr'));
-            for (const row of rows) {
-                const dependent = dependentFromRow(row);
-                if (!dependent) continue;
-
-                if (dependent.DependentID) {
-                    const id = dependent.DependentID;
-                    delete dependent.DependentID;
-                    await changeDependent(id, dependent);
-                } else {
-                    await addDependent(dependent);
-                }
-            }
+            return updates;
         }
 
         function dependentFromRow(row) {
@@ -206,7 +242,8 @@
             addCompanyInput('Division', 'Division', employee.Division);
             addCompanyInput('Location', 'Location', employee.Location);
             addCompanyInput('Title', 'Title', employee.Title);
-            addCheckboxInput('CobraStatus', 'COBRA Status', Boolean(employee.CobraStatus));
+            addCheckboxInput('CobraStatus', 'COBRA Status',
+                employee.CobraStatus === true || employee.CobraStatus === 1 || employee.CobraStatus === '1');
 
             dependents.forEach(addDependentRow);
             if (dependents.length === 0) addRow();
@@ -236,6 +273,7 @@
             input.id = name;
             input.name = name;
             input.checked = checked;
+            input.dataset.initialChecked = String(checked);
             input.style.width = 'auto';
             container.appendChild(label);
             container.appendChild(input);

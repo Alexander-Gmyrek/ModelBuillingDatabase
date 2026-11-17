@@ -26,7 +26,9 @@ async function apiRequest(endpoint, method = "GET", body = null) {
             return response.json().then(err => {
                 // Log the detailed JSON error message
                 console.error(`HTTP error! Status: ${response.status} Error: ${err.Error}`);
-                throw new Error(`HTTP error! Status: ${response.status} Error: ${err.Error}`);
+                const error = new Error(`HTTP error! Status: ${response.status} Error: ${err.Error}`);
+                error.status = response.status;
+                throw error;
             });
         }
         // else check if it is a file and auto download it
@@ -178,6 +180,10 @@ async function changeEmployee(employeeId, partialJson) {
     return await apiRequest(`/employee/${employeeId}`, "PATCH", partialJson);
 }
 
+async function saveEmployeeDetails(employeeId, details) {
+    return await apiRequest(`/employee/${employeeId}/details`, "PATCH", details);
+}
+
 async function deleteEmployee(employeeId) {
     return await apiRequest(`/employee/${employeeId}`, "DELETE");
 }
@@ -322,6 +328,7 @@ async function generateReport(EmployerID, Year, Month){
 
 // Exporting all functions for use in other files
 export {
+    saveEmployeeDetails,
     getAllEmployers,
     searchEmployerById,
     searchEmployerByName,

@@ -14,6 +14,9 @@ Write-Host ""
 
 try {
     docker --version | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Docker version check failed with exit code $LASTEXITCODE."
+    }
 } catch {
     Write-Host "Docker Desktop is required before this app can run."
     Write-Host "Install Docker Desktop, start it, then run this wizard again."
@@ -25,6 +28,9 @@ try {
 
 try {
     docker info | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Docker daemon check failed with exit code $LASTEXITCODE."
+    }
 } catch {
     Write-Host "Docker is installed, but it is not running yet."
     Write-Host "Start Docker Desktop, wait for it to finish loading, then run this wizard again."

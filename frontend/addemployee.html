@@ -109,6 +109,9 @@
                 return;
             }
 
+            const submitButton = document.querySelector('button[type="submit"]');
+            if (submitButton.disabled) return;
+            submitButton.disabled = true;
             try {
                 await addEmployee(employee);
                 alert('Employee added successfully.');
@@ -116,6 +119,8 @@
             } catch (error) {
                 console.error('Error adding employee:', error);
                 alert(`Failed to add employee. ${error.message || ''}`);
+            } finally {
+                submitButton.disabled = false;
             }
         });
 

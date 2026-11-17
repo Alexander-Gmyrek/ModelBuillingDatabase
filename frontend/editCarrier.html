@@ -4,22 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Plans - Billing Database</title>
-    <link rel="stylesheet" href="app.css?v=20260606d">
+    <link rel="stylesheet" href="app.css?v=20261117a">
 </head>
-<body>
-    <main>
+<body class="plan-maintenance">
+    <header>
         <h1>Edit Carriers, Tiers, And Plans</h1>
-        <p class="app-page-intro">Update the plan setup for this company. Saving will update current plans and end active plans that are removed from the grid.</p>
+        <p>Update carriers, tiers, and plan amounts for this company.</p>
+    </header>
+    <main>
 
-        <section class="app-card">
+        <section>
             <div class="maintenance-header">
                 <div>
                     <label for="effectiveDate">Effective date for new or removed plans</label>
                     <input type="date" id="effectiveDate">
                 </div>
                 <div class="actions">
-                    <button id="addCarrierButton">Add Carrier</button>
-                    <button id="addTierButton">Add Tier</button>
+                    <button id="addCarrierButton" class="secondary">Add Carrier</button>
+                    <button id="addTierButton" class="secondary">Add Tier</button>
                     <button id="submitButton">Save Plan Setup</button>
                     <a id="backButton" class="button secondary" href="index.html?v=20260606c">Back To Company</a>
                 </div>
@@ -44,6 +46,7 @@
         const backButton = document.getElementById('backButton');
 
         let carriers = [];
+        let usesAgeBands = false;
         let tiers = [];
         let planCells = new Map();
 
@@ -69,6 +72,7 @@
                 statusMessage.textContent = 'Loading plan setup...';
                 const fullResponse = await getFullTable('Employer', employerID);
                 const fullData = fullResponse.Element;
+                usesAgeBands = (fullData.TierStructure || '').includes('Age Banded');
                 const activePlansResponse = await searchActivePlans(employerID);
                 const activePlanIds = new Set(activePlansResponse.map(plan => Array.isArray(plan) ? plan[0] : typeof plan === 'object' ? plan.PlanID : plan));
 
@@ -208,14 +212,14 @@
                             ${renderPlanRow(carrier, 'Grenz Fee C', 'grenzFeeC')}
                             ${renderPlanRow(carrier, 'Grenz Fee S', 'grenzFeeS')}
                             ${renderPlanRow(carrier, 'Plan Start Date', 'startDate', 'date')}
-                            <tr>
+                            ${usesAgeBands ? `<tr>
                                 <td>Tier Max Age</td>
                                 ${tiers.map(tier => `<td><input type="number" value="${escapeHtml(tier.maxAge)}" data-tier-age="${tier.clientId}" data-field="maxAge"></td>`).join('')}
                             </tr>
                             <tr>
                                 <td>Tier Min Age</td>
                                 ${tiers.map(tier => `<td><input type="number" value="${escapeHtml(tier.minAge)}" data-tier-age="${tier.clientId}" data-field="minAge"></td>`).join('')}
-                            </tr>
+                            </tr>` : ''}
                         </tbody>
                     </table>
                 `;

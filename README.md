@@ -45,16 +45,26 @@ The app runs locally on a person's device using Docker. The current install flow
   - save carrier, tier, and plan setup in one maintenance screen
   - end removed active plans instead of hard-deleting historical records
 - Employee plan tracking:
+  - change an employee's carrier/plan with effective and informed dates while preserving enrollment history
   - assign employees to plans through carrier/tier selection
   - find active employee plans
   - preserve plan history for billing/reporting
 - Monthly billing report generation:
+  - include a month-by-month Adjustment Details worksheet that reconciles to the bill
+  - reopen exact saved bill workbooks from the company page after later record/rate edits
   - generate Excel billing reports by company, year, and month
   - download generated reports from the browser
   - include backdated billing adjustments for late employee, dependent, and plan changes
 - Database backup and restore:
+  - include saved bills and change history in backups, with support for older backup files
   - download a local JSON backup of all billing tables
   - restore the local database from a selected backup file
+- Employee spreadsheet imports:
+  - preview employee counts, carriers, tiers, dates, and validation messages before saving
+  - create a company without a roster, then import employees from the company page
+  - skip matching existing employee names and prevent repeated imports of the same submission
+- Change history:
+  - review timestamped before/after changes, terminations, imports, and restores on the company page
 - API access for all core billing tables:
   - Employer
   - Employee

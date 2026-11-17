@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Company Details - Billing Database</title>
-<link rel="stylesheet" href="app.css?v=20260606d">
+<link rel="stylesheet" href="app.css?v=20261117b">
 </head>
 <body>
     <div class="container">
@@ -15,6 +15,7 @@
             <a class="button" id="addemployeeButton">
                 <span>Add Employee</span>
             </a>
+            <a class="button secondary" id="importEmployeesButton">Import Employees</a>
         </div>
 
         <div class="report-container">
@@ -34,6 +35,20 @@
         <ul id="employeeList"></ul>
 
         <div id="tableContainer"></div>
+        <section class="app-section-gap">
+            <h2>Saved Monthly Bills</h2>
+            <p id="savedBillsStatus" role="status">Loading saved bills...</p>
+            <div class="tableWrapper"><table>
+                <thead><tr><th>Billing month</th><th>Generated</th><th>Workbook</th></tr></thead>
+                <tbody id="savedBills"></tbody>
+            </table></div>
+        </section>
+        <section class="app-section-gap">
+            <h2>Change History</h2>
+            <p id="changeHistoryStatus" role="status">Loading history...</p>
+            <div id="changeHistory"></div>
+            <button id="olderChanges" class="secondary" hidden>Load Older Changes</button>
+        </section>
     </div>
     
 
@@ -52,12 +67,15 @@
             
         } from './apiFunctions.js';
 
+        let loadedEmployees = [];
+
         document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const companyId = urlParams.get('id');
             const myButton = document.getElementById("addemployeeButton");
             const employeeStatus = document.getElementById('employeeStatus');
             myButton.href = window.billingPageUrl("addemployee.html?id=" + companyId);
+            document.getElementById('importEmployeesButton').href = window.billingPageUrl("importemployees.html?id=" + companyId);
 
             if (!companyId) {
                 console.error('No company ID found in URL parameters');
@@ -77,19 +95,21 @@
 
                 // Fetch active employee IDs
                 let activeEmployeeIds = await searchActiveEmployees(companyId);
-                activeEmployeeIds.sort((a, b) => a.EmployeeID - b.EmployeeID);
-                activeEmployeeIds = activeEmployeeIds.map(emp => emp.EmployeeID);
+                activeEmployeeIds = activeEmployeeIds.map(emp => Number(Array.isArray(emp) ? emp[0] : emp.EmployeeID));
                 const updatedEmployees = employees.map(emp => updateEmployeeStatus(emp, activeEmployeeIds));
                 console.log('Employees:', updatedEmployees);
-                displayEmployees(updatedEmployees.sort((a, b) => a.EmployeeFullName.localeCompare(b.EmployeeFullName)));
+                loadedEmployees = updatedEmployees.sort((a, b) => (a.EmployeeFullName || '').localeCompare(b.EmployeeFullName || ''));
+                filterEmployees();
 
                 // Display plans associated with the company
                 // Fetch all plans associated with the company (plans dont have employer id so we need to fetch all by carrier id)
                 const plans = await searchPlanByJson({ EmployerID: companyId });
                 plans.sort((a, b) => a.PlanID - b.PlanID);
                 const activePlans = await searchActivePlans(companyId);
+                const activePlanIds = new Set(activePlans.map(plan =>
+                    Number(Array.isArray(plan) ? plan[0] : typeof plan === 'object' ? plan.PlanID : plan)));
                 // get the active plan ids then filter the plans by the active plan ids
-                const updatedPlans = plans.filter(plan => binarySearch(activePlans, plan.PlanID));
+                const updatedPlans = plans.filter(plan => activePlanIds.has(Number(plan.PlanID)));
                 const fullPlans = updatedPlans.map(plan => {
                     const tier = tiers.find(tier => tier.TierID === plan.TierID);
                     return {
@@ -100,7 +120,7 @@
                     };
                 });
                 console.log('Plans:', plans);
-                addTable(plans, tiers, carriers, companyId);
+                addTable(updatedPlans, tiers, carriers, companyId);
             } catch (error) {
                 console.error('Error fetching company details:', error);
                 employeeStatus.textContent = 'Could not load company details. Check setup and try again.';
@@ -135,6 +155,7 @@
             // Call generateReport and handle completion
             generateReport(companyId, year, month)
                 .then(() => {
+                    document.dispatchEvent(new Event('billing-report-saved'));
                     // Clear interval to stop animation
                     clearInterval(interval);
                     // Reset button text and enable it
@@ -155,7 +176,7 @@
         });
 
         // filter employees listener
-        document.getElementById('employeeSearchInput').addEventListener('keyup', () => {
+        document.getElementById('employeeSearchInput').addEventListener('input', () => {
             filterEmployees();
         });
 
@@ -218,21 +239,11 @@
         
 
         // Function to filter employees by name
-        async function filterEmployees() {
-            const searchInput = document.getElementById('employeeSearchInput').value.toLowerCase();
-            const urlParams = new URLSearchParams(window.location.search);
-            const companyId = urlParams.get('id');
-            
-            try {
-                const employees = await searchEmployeeByJson({
-                    EmployerID: companyId,
-                    EmployeeFullName: searchInput
-                });
-                displayEmployees(employees);
-            } catch (error) {
-                console.error('Error searching employees:', error);
-                document.getElementById('employeeStatus').textContent = 'Could not search employees.';
-            }
+        function filterEmployees() {
+            const searchInput = document.getElementById('employeeSearchInput').value.trim().toLowerCase();
+            displayEmployees(loadedEmployees.filter(employee =>
+                (employee.EmployeeFullName || '').toLowerCase().includes(searchInput)
+            ));
         }
 
         // Function to display employees in the list
@@ -287,7 +298,7 @@
         const updateEmployeeStatus = (employee, activeIds) => {
             return {
                 ...employee,
-                isActive: activeIds.includes(employee.EmployeeID)
+                isActive: activeIds.includes(Number(employee.EmployeeID))
             };
         };
 
@@ -324,5 +335,6 @@
     
     </script>
     <script src="app-shell.js?v=20260606c" defer></script>
+    <script src="company-history.js?v=20261117b" type="module"></script>
 </body>
 </html>

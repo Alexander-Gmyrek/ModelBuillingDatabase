@@ -18,6 +18,36 @@
     --app-shadow: 0 1px 2px rgba(18, 33, 41, .08);
 }
 
+.import-preview {
+    width: min(1100px, calc(100% - 32px));
+    max-height: 90vh;
+    overflow-y: auto;
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    padding: 24px;
+    color: var(--app-text);
+}
+
+.import-preview::backdrop {
+    background: rgba(0, 0, 0, .4);
+}
+
+.import-preview-table {
+    max-height: 50vh;
+    overflow: auto;
+    margin-bottom: 20px;
+}
+
+#changeHistory details {
+    border-bottom: 1px solid var(--app-border);
+    padding: 12px 0;
+}
+
+#changeHistory summary {
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+
 * {
     box-sizing: border-box;
 }
@@ -513,6 +543,32 @@ body > .app-message {
     display: flex;
     gap: 10px;
     margin-bottom: 10px;
+}
+
+.plan-maintenance .maintenance-header {
+    border-bottom: 1px solid var(--app-border);
+    padding-bottom: 18px;
+}
+
+.plan-maintenance .tableWrapper {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0;
+}
+
+.plan-maintenance .carrier-heading {
+    flex-wrap: wrap;
+}
+
+.plan-maintenance .carrier-heading input {
+    flex: 1 1 240px;
+    min-width: 0;
+}
+
+.plan-maintenance th input {
+    margin-bottom: 8px;
 }
 
 .carrier-heading input,
