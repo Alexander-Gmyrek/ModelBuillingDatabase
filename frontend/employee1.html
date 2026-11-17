@@ -9,6 +9,7 @@
 <body>
     <h1>Edit Employee</h1>
     <p class="app-page-intro">Update employee details, dependent records, or mark the employee terminated. Termination also ends active dependent and plan records.</p>
+    <p id="employeeLoadStatus" class="app-message" role="status">Loading employee...</p>
 
     <form id="employeeForm">
         <label for="employeeFullName">Full Name</label>
@@ -29,7 +30,7 @@
         <div id="companyInfoInputs"></div>
         <h2>Carrier And Plan</h2>
         <p id="currentEnrollment" role="status">Loading enrollment...</p>
-        <label><input id="changePlan" type="checkbox"> Change carrier or plan</label>
+        <label><input id="changePlan" type="checkbox" disabled> Change carrier or plan</label>
         <fieldset id="planChangeFields" disabled hidden>
             <label for="newPlan">Carrier / plan</label>
             <select id="newPlan" required><option value="">Select a plan</option></select>
@@ -70,7 +71,7 @@
         <input type="date" id="informedTermDate" name="informedTermDate" disabled>
 
         <div>
-            <input type="submit" value="Save Employee">
+            <input type="submit" value="Save Employee" disabled>
             <button type="button" id="cancelButton" class="secondary">Back To Company</button>
         </div>
     </form>
@@ -82,7 +83,7 @@
             searchDependentByJson,
             getFullTable,
             searchEmployeePlanByJson
-        } from './apiFunctions.js';
+        } from './apiFunctions.js?v=20261117c';
 
         const urlParams = new URLSearchParams(window.location.search);
         const employeeId = urlParams.get('id');
@@ -98,12 +99,31 @@
 
             try {
                 loadedEmployee = await searchEmployeeById(employeeId);
-                const dependents = await searchDependentByJson({ EmployeeID: employeeId });
-                populateForm(loadedEmployee, dependents);
-                await loadEnrollment();
+                populateForm(loadedEmployee, []);
             } catch (error) {
                 console.error('Error loading employee:', error);
-                alert('Could not load employee details.');
+                document.getElementById('employeeLoadStatus').textContent =
+                    `Could not load employee details. ${error.message || ''}`;
+                document.getElementById('currentEnrollment').textContent = 'Employee details could not be loaded.';
+                return;
+            }
+            try {
+                const dependents = await searchDependentByJson({ EmployeeID: employeeId });
+                document.querySelector('#editableTable tbody').replaceChildren();
+                dependents.forEach(addDependentRow);
+                if (!dependents.length) addRow();
+                document.getElementById('employeeLoadStatus').textContent = 'Employee details loaded.';
+                document.querySelector('input[type="submit"]').disabled = false;
+            } catch (error) {
+                document.getElementById('employeeLoadStatus').textContent =
+                    `Employee loaded, but dependents could not be loaded. Reload before saving. ${error.message || ''}`;
+            }
+            try {
+                await loadEnrollment();
+                document.getElementById('changePlan').disabled = false;
+            } catch (error) {
+                document.getElementById('currentEnrollment').textContent =
+                    `Could not load enrollment. ${error.message || ''}`;
             }
         });
 
