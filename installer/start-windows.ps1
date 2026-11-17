@@ -2,8 +2,39 @@ $ErrorActionPreference = "Stop"
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectDir = Split-Path -Parent $ScriptDir
-$FrontendUrl = "http://localhost:8080/setup.html"
-$BackendUrl = "http://localhost:3000/api"
+$FrontendUrl = "http://127.0.0.1:8080/setup.html"
+$BackendUrl = "http://127.0.0.1:3000/api"
+
+function Test-LocalEndpoint {
+    param([string]$Url)
+    $response = $null
+    try {
+        $request = [System.Net.HttpWebRequest]::Create($Url)
+        $request.Proxy = $null
+        $request.Timeout = 2000
+        $request.ReadWriteTimeout = 2000
+        $request.KeepAlive = $false
+        $response = $request.GetResponse()
+        return @{ Ready = ([int]$response.StatusCode -eq 200); Error = "" }
+    } catch {
+        return @{ Ready = $false; Error = $_.Exception.Message }
+    } finally {
+        if ($null -ne $response) { $response.Close() }
+    }
+}
+
+function Open-AppBrowser {
+    try {
+        Start-Process -FilePath $FrontendUrl -ErrorAction Stop
+        Write-Host "Opened $FrontendUrl"
+        Write-Host "You can close this window after the app opens."
+    } catch {
+        Write-Host "The app is responding, but Windows could not open your browser."
+        Write-Host $_.Exception.Message
+        Write-Host "Open this address in your browser: $FrontendUrl"
+        Read-Host "Press Enter to close"
+    }
+}
 
 Clear-Host
 Write-Host "Health Insurance Billing Database"
@@ -50,23 +81,30 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "Waiting for the API to respond..."
-for ($i = 1; $i -le 60; $i++) {
-    try {
-        Invoke-WebRequest -Uri $BackendUrl -UseBasicParsing -TimeoutSec 2 | Out-Null
+Write-Host "Waiting for the API and setup page to respond..."
+$deadline = (Get-Date).AddMinutes(3)
+do {
+    $apiStatus = Test-LocalEndpoint $BackendUrl
+    $frontendStatus = Test-LocalEndpoint $FrontendUrl
+    if ($apiStatus.Ready -and $frontendStatus.Ready) {
         Write-Host "The app is ready."
-        Start-Process $FrontendUrl
-        Write-Host ""
-        Write-Host "Opened $FrontendUrl"
-        Write-Host "You can close this window after the app opens."
+        Open-AppBrowser
         exit 0
-    } catch {
-        Start-Sleep -Seconds 2
     }
-}
+    Start-Sleep -Seconds 2
+} while ((Get-Date) -lt $deadline)
 
 Write-Host ""
-Write-Host "The containers started, but the API did not respond yet."
+if ($frontendStatus.Ready) {
+    Write-Host "The setup page is ready, but the launcher could not confirm the API."
+    Write-Host "API check: $($apiStatus.Error)"
+    Write-Host "Opening Setup so you can run the service checks."
+    Open-AppBrowser
+    exit 0
+}
+Write-Host "The containers started, but startup checks did not finish."
+Write-Host "API check: $($apiStatus.Error)"
+Write-Host "Setup page check: $($frontendStatus.Error)"
 Write-Host "Try these steps:"
 Write-Host "1. Wait one more minute, then refresh the setup page."
 Write-Host "2. Open Docker Desktop and check that billing-db, backend, and frontend are running."
