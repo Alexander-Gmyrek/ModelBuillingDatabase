@@ -2,6 +2,33 @@
 from datetime import date
 
 
+def sync_employee_start(cursor, before, after, get_record, update_record):
+    start = date.fromisoformat(str(after["StartDate"]))
+    notice = date.fromisoformat(str(after.get("InformStartDate") or after["StartDate"]))
+    if after.get("EndDate") and start > date.fromisoformat(str(after["EndDate"])):
+        raise ValueError("Employee start date cannot follow termination.")
+    cursor.execute("""SELECT EmployeePlanID FROM EmployeePlan WHERE EmployeeID = %s
+        ORDER BY StartDate, EmployeePlanID LIMIT 1""", (before["EmployeeID"],))
+    initial = cursor.fetchone()
+    if not initial:
+        raise ValueError("Employee has no enrollment to align with the corrected start date.")
+    enrollment = get_record(cursor, "EmployeePlan", initial[0])
+    if str(enrollment["StartDate"]) != str(before["StartDate"]):
+        raise ValueError("Initial enrollment and employee start dates differ. Correct enrollment history first.")
+    plan = get_record(cursor, "Plan", enrollment["PlanID"])
+    if start < date.fromisoformat(str(plan["StartDate"])):
+        raise ValueError("Employee start predates the initial plan. Set up valid historical plan coverage first.")
+    end = enrollment.get("EndDate")
+    if end:
+        limit = date.fromisoformat(str(end))
+        termination = str(end) == str(after.get("EndDate"))
+        if start > limit or (start == limit and not termination):
+            raise ValueError("Employee start would cross a later plan change. Review enrollment history first.")
+    update_record(cursor, "EmployeePlan", initial[0], {
+        "StartDate": start.isoformat(), "InformStartDate": notice.isoformat()
+    })
+
+
 def change_enrollment(cursor, employee, change, get_record, add_record, update_record):
     effective = date.fromisoformat(change["StartDate"])
     informed = date.fromisoformat(change.get("InformStartDate") or change["StartDate"])

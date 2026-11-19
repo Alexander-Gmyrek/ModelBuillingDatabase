@@ -1,0 +1,10 @@
+{
+  "name": "billing-frontend-tests",
+  "private": true,
+  "scripts": {
+    "test": "node employee.cjs && node import.cjs && node safety.cjs && node routing.cjs && node --experimental-vm-modules dependencies.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "31.0.1"
+  }
+}

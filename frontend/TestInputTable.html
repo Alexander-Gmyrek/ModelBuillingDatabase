@@ -14,6 +14,7 @@
         <button id="gatherDataButton">Gather Data</button>
     </div>
     <div id="tableContainer"></div>
+    <script src="employee-import.js?v=20261117e"></script>
     <script src="app-shell.js?v=20260606c" defer></script>
 </body>
 <script type="module">
@@ -166,14 +167,14 @@
             const newTableWrapper = document.createElement('div');
             newTableWrapper.className = 'tableWrapper';
             newTableWrapper.innerHTML = `
-                <input type="text" class="carrier-input" value="${carrier.CarrierName}" data-old-name="${carrier.CarrierName}">
+                <input type="text" class="carrier-input" value="${escapeSetupText(carrier.CarrierName)}" data-old-name="${escapeSetupText(carrier.CarrierName)}">
                 <table>
                     <thead>
                         <tr>
                             <th>Data</th>
                             ${tiers.map((tier, index) => `
                                 <th>
-                                    <input type="text" class="tier-input" data-index="${index}" value="${tier.TierName}">
+                                    <input type="text" class="tier-input" data-index="${index}" value="${escapeSetupText(tier.TierName)}">
                                 </th>
                             `).join('')}
                         </tr>
@@ -184,7 +185,7 @@
                                 <td>${dataType.replace('Grenz Fee', 'Admin Fee')}</td>
                                 ${tiers.map(tier => `
                                     <td>
-                                        <input type="text" class="data-input" data-carrier="${carrier.CarrierName}" data-tier="${tier.TierName}" data-type="${dataType}" value="${data[carrier.CarrierName][tier.TierName][dataType] || ''}">
+                                        <input type="text" class="data-input" data-carrier="${escapeSetupText(carrier.CarrierName)}" data-tier="${escapeSetupText(tier.TierName)}" data-type="${dataType}" value="${escapeSetupText(data[carrier.CarrierName][tier.TierName][dataType] || '')}">
                                     </td>
                                 `).join('')}
                             </tr>
@@ -193,7 +194,7 @@
                             <td>Max Age</td>
                             ${tiers.map((tier, index) => `
                                 <td>
-                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MaxAge" value="${tier.MaxAge}">
+                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MaxAge" value="${escapeSetupText(tier.MaxAge)}">
                                 </td>
                             `).join('')}
                         </tr>
@@ -201,7 +202,7 @@
                             <td>Min Age</td>
                             ${tiers.map((tier, index) => `
                                 <td>
-                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MinAge" value="${tier.MinAge}">
+                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MinAge" value="${escapeSetupText(tier.MinAge)}">
                                 </td>
                             `).join('')}
                         </tr>

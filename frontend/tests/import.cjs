@@ -2,9 +2,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
-const XLSX = require('xlsx');
 
 const root = path.resolve(__dirname, '..');
+const sheetjs = fs.readFileSync(path.join(root, 'vendor/sheetjs/xlsx.full.min.js'), 'utf8');
 const template = fs.readFileSync(path.join(root, 'assets/employee_upload_template.xlsx'));
 const spreadsheet = { arrayBuffer: async () => template };
 const common = fs.readFileSync(path.join(root, 'employee-import.js'), 'utf8');
@@ -12,7 +12,8 @@ const common = fs.readFileSync(path.join(root, 'employee-import.js'), 'utf8');
 function setup(html) {
     const dom = new JSDOM(html, { url: 'http://localhost:8080/importemployees.html?id=1', runScripts: 'outside-only' });
     const window = dom.window;
-    window.XLSX = XLSX;
+    window.eval(sheetjs);
+    assert.equal(window.XLSX.version, '0.20.3');
     window.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
     window.HTMLDialogElement.prototype.close = function (value) {
         this.returnValue = value;

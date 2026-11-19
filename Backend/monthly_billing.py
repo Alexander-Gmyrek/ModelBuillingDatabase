@@ -75,17 +75,27 @@ class MonthlyBilling:
                 continue
             if not ignore_notice and informed(row) > knowledge_month:
                 continue
-            end = month(row.get("EndDate"))
+            plan = self.plans[int(row["PlanID"])]
+            end = month(row.get("EndDate") or plan.get("EndDate"))
             if end:
                 # Termination ends coverage after its month; a plan switch replaces
                 # the old enrollment at the beginning of its effective month.
-                is_termination = (as_date(row.get("EndDate")) == as_date(employee.get("EndDate"))
+                is_termination = (employee.get("EndDate") is not None
+                                  and as_date(row.get("EndDate")) == as_date(employee.get("EndDate"))
                                   and informed(row, "EndDate") == informed(employee, "EndDate"))
                 exclusive_end = next_month(end) if is_termination else end
-                if coverage_month >= exclusive_end and (ignore_notice or informed(row, "EndDate") <= knowledge_month):
+                end_notice = informed(row, "EndDate") or end
+                if coverage_month >= exclusive_end and (ignore_notice or end_notice <= knowledge_month):
                     continue
             candidates.append(row)
         if not candidates:
+            for row in self.enrollments[int(employee["EmployeeID"])]:
+                plan = self.plans[int(row["PlanID"])]
+                end = month(row.get("EndDate") or plan.get("EndDate"))
+                if end and month(row["StartDate"]) <= coverage_month and coverage_month >= end and (
+                    ignore_notice or (informed(row, "EndDate") or end) <= knowledge_month
+                ):
+                    return None
             raise ValueError(f"No enrollment covers {employee['EmployeeFullName']} for {coverage_month:%Y-%m}.")
         return max(candidates, key=lambda row: (as_date(row["StartDate"]), int(row["EmployeePlanID"])))
 
@@ -96,7 +106,8 @@ class MonthlyBilling:
             if not dob:
                 raise ValueError(f"A birth date is required for age-banded coverage in {coverage_month:%Y-%m}.")
             renewal = as_date(self.employer["RenewalDate"])
-            age = coverage_month.year - dob.year - ((renewal.month, renewal.day) < (dob.month, dob.day))
+            renewal_year = coverage_month.year - (coverage_month.month < renewal.month)
+            age = renewal_year - dob.year - ((renewal.month, renewal.day) < (dob.month, dob.day))
             tiers = [tier for tier in self.tiers.values()
                      if tier.get("MinAge") is not None and tier.get("MaxAge") is not None
                      and int(tier["MinAge"]) <= age <= int(tier["MaxAge"])]
@@ -128,6 +139,8 @@ class MonthlyBilling:
         if not covered(employee, coverage_month, knowledge_month):
             return {}
         enrollment = self.enrollment(employee, coverage_month, knowledge_month)
+        if enrollment is None:
+            return {}
         amounts = {None: self.rate(enrollment, employee, coverage_month)}
         if self.age_banded:
             for dependent in self.dependents[int(employee["EmployeeID"])]:
@@ -203,6 +216,8 @@ class MonthlyBilling:
                 # A late hire is visible before notification, with zero charges.
                 enrollment = self.enrollment(employee, min(bill_month, end) if end else bill_month,
                                              bill_month, ignore_notice=True)
+                if enrollment is None:
+                    continue
                 rate = self.rate(enrollment, employee, bill_month)
                 amounts_by_person[None]["Carriers"].add(rate["Carrier"])
                 amounts_by_person[None]["Tiers"].add(rate["Tier"])

@@ -17,7 +17,7 @@
 </div>
 <div id="tableContainer"></div>
 
-    <script src="employee-import.js?v=20261117b"></script>
+    <script src="employee-import.js?v=20261117e"></script>
     <script type="module">
     import {
         addEmployer,
@@ -85,6 +85,7 @@
                 userAlert += '\nFollow-up verification found missing data. Review the existing company; do not create it again.';
             }
             alert(userAlert);
+            return true;
         } catch (error) {
             if (setupCommitted) {
                 alert('Company created, but follow-up verification or local storage failed. Review the existing company; do not submit again.');
@@ -236,13 +237,13 @@
         document.getElementById('submitButton').addEventListener('click', async () => {
             const gatheredData = gatherData(tiers, carriers, data);
             try{
-                const response = await submitTable(gatheredData);
+                const saved = await submitTable(gatheredData);
+                if (saved) window.location.href = window.billingPageUrl('index.html');
             }catch(e){
                 console.log(e);
                 return;
             }
             //window.location.href = 'reviewcompany.html';
-            window.location.href = window.billingPageUrl('index.html');
         });
     });
 
@@ -353,14 +354,14 @@
             const newTableWrapper = document.createElement('div');
             newTableWrapper.className = 'tableWrapper';
             newTableWrapper.innerHTML = `
-                <input type="text" class="carrier-input" value="${carrier.CarrierName}" data-old-name="${carrier.CarrierName}">
+                <input type="text" class="carrier-input" value="${escapeSetupText(carrier.CarrierName)}" data-old-name="${escapeSetupText(carrier.CarrierName)}">
                 <table>
                     <thead>
                         <tr>
                             <th>Data</th>
                             ${tiers.map((tier, index) => `
                                 <th>
-                                    <input type="text" class="tier-input" data-index="${index}" value="${tier.TierName}">
+                                    <input type="text" class="tier-input" data-index="${index}" value="${escapeSetupText(tier.TierName)}">
                                 </th>
                             `).join('')}
                         </tr>
@@ -371,7 +372,7 @@
                                 <td>${dataType.replace('Grenz Fee', 'Admin Fee')}</td>
                                 ${tiers.map(tier => `
                                     <td>
-                                        <input type="text" class="data-input" data-carrier="${carrier.CarrierName}" data-tier="${tier.TierName}" data-type="${dataType}" value="${data[carrier.CarrierName][tier.TierName][dataType] || ''}">
+                                        <input type="text" class="data-input" data-carrier="${escapeSetupText(carrier.CarrierName)}" data-tier="${escapeSetupText(tier.TierName)}" data-type="${dataType}" value="${escapeSetupText(data[carrier.CarrierName][tier.TierName][dataType] || '')}">
                                     </td>
                                 `).join('')}
                             </tr>
@@ -380,7 +381,7 @@ ${(JSON.parse(localStorage.getItem('companyData') || '{}').TierStructure || '').
                             <td>Max Age</td>
                             ${tiers.map((tier, index) => `
                                 <td>
-                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MaxAge" value="${tier.MaxAge}">
+                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MaxAge" value="${escapeSetupText(tier.MaxAge)}">
                                 </td>
                             `).join('')}
                         </tr>
@@ -388,7 +389,7 @@ ${(JSON.parse(localStorage.getItem('companyData') || '{}').TierStructure || '').
                             <td>Min Age</td>
                             ${tiers.map((tier, index) => `
                                 <td>
-                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MinAge" value="${tier.MinAge}">
+                                    <input type="text" class="tier-age-input" data-index="${index}" data-field="MinAge" value="${escapeSetupText(tier.MinAge)}">
                                 </td>
                             `).join('')}
                         </tr>` : ''}

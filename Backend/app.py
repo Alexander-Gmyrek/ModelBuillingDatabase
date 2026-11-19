@@ -13,8 +13,9 @@ from io import BytesIO
 from flask_cors import CORS
 import base64
 from history import ensure_schema, record_change, register_routes, HISTORY_TABLES
-from enrollment import change_enrollment
+from enrollment import change_enrollment, sync_employee_start
 from monthly_billing import MonthlyBilling
+from backup_validation import validate_backup
 
 ####################### Helper Functions #######################
 app = Flask(__name__)
@@ -25,6 +26,14 @@ CORS(app, origins=[origin.strip() for origin in os.getenv(
      expose_headers=['Content-Disposition'])
 
 BILLING_TABLES = ["Employer", "Contact", "Carrier", "Tier", "Plan", "Employee", "EmployeePlan", "Dependent"]
+
+
+@app.before_request
+def disable_destructive_test_tools():
+    test_tools = {"/test/addemployer", "/test/deleteemployer", "/test/cleardb",
+                  "/test/resetdb", "/test/executeCommand"}
+    if request.path in test_tools and os.getenv("BILLING_ENABLE_TEST_TOOLS") != "1":
+        return jsonify({"Error": "Development database tools are disabled."}), 404
 
 
 def get_db_connection(database=None, retries=5, delay=2):
@@ -40,11 +49,14 @@ def get_db_connection(database=None, retries=5, delay=2):
 
     last_error = None
     for attempt in range(retries):
+        connection = None
         try:
             connection = mysql.connector.connect(**db_config)
             ensure_schema(connection)
             return connection
         except mysql.connector.Error as error:
+            if connection:
+                connection.close()
             last_error = error
             if attempt == retries - 1:
                 break
@@ -105,13 +117,7 @@ def create_backup_payload():
         connection.close()
 
 def restore_backup_payload(payload):
-    if not isinstance(payload, dict) or "tables" not in payload:
-        raise ValueError("Backup file is not valid.")
-
-    tables = payload["tables"]
-    missing_tables = [table_name for table_name in BILLING_TABLES if table_name not in tables]
-    if missing_tables:
-        raise ValueError(f"Backup file is missing tables: {', '.join(missing_tables)}")
+    tables = validate_backup(payload, BILLING_TABLES, HISTORY_TABLES)
 
     connection = get_db_connection()
     cursor = connection.cursor()
@@ -246,7 +252,7 @@ def save_employer_plan_setup(employer_id, payload):
         cursor.execute("SELECT PlanID FROM Plan WHERE EmployerID = %s AND EndDate IS NULL", (employer_id,))
         active_plan_ids = {row[0] for row in cursor.fetchall()}
         for plan_id in active_plan_ids - saved_plan_ids:
-            change_element_by_table_name(cursor, "Plan", plan_id, {"EndDate": effective_date})
+            end_plan(cursor, plan_id, effective_date, effective_date)
 
         # Remove carriers and tiers only when they are not referenced by any plan.
         kept_carrier_ids = {int(value) for value in carrier_id_map.values() if value}
@@ -868,14 +874,14 @@ def get_full_element_by_id(cursor: MySQLCursor, table_name: str, id: int):
 
 @app.route('/full/<table_name>/<int:id>', methods=['GET'])
 def route_get_full_element_by_id(table_name, id):
+    connection = None
+    cursor = None
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
         # Note: Not using softerrors rn
         element = get_full_element_by_id(cursor, table_name, id)
         soft_errors = []
-        cursor.close()
-        connection.close()
         response = {"status": "success", "Element": element}
         if soft_errors:
             response["warnings"] = soft_errors
@@ -885,6 +891,12 @@ def route_get_full_element_by_id(table_name, id):
         return jsonify({"Error": str(ve)}), 400
     except Exception as e:
         return jsonify({"Error": str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
 
 ### General Search Function ###
 def SearchTable(cursor: MySQLCursor, table_name: str, search_criteria_json: json):
@@ -903,12 +915,15 @@ def SearchTable(cursor: MySQLCursor, table_name: str, search_criteria_json: json
         base_query = f"SELECT * FROM {table_name} WHERE "
         conditions = []
         values = []
+        allowed_fields = get_table_fields(table_name, "RequiredFields") + get_table_fields(table_name, "OptionalFields")
 
         for key, value in search_criteria.items():
+            if key not in allowed_fields:
+                raise ValueError("Invalid search field.")
             conditions.append(f"{key} = %s")
             values.append(value)
 
-        query = base_query + " AND ".join(conditions)
+        query = base_query + " AND ".join(conditions) if conditions else f"SELECT * FROM {table_name}"
         cursor.execute(query, tuple(values))
         results = cursor.fetchall()
         try:
@@ -930,6 +945,8 @@ def SearchTable(cursor: MySQLCursor, table_name: str, search_criteria_json: json
 
 
 def get_all(table_name):
+    connection = None
+    cursor = None
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
@@ -938,61 +955,83 @@ def get_all(table_name):
         new_employers = []
         for employer in employers:
             new_employers.append(get_element_by_id(cursor, table_name, employer[0]))
-        cursor.close()
-        connection.close()
         return jsonify(new_employers)
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
     
 def get_by_id(table_name, id):
     return route_get_element_by_id(table_name, id)
     
 def search_by_part_name(table_name, Name, EmployerID=None):
+    connection = None
+    cursor = None
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
+        name_field = "EmployeeFullName" if table_name == "Employee" else table_name + "Name"
+        if name_field not in get_table_fields(table_name, "RequiredFields") + get_table_fields(table_name, "OptionalFields"):
+            raise ValueError("Invalid search table.")
         if EmployerID is None:
-            cursor.execute(f"SELECT * FROM {table_name} WHERE {table_name}Name LIKE '%{Name}%'")
+            cursor.execute(f"SELECT {table_name}ID FROM {table_name} WHERE {name_field} LIKE %s", ("%" + Name + "%",))
         else:
-            cursor.execute(f"SELECT {table_name}ID FROM {table_name} WHERE EmployerID={EmployerID} AND {table_name}Name LIKE '%{Name}%'")
+            cursor.execute(f"SELECT {table_name}ID FROM {table_name} WHERE EmployerID = %s AND {name_field} LIKE %s",
+                           (int(EmployerID), "%" + Name + "%"))
         employers = cursor.fetchall()
         new_employers = []
         for employer in employers:
             new_employers.append(get_element_by_id(cursor, table_name, employer[0]))
-        cursor.close()
-        connection.close()
         return jsonify(new_employers)
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
     
 def search_table(table_name, data: json):
+    connection = None
+    cursor = None
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
         employers = SearchTable(cursor, table_name, json.dumps(data))
-        cursor.close()
-        connection.close()
         return jsonify(json.loads(employers))
     except Exception as e:
         # raise ValueError(f"search_table: data json:" + str(data) + " Error: " + str(e) )
         return jsonify({"Error": str(e)}), 400
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
     
 def get_active(table_name, EmployerID, end_term, Identifyer="EmployerID"):
+    connection = None
+    cursor = None
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
         employees = get_active_depfree(cursor, table_name, EmployerID, end_term, Identifyer)
         for employee in employees:
             employee = get_element_by_id(cursor, table_name, employee[0])
-        cursor.close()
-        connection.close()
         return jsonify(employees)
     except Exception as e:
         return jsonify({"Error": str(e)}), 400
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
     
 def get_active_depfree(cursor, table_name, EmployerID, end_term="InformEndDate", Identifyer="EmployerID"):
     try:
-        cursor.execute(f"SELECT * FROM {table_name} WHERE {Identifyer}={EmployerID} AND {end_term} IS NULL")
+        cursor.execute(f"SELECT * FROM {table_name} WHERE {Identifyer} = %s AND {end_term} IS NULL", (int(EmployerID),))
         employees = cursor.fetchall()
         return employees
     except Exception as e:
@@ -1060,7 +1099,7 @@ def add_element_by_table_name(cursor: MySQLCursor, table_name, element_json):
                         if (get_employer_tier_structure(cursor, element_json['EmployerID']).lower().find("age") != -1):
                             tier_id = get_tier_id(cursor, element_json['Tier'], datetime.strptime(str(element_json['DOB']).split(" ")[0], "%Y-%m-%d"), element_json['EmployerID'])
                         else:
-                            tier_id = execute_query(cursor, f"SELECT TierID FROM Tier WHERE TierName = \"{element_json['Tier']}\" AND EmployerID = {element_json['EmployerID']}")[0][0]
+                            tier_id = get_tier_id(cursor, element_json['Tier'], None, element_json['EmployerID'])
                     except Exception as e:
                         raise ValueError(f"Get TierID: " + str(e))
                     
@@ -1232,6 +1271,10 @@ def change_element_by_table_name(cursor, table_name: str, element_id, element_js
     required_fields = get_table_fields(table_name, "RequiredFields")
     optional_fields = get_table_fields(table_name, "OptionalFields")
     before = get_element_by_id(cursor, table_name, element_id)
+    if table_name == "Employee":
+        after = {**before, **element_json}
+        if any(str(before.get(field)) != str(after.get(field)) for field in ("StartDate", "InformStartDate")):
+            sync_employee_start(cursor, before, after, get_element_by_id, change_element_by_table_name)
     soft_errors, element_id = change_element(cursor, table_name, element_id, element_json, required_fields, optional_fields)
     after = get_element_by_id(cursor, table_name, element_id)
     if row_changed(before, after):
@@ -1594,20 +1637,30 @@ def change_element(cursor, table_name, element_id, element_json, required_fields
     return soft_errors, element_id
 
 def route_change_element(table_name, element_id, element_json):
+    connection = None
+    cursor = None
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        element_id, soft_errors = change_element_by_table_name(cursor, table_name, element_id, element_json)
+        soft_errors, element_id = change_element_by_table_name(cursor, table_name, element_id, element_json)
         connection.commit()
-        cursor.close()
         response = {"status": "success"}
         if soft_errors:
             response["warnings"] = soft_errors
         return jsonify(response), 200
     except ValueError as ve:
+        if connection:
+            connection.rollback()
         return jsonify({"Error": str(ve)}), 400
     except Exception as e:
+        if connection:
+            connection.rollback()
         return jsonify({"Error": str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
     
 def delete_element(cursor, table_name, element_id):
     soft_errors = []
@@ -1623,20 +1676,30 @@ def delete_element(cursor, table_name, element_id):
     return soft_errors, element_id
     
 def route_delete_element(element_id, table_name):
+    connection = None
+    cursor = None
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
         soft_errors, element_id = delete_element(cursor, table_name, element_id)
         connection.commit()
-        cursor.close()
         response = {"status": "success"}
         if soft_errors:
             response["warnings"] = soft_errors
         return jsonify(response), 200
     except ValueError as ve:
+        if connection:
+            connection.rollback()
         return jsonify({"Error": str(ve)}), 400
     except Exception as e:
+        if connection:
+            connection.rollback()
         return jsonify({"Error": str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
     
 
 def get_element_by_id(cursor, table_name, element_id):
@@ -1655,12 +1718,12 @@ def get_element_by_id(cursor, table_name, element_id):
         raise ValueError(f"Get Element by ID: " + str(e))
     
 def route_get_element_by_id(table_name, element_id):
+    connection = None
+    cursor = None
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
         element = get_element_by_id(cursor, table_name, element_id)
-        cursor.close()
-        connection.close()
         element = {
             key: value.isoformat() if isinstance(value, (date, datetime)) else value
             for key, value in element.items()
@@ -1672,6 +1735,12 @@ def route_get_element_by_id(table_name, element_id):
         return jsonify({"Error": str(e)}), 500
 
 
+
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
 
 ######### Generate Report #########
 def execute_query(cursor: MySQLCursor, query):

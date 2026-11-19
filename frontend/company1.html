@@ -183,62 +183,36 @@
 
         function addTable(plans, tiers, carriers, companyId) {
             const tableContainer = document.getElementById('tableContainer');
-
             carriers.forEach(carrier => {
-                const carrierPlans = plans.filter(plan => plan.CarrierID === carrier.CarrierID);
-                console.log('Carrier plans:', carrierPlans);
-
-                const newTableWrapper = document.createElement('div');
-                newTableWrapper.className = 'tableWrapper';
-                newTableWrapper.innerHTML = `
-                    <h2>${carrier.CarrierName}</h2>
-                    <a href="${window.billingPageUrl(`editCarrier.html?id=${companyId}`)}" class="button">
-                        <span>Edit Plan</span>
-                    </a>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Tier</th>
-                                <th>Funding Amount</th>
-                                <th>Admin Fee</th>
-                                <th>Admin Fee C</th>
-                                <th>Admin Fee S</th>
-                                <th>Max age</th>
-                                <th>Min age</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${carrierPlans.map(plan => {
-                                const tierName = tiers.find(tier => tier.TierID === plan.TierID)?.TierName || 'null';
-                                const fundingAmount = plan.FundingAmount || '0';
-                                const grenzFee = plan.GrenzFee || '0';
-                                const grenzFeeC = plan.GrenzFeeC || '0';
-                                const grenzFeeS = plan.GrenzFeeS || '0';
-                                const maxAge = tiers.find(tier => tier.TierID === plan.TierID)?.MaxAge || '+100' ;
-                                const minAge = tiers.find(tier => tier.TierID === plan.TierID)?.MinAge || '0' ;
-                                
-                                return `
-                                    <tr>
-                                        <td>${tierName}</td>
-                                        <td>${fundingAmount}</td>
-                                        <td>${grenzFee}</td>
-                                        <td>${grenzFeeC}</td>
-                                        <td>${grenzFeeS}</td>
-                                        <td>${maxAge}</td>
-                                        <td>${minAge}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                `;
-                tableContainer.appendChild(newTableWrapper);
+                const wrapper = document.createElement('div');
+                wrapper.className = 'tableWrapper';
+                const heading = document.createElement('h2');
+                heading.textContent = carrier.CarrierName;
+                const edit = document.createElement('a');
+                edit.href = window.billingPageUrl(`editCarrier.html?id=${companyId}`);
+                edit.className = 'button';
+                edit.textContent = 'Edit Plan';
+                const table = document.createElement('table');
+                const header = table.createTHead().insertRow();
+                for (const label of ['Tier', 'Funding Amount', 'Admin Fee', 'Admin Fee C', 'Admin Fee S', 'Max age', 'Min age']) {
+                    const cell = document.createElement('th');
+                    cell.textContent = label;
+                    header.appendChild(cell);
+                }
+                const body = table.createTBody();
+                for (const plan of plans.filter(plan => plan.CarrierID === carrier.CarrierID)) {
+                    const tier = tiers.find(tier => tier.TierID === plan.TierID);
+                    const row = body.insertRow();
+                    for (const value of [tier?.TierName || '', plan.FundingAmount ?? 0,
+                        plan.GrenzFee ?? 0, plan.GrenzFeeC ?? 0, plan.GrenzFeeS ?? 0,
+                        tier?.MaxAge ?? '', tier?.MinAge ?? '']) {
+                        row.insertCell().textContent = String(value);
+                    }
+                }
+                wrapper.append(heading, edit, table);
+                tableContainer.appendChild(wrapper);
             });
         }
-
-        
-
-        // Function to filter employees by name
         function filterEmployees() {
             const searchInput = document.getElementById('employeeSearchInput').value.trim().toLowerCase();
             displayEmployees(loadedEmployees.filter(employee =>
